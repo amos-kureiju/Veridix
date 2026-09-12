@@ -1,0 +1,170 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 76FF-3330
+E:.
+|   .env.example
+|   .gitattributes
+|   .gitignore
+|   LICENSE
+|   README.md
+|   requirements-train.txt
+|   requirements.txt
+|   setup.bat
+|   struktur_after_cleanup.txt
+|   
++---data
+|   +---processed
+|   |       .gitkeep
+|   |       
+|   +---raw
+|   |       .gitkeep
+|   |       
+|   \---uploads
+|           .gitkeep
+|           
++---frontend-hoax-detector
+|   |   .env.example
+|   |   next.config.ts
+|   |   package.json
+|   |   tailwind.config.ts
+|   |   tsconfig.json
+|   |   
+|   +---public
+|   |   +---icons
+|   |   \---logos
+|   \---src
+|       +---app
+|       |   |   layout.tsx
+|       |   |   page.tsx
+|       |   |   
+|       |   +---admin
+|       |   |   |   layout.tsx
+|       |   |   |   page.tsx
+|       |   |   |   
+|       |   |   \---feedback
+|       |   |           page.tsx
+|       |   |           
+|       |   \---report
+|       |       \---[id]
+|       |               page.tsx
+|       |               
+|       +---components
+|       |   +---admin
+|       |   |       retrain-table.tsx
+|       |   |       stats-cards.tsx
+|       |   |       trend-chart.tsx
+|       |   |       
+|       |   +---detector
+|       |   |       feature-chart.tsx
+|       |   |       feedback-modal.tsx
+|       |   |       lime-highlighter.tsx
+|       |   |       result-banner.tsx
+|       |   |       text-input-box.tsx
+|       |   |       
+|       |   +---shared
+|       |   |       badge-status.tsx
+|       |   |       footer.tsx
+|       |   |       navbar.tsx
+|       |   |       
+|       |   \---ui
+|       +---hooks
+|       |       useAdminStats.ts
+|       |       useHoaxDetector.ts
+|       |       
+|       +---lib
+|       |       api-client.ts
+|       |       pdf-exporter.ts
+|       |       utils.ts
+|       |       
+|       \---types
+|               api.ts
+|               detector.ts
+|               
++---notebooks
+|       01_scraping_eda.ipynb
+|       02_preprocessing.ipynb
+|       03_training_bert.ipynb
+|       04_evaluasi_metrik.ipynb
+|       05_xai_lime_shap.ipynb
+|       
++---saved_models
+|   +---indobert_focal_loss
+|   |       .gitkeep
+|   |       
+|   \---tokenizer
+|           .gitkeep
+|           
++---scripts
+|       run_train_server.sh
+|       setup_server.sh
+|       sync_to_server.bat
+|       
++---src
+|   |   main.py
+|   |   __init__.py
+|   |   
+|   +---api
+|   |   |   dependencies.py
+|   |   |   schemas.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---routes
+|   |           admin.py
+|   |           feedback.py
+|   |           predict.py
+|   |           __init__.py
+|   |           
+|   +---core
+|   |       config.py
+|   |       logger.py
+|   |       training_config.py
+|   |       __init__.py
+|   |       
+|   +---database
+|   |       models.py
+|   |       session.py
+|   |       __init__.py
+|   |       
+|   +---ml
+|   |       explainer.py
+|   |       focal_loss.py
+|   |       model.py
+|   |       predictor.py
+|   |       trainer.py
+|   |       __init__.py
+|   |       
+|   \---utils
+|           pdf_generator.py
+|           political_filter.py
+|           text_cleaner.py
+|           __init__.py
+|           
++---tests
+|       test_api.py
+|       test_political_filter.py
+|       test_predictor.py
+|       __init__.py
+|       
+\---_backup_before_cleanup
+    |   ocr_engine.py
+    |   
+    +---detector
+    |       feature-chart.tsx
+    |       feedback-modal.tsx
+    |       image-uploader.tsx
+    |       input-mode-tabs.tsx
+    |       lime-highlighter.tsx
+    |       result-banner.tsx
+    |       text-input-box.tsx
+    |       
+    \---ui
+        |   app.py
+        |   
+        +---components
+        |       header.py
+        |       input_section.py
+        |       lime_view.py
+        |       result_card.py
+        |       
+        \---static
+                .gitkeep
+                

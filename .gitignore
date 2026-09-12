@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Caches and Virtual Environments
+.env
+.env.local
+venv/
+env/
+ENV/
+
+# Data & Uploads (Hanya lacak struktur folder via .gitkeep)
+data/raw/*
+data/processed/*
+data/uploads/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/uploads/.gitkeep
+
+# Model weights (Checkpoints PyTorch ~450MB DILARANG MASUK GIT)
+saved_models/indobert_focal_loss/*
+saved_models/tokenizer/*
+!saved_models/indobert_focal_loss/.gitkeep
+!saved_models/tokenizer/.gitkeep
+*.pt
+*.bin
+*.safetensors
+
+# Frontend Next.js Dependencies & Build
+frontend-hoax-detector/node_modules/
+frontend-hoax-detector/.next/
+frontend-hoax-detector/out/
+frontend-hoax-detector/.vercel/
+
+# OS Specific
+.DS_Store
+Thumbs.db

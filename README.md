@@ -418,12 +418,6 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 
 ---
 
-## 📄 Lisensi
-
-Proyek ini dilisensikan di bawah **MIT License** — lihat file [LICENSE](LICENSE) untuk detail.
-
----
-
 ## 🙏 Ucapan Terima Kasih
 
 - [HuggingFace](https://huggingface.co/) — Model IndoBERT

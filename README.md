@@ -10,23 +10,6 @@
 
 ---
 
-## 📖 Daftar Isi
-
-- [Latar Belakang](#-latar-belakang)
-- [Fitur Utama](#-fitur-utama)
-- [Arsitektur Sistem](#-arsitektur-sistem)
-- [Teknologi yang Digunakan](#-teknologi-yang-digunakan)
-- [Struktur Proyek](#-struktur-proyek)
-- [Instalasi & Setup](#-instalasi--setup)
-- [Cara Menjalankan](#-cara-menjalankan)
-- [Training Model](#-training-model)
-- [API Endpoints](#-api-endpoints)
-- [Kontribusi](#-kontribusi)
-- [Lisensi](#-lisensi)
-- [Kontak](#-kontak)
-
----
-
 ## 🎯 Latar Belakang
 
 Penyebaran **hoaks politik** di Indonesia meningkat signifikan setiap siklus pemilu. Model klasifikasi teks konvensional hanya memberi label *hoaks/fakta* tanpa penjelasan — menyulitkan masyarakat memverifikasi hasilnya.

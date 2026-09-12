@@ -424,19 +424,6 @@ Proyek ini dilisensikan di bawah **MIT License** — lihat file [LICENSE](LICENS
 
 ---
 
-## 📞 Kontak
-
-**Penulis:** Nama Kamu
-**Institusi:** Nama Universitas
-**Program Studi:** Teknik Informatika / Ilmu Komputer
-**Email:** [email@example.com](mailto:email@example.com)
-
-**Pembimbing:**
-- Dosen Pembimbing 1 — [email@example.com](mailto:email@example.com)
-- Dosen Pembimbing 2 — [email@example.com](mailto:email@example.com)
-
----
-
 ## 🙏 Ucapan Terima Kasih
 
 - [HuggingFace](https://huggingface.co/) — Model IndoBERT

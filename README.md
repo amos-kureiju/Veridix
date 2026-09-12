@@ -401,16 +401,6 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 
 ---
 
-## 🙏 Ucapan Terima Kasih
-
-- [HuggingFace](https://huggingface.co/) — Model IndoBERT
-- [IndoNLU Benchmark](https://github.com/indobenchmark/indonlu) — Dataset & benchmark
-- [TurnBackHoax.id](https://turnbackhoax.id/) — Dataset hoaks Indonesia
-- [shadcn/ui](https://ui.shadcn.com/) — Komponen UI
-- [FastAPI](https://fastapi.tiangolo.com/) — Framework backend
-
----
-
 <p align="center">
   Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
 </p>

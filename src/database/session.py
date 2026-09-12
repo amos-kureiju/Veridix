@@ -2,12 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from src.core.config import settings
 
-# Jika menggunakan Supabase Pooler
+# Konfigurasi engine (support SQLite & PostgreSQL Supabase)
+connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,       # Mengecek koneksi masih aktif sebelum kirim query
-    pool_size=10,             # Batas jumlah koneksi
-    max_overflow=20
+    connect_args=connect_args,
+    pool_pre_ping=True
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

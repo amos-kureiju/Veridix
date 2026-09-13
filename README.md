@@ -392,15 +392,6 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 
 ---
 
-## 📚 Referensi Akademik
-
-- Devlin et al. (2019). *BERT: Pre-training of Deep Bidirectional Transformers*
-- Wilie et al. (2020). *IndoNLU: Benchmark and Resources for Indonesian NLP*
-- Lin et al. (2017). *Focal Loss for Dense Object Detection*
-- Ribeiro et al. (2016). *"Why Should I Trust You?": Explaining the Predictions of Any Classifier* (LIME)
-
----
-
 <p align="center">
   Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
 </p>

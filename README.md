@@ -391,7 +391,6 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` tooling & setup
 
 ---
-
 <p align="center">
   Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
 </p>

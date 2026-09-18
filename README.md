@@ -71,7 +71,7 @@ Proyek ini menghadirkan solusi **end-to-end**:
         ▼                 ▼                 ▼
 ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
 │  OCR PIPELINE │ │  AI MODEL     │ │  XAI ENGINE   │
-│  EasyOCR      │ │  IndoBERT     │ │  LIME         │
+│  PaddleOCR      │ │  IndoBERT     │ │  LIME         │
 │               │ │  + Focal Loss │ │  Explainer    │
 └───────────────┘ └───────────────┘ └───────────────┘
                           │
@@ -99,7 +99,7 @@ Proyek ini menghadirkan solusi **end-to-end**:
 | **PyTorch** | 2.4 | Deep learning framework |
 | **Transformers** | 4.44 | IndoBERT (HuggingFace) |
 | **LIME** | 0.2 | Explainable AI |
-| **EasyOCR** | 1.7 | Optical Character Recognition |
+| **PaddleOCR** | 1.7 | Optical Character Recognition |
 | **SQLAlchemy** | 2.0 | ORM database |
 | **Pydantic** | 2.9 | Data validation |
 

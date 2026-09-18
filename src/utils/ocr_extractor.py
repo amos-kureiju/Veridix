@@ -1,3 +1,4 @@
+# src/utils/ocr_extractor.py
 import re
 import io
 import cv2
@@ -5,14 +6,21 @@ import numpy as np
 from PIL import Image
 from paddleocr import PaddleOCR
 
-# 1. Inisialisasi Singleton: Hanya dimuat 1 kali ke RAM
-print("--> [OCR Engine] Memuat PaddleOCR Bahasa Indonesia...")
-ocr_engine = PaddleOCR(use_angle_cls=True, lang='id', show_log=False)
+# Pola Singleton: Model hanya dimuat 1 kali ke RAM agar hemat memori
+_ocr_engine = None
+
+def get_ocr_engine():
+    global _ocr_engine
+    if _ocr_engine is None:
+        print("--> [OCR Engine] Menginisialisasi PaddleOCR Bahasa Indonesia...")
+        # use_angle_cls=True untuk mengoreksi teks miring/rotasi
+        _ocr_engine = PaddleOCR(use_angle_cls=True, lang='id', show_log=False)
+    return _ocr_engine
 
 def resize_image_for_speed(image_np: np.ndarray, max_width: int = 1000) -> np.ndarray:
     """
-    Mengecilkan resolusi gambar raksasa ke lebar 1000px
-    agar waktu proses di CPU turun dari 4.8 detik menjadi ~1.5 detik.
+    Mengecilkan resolusi gambar raksasa ke lebar maksimal 1000px
+    agar waktu proses di CPU laptop turun dari 4.8 detik menjadi ~1.5 detik.
     """
     height, width = image_np.shape[:2]
     if width > max_width:
@@ -23,18 +31,19 @@ def resize_image_for_speed(image_np: np.ndarray, max_width: int = 1000) -> np.nd
 
 def extract_text_from_image(image_bytes: bytes) -> dict:
     """
-    Ekstraksi teks screenshot menggunakan PaddleOCR dengan optimasi kecepatan.
+    Mengekstrak teks dari gambar screenshot berita menggunakan PaddleOCR.
     """
     try:
-        # Buka gambar dan ubah ke numpy array
+        # 1. Buka gambar dari bytes memory
         image_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         image_np = np.array(image_pil)
 
-        # Optimasi kecepatan: resize gambar
+        # 2. Optimasi kecepatan: resize gambar
         image_optimized = resize_image_for_speed(image_np, max_width=1000)
 
-        # Ekstraksi menggunakan PaddleOCR
-        result = ocr_engine.ocr(image_optimized, cls=True)
+        # 3. Ekstraksi menggunakan PaddleOCR
+        ocr = get_ocr_engine()
+        result = ocr.ocr(image_optimized, cls=True)
 
         if not result or result[0] is None:
             return {
@@ -43,20 +52,20 @@ def extract_text_from_image(image_bytes: bytes) -> dict:
                 "message": "Gambar tidak memuat teks atau gambar terlalu buram."
             }
 
-        # Ambil teks hasil ekstraksi
+        # 4. Ambil teks dan bersihkan artefak noise
         extracted_lines = [line[1][0] for line in result[0]]
         raw_text = " ".join(extracted_lines).strip()
-
-        # Pembersihan artefak noise OCR
+        
+        # Bersihkan simbol aneh OCR
         cleaned_text = re.sub(r'[^\w\s.,!?\'"-]', ' ', raw_text)
         cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
 
-        # Validasi batas minimal 50 karakter (khusus OCR)
+        # 5. Validasi: batas minimal 50 karakter untuk teks dari gambar
         if len(cleaned_text) < 50:
             return {
                 "success": False,
                 "text": cleaned_text,
-                "message": "Teks pada gambar kurang dari 50 karakter berita."
+                "message": "Teks pada gambar kurang dari 50 karakter berita (terlalu pendek)."
             }
 
         return {
@@ -69,5 +78,5 @@ def extract_text_from_image(image_bytes: bytes) -> dict:
         return {
             "success": False,
             "text": "",
-            "message": f"Gagal mengekstrak teks dari gambar: {str(e)}"
+            "message": f"Terjadi kesalahan saat mengekstrak gambar: {str(e)}"
         }

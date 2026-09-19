@@ -395,3 +395,6 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 <p align="center">
   Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
 </p>
+<p align="center">
+  ❤️GodsPlan
+</p>

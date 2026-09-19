@@ -1,6 +1,6 @@
 # 🛡️ Deteksi Hoaks Politik Indonesia — IndoBERT + XAI + LIME
 
-> Sistem verifikasi berita politik berbasis **IndoBERT + Focal Loss** dengan penjelasan transparan (**Explainable AI / LIME**), dilengkapi antarmuka publik (Next.js) dan portal verifikator (Admin Dashboard).
+> Sistem verifikasi berita politik berbasis **FineTuning IndoBERT + Focal Loss** dengan penjelasan transparan (**Explainable AI / LIME**), dilengkapi antarmuka publik (Next.js) dan portal verifikator (Admin Dashboard).
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com/)

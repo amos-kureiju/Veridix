@@ -265,7 +265,7 @@ docker compose up --build
 
 ---
 
-## 🎓 Training Model
+## 🎓 Training Model NvidiaDataCenter | GoogleColab
 
 ### Di Laptop Lokal
 

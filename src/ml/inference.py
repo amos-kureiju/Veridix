@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer
-from lime.lime_text import LimeTectExplainer
+from lime.lime_text import LimeTextExplainer
 import numpy as np
 import os
 import time

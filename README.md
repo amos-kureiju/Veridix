@@ -102,7 +102,7 @@ Proyek ini menghadirkan solusi **end-to-end**:
 | **PaddleOCR** | 1.7 | Optical Character Recognition |
 | **SQLAlchemy** | 2.0 | ORM database |
 | **Pydantic** | 2.9 | Data validation |
-| **GoogleColab|DataCenter** | Nvidia |
+| **GoogleColab**|**DataCenter** | Nvidia |
 
 ### Frontend
 | Teknologi | Versi | Fungsi |

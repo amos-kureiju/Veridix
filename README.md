@@ -367,7 +367,6 @@ pytest tests/test_predictor.py -v
 # Coverage
 pytest --cov=src tests/
 ```
-
 ---
 
 ## 🤝 Kontribusi

@@ -198,7 +198,7 @@ hoax-detection-ta/
 git clone https://github.com/username/hoax-detection-ta.git
 cd hoax-detection-ta
 ```
-
+ 
 ### 2. Setup Backend (Python)
 
 ```bash

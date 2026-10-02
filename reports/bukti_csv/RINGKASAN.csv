@@ -1,0 +1,17 @@
+﻿berkas,kelas_asli,n,rata2_p_hoaks_%,dicap_hoaks_%,dicap_fakta_%,ci95_dicap_hoaks_%
+f_kontrol_potongan_sama,fakta,1071,1.0,0.28,99.72,0.00 - 0.60
+f_netral_prefix,fakta,1071,40.26,38.0,62.0,35.09 - 40.91
+f_netral_suffix,fakta,1071,0.88,0.19,99.81,0.00 - 0.45
+f_prefix_pendek,fakta,1071,63.1,66.95,33.05,64.13 - 69.76
+f_viral_prefix_kalimat_sama,fakta,1071,91.46,95.61,4.39,94.38 - 96.84
+f_viral_suffix,fakta,1071,2.88,1.59,98.41,0.84 - 2.34
+fakta_asli,fakta,1071,1.0,0.28,99.72,0.00 - 0.60
+fakta_tanpa_dup,fakta,1071,25.5,20.73,79.27,18.30 - 23.16
+h_kontrol_potongan_sama,hoaks,1071,97.76,98.97,1.03,98.37 - 99.58
+h_netral_prefix,hoaks,1071,99.67,99.91,0.09,99.72 - 100.00
+h_netral_suffix,hoaks,1071,96.91,98.51,1.49,97.78 - 99.23
+h_prefix_pendek,hoaks,1071,99.81,100.0,0.0,100.00 - 100.00
+h_viral_prefix_kalimat_sama,hoaks,1071,99.94,100.0,0.0,100.00 - 100.00
+h_viral_suffix,hoaks,1071,98.68,99.44,0.56,98.99 - 99.89
+hoaks_asli,hoaks,1071,97.76,98.97,1.03,98.37 - 99.58
+hoaks_dengan_dup,hoaks,1071,73.95,76.56,23.44,74.03 - 79.10

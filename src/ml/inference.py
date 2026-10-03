@@ -11,7 +11,7 @@ from typing import Dict, Any
 from src.core.config import settings
 from src.ml.indobert_model import IndoBERTHoaxClassifier
 from src.utils.political_guardrail import check_political_domain
-from src.utils.text_preprocessor import clean_standard_text
+from src.utils.text_preprocessor import clean_standard_text, sanitize_social_prefix
 
 class HoaxPredictor:
     def __init__(self):
@@ -78,22 +78,27 @@ class HoaxPredictor:
         
         # 1. Guardrail Domain Politik
         is_political, entities = check_political_domain(text)
-        
-        # 2. Harmonisasi naskah (Lead Paragraph)
-        words = text.split()
+
+        # 2. Sanitasi Prefix Medsos (Dijalankan PERTAMA kali)
+        sanitized_text = sanitize_social_prefix(text)
+        was_sanitized = (sanitized_text != text)
+
+        # 3. Harmonisasi Naskah (Lead Paragraph 45 Kata dari Teks Bersih)
+        words = sanitized_text.split()
         if len(words) > 45:
             text_input = " ".join(words[:45])
-            last_p = text_input.rfind('.')
+            # Mendukung batas kalimat titik, tanya, atau seru
+            last_p = max(text_input.rfind('.'), text_input.rfind('?'), text_input.rfind('!'))
             if last_p > len(text_input) * 0.4:
                 text_input = text_input[:last_p + 1].strip()
             else:
                 text_input = text_input.strip() + "."
         else:
-            text_input = text
+            text_input = sanitized_text
 
-        cleaned_text = clean_standard_text(text_input)
+        cleaned_text = clean_standard_text(text_input, do_lower=False)
 
-        # 3. Prediksi Nyata Tunggal IndoBERT
+        # 4. Inferensi Model Tunggal IndoBERT
         enc = self.tokenizer(
             cleaned_text,
             add_special_tokens=True,
@@ -111,46 +116,33 @@ class HoaxPredictor:
         prediction = "HOAX" if pred_label == 1 else "FACT"
         confidence = float(probs[pred_label])
 
-        # 4. EKSEKUSI LIME ASLI (Membuat 100 Perturbasi Teks Nyata)
-        # Menghitung bobot kontribusi kata murni berdasarkan respon model IndoBERT
+        # 5. Penjelasan Explainable AI (LIME)
         exp = self.explainer.explain_instance(
             cleaned_text,
             self._predict_proba_batch,
             num_features=10,
-            num_samples=100  # 100 variasi teks cukup cepat di CPU (~1.5-2.5 detik)
+            num_samples=100
         )
 
-        lime_list = exp.as_list(label=1)  # Bobot terhadap kelas HOAKS
-        
-        tokens_explanation = []
-        top_hoax, top_fact = [], []
-
-        for word, weight in lime_list:
-            influence = "HOAX" if weight > 0 else "FACT"
-            tokens_explanation.append({
-                "word": word,
-                "weight": round(weight, 4),
-                "influence": influence
-            })
-            if weight > 0:
-                top_hoax.append({"word": word, "score": round(weight, 4)})
-            else:
-                top_fact.append({"word": word, "score": round(abs(weight), 4)})
-
-        elapsed_time = round(time.time() - start_time, 2)
+        lime_list = exp.as_list(label=1)
+        tokens_explanation = [{"word": w, "weight": round(sc, 4), "influence": "HOAX" if sc > 0 else "FACT"} for w, sc in lime_list]
+        top_hoax = [{"word": w, "score": round(sc, 4)} for w, sc in lime_list if sc > 0][:5]
+        top_fact = [{"word": w, "score": round(abs(sc), 4)} for w, sc in lime_list if sc <= 0][:5]
 
         return {
             "is_political": is_political,
             "prediction": prediction,
             "confidence_score": round(confidence, 4),
-            "inference_time_seconds": elapsed_time,
+            "inference_time_seconds": round(time.time() - start_time, 2),
             "extracted_text": text,
+            "processed_text": cleaned_text,
+            "prefix_sanitized": was_sanitized,
             "entities_detected": entities,
             "explanation": {
                 "base_score": round(float(probs[1]), 4),
                 "tokens": tokens_explanation,
-                "top_hoax_words": top_hoax[:5],
-                "top_fact_words": top_fact[:5]
+                "top_hoax_words": top_hoax,
+                "top_fact_words": top_fact
             }
         }
 

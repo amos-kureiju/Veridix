@@ -3,7 +3,7 @@ name: Supabase Keep Alive
 on:
   schedule:
     # Berjalan otomatis setiap 6  hari sekali pada jam 00:00 UTC
-    - cron: '0 0 */6 * *'
+    - cron: '0 0 */4  * *'
   # Memungkinkan kita menekan tombol "Run workflow" secara manual untuk mengetes
   workflow_dispatch:
 

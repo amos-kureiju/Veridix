@@ -1,0 +1,40 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Berjalan otomatis setiap 3 hari sekali pada jam 00:00 UTC
+    - cron: '0 0 */3 * *'
+  # Memungkinkan kita menekan tombol "Run workflow" secara manual untuk mengetes
+  workflow_dispatch:
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pasang Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Driver Database
+        run: |
+          pip install psycopg[binary]
+
+      - name: Kirim Ping Query ke Supabase
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          python -c "
+          import os, psycopg
+          url = os.environ['DB_URL']
+          # Bersihkan prefix SQLAlchemy jika ada (+psycopg)
+          url = url.replace('+psycopg', '')
+          try:
+              with psycopg.connect(url, connect_timeout=15) as conn:
+                  with conn.cursor() as cur:
+                      cur.execute('SELECT 1;')
+                      print('✅ Ping Berhasil: Supabase aktif dan terjaga dari auto-pause!')
+          except Exception as e:
+              print(f'❌ Gagal ping database: {e}')
+              exit(1)
+          "

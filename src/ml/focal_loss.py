@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.function as F
+import torch.nn.functional as F
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha: float = 0.25, gamma: float = 2.0, reduction: str = 'mean'):

@@ -1,0 +1,27 @@
+{
+  "MIN_WORDS": 10,
+  "MAX_WORDS": 60,
+  "NEAR_DUP_COS": 0.9,
+  "GROUP_COS": 0.7,
+  "LEN_BINS": [
+    0,
+    20,
+    30,
+    40,
+    50,
+    60,
+    10000
+  ],
+  "N_FOLDS": 20,
+  "TRAIN_FOLDS": 14,
+  "VAL_FOLDS": 2,
+  "DEVTEST_FOLDS": 2,
+  "LOCKBOX_FOLDS": 2,
+  "SEED": 42,
+  "python": "3.13.5",
+  "pandas": "3.0.6",
+  "numpy": "2.3.5",
+  "created": "2026-10-05T08:17:28",
+  "raw_dir": "../data/raw",
+  "all_criteria_passed": false
+}

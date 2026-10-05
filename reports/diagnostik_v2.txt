@@ -1,92 +1,92 @@
-train=11,276 dev_test=1,610 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+train=7,994 dev_test=1,142 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
 
 [1] Akurasi probe linier per bagian teks:
                  bagian  akurasi_%
-           teks lengkap      96.27
-            hanya JUDUL      90.99
-hanya ISI (tanpa judul)      96.21
-            8 kata awal      89.75
-          8 kata tengah      85.09
-           8 kata akhir      83.60
- isi, tanpa 8 kata awal      94.16
+           teks lengkap      94.40
+            hanya JUDUL      89.32
+hanya ISI (tanpa judul)      95.53
+            8 kata awal      88.70
+          8 kata tengah      80.65
+           8 kata akhir      83.10
+ isi, tanpa 8 kata awal      91.94
 
 [2a] Kata-vonis per label (train, % teks):
                fakta_%  hoaks_%  selisih
-faktanya          0.07    25.84    25.77
-tidak benar       0.20    14.70    14.50
-palsu             0.11     6.65     6.54
-hoaks             0.43     6.85     6.42
-turnbackhoax      0.00     4.56     4.56
-hoax              0.00     2.80     2.80
-klarifikasi       0.44     2.94     2.50
-penipuan          0.12     1.70     1.58
-periksa fakta     0.00     1.12     1.12
-mafindo           0.02     0.98     0.96
+palsu             0.15     6.03     5.88
+tidak benar       0.15     4.78     4.63
+hoaks             0.45     4.75     4.30
+hoax              0.03     3.83     3.80
+klarifikasi       0.55     3.98     3.43
+penipuan          0.15     1.45     1.30
+periksa fakta     0.00     1.13     1.13
+mafindo           0.00     0.90     0.90
+disinformasi      0.00     0.75     0.75
+bohong            0.08     0.70     0.62
 
 [2b] Token paling timpang di 8 kata awal (min 20 kemunculan):
   condong HOAKS:
-          token  hoaks_%  fakta_%  log_odds
-mengatasnamakan      2.6      0.0      4.98
-         tautan      2.3      0.0      4.88
-        artikel      2.1      0.0      4.76
-       whatsapp      3.8      0.0      4.66
-      tangkapan      1.5      0.0      4.44
-          layar      1.5      0.0      4.43
-       kategori      1.2      0.0      4.25
-           bpjs      1.2      0.0      4.17
-      pertamina      1.1      0.0      4.13
-           2026      1.1      0.0      4.13
-       faktanya      2.1      0.0      4.10
-       lowongan      1.0      0.0      4.08
+      token  hoaks_%  fakta_%  log_odds
+    artikel      2.6      0.0      4.64
+  tangkapan      1.5      0.0      4.09
+      layar      1.5      0.0      4.09
+       hoax      1.4      0.0      4.01
+     gambar      2.2      0.1      3.78
+  pertamina      1.0      0.0      3.69
+      judul      1.0      0.0      3.64
+   whatsapp      2.8      0.1      3.61
+menggunakan      0.9      0.0      3.58
+   berjudul      0.9      0.0      3.56
+    meminta      0.9      0.0      3.53
+   kategori      0.8      0.0      3.50
   condong FAKTA:
-   token  hoaks_%  fakta_%  log_odds
-   rkuhp      0.0      1.2     -4.22
-    yudo      0.0      1.0     -4.04
-kepuasan      0.0      0.9     -3.91
-singgung      0.0      0.8     -3.81
- margono      0.0      0.8     -3.76
-  cerita      0.0      0.8     -3.76
- otorita      0.0      0.7     -3.71
-    tpks      0.0      0.7     -3.64
-  sentil      0.0      0.7     -3.64
- politik      0.3     10.8     -3.58
-   bahas      0.1      1.9     -3.58
-  anggap      0.0      0.6     -3.47
+    token  hoaks_%  fakta_%  log_odds
+reshuffle      0.0      1.2     -3.83
+     yudo      0.0      1.1     -3.78
+    rkuhp      0.0      1.0     -3.69
+    bahas      0.1      1.7     -3.54
+ kepuasan      0.0      0.9     -3.53
+      ham      0.0      0.8     -3.47
+      pkb      0.1      1.5     -3.40
+ jelaskan      0.0      0.7     -3.33
+  otorita      0.0      0.7     -3.26
+ mendagri      0.0      0.6     -3.22
+   andika      0.1      1.2     -3.20
+ pengamat      0.1      1.2     -3.20
 
 [3] Leave-one-source-out: latih tanpa sumber S, ukur recall kelas S pada teks S (dev_test + train sumber itu):
   sumber_ditahan  label    n  recall_%
-cnnindonesia.com      0 2615     94.72
-hoax_archive_15k      1 3794     69.93
-   komdigi.go.id      1 1173     99.32
-      kompas.com      0 1302     88.10
-        tempo.co      0 2526     79.06
- turnbackhoax.id      1 1476     34.08
+cnnindonesia.com      0 1644     87.83
+hoax_archive_15k      1 3154     47.62
+   komdigi.go.id      1   67     65.67
+      kompas.com      0  828     80.80
+        tempo.co      0 2097     54.08
+ turnbackhoax.id      1 1346     39.90
     Catatan: kelas sumber yang ditahan masih punya sumber lain di data latih; ini probe, bukan bukti generalisasi sejati.
 
 [4] Akurasi pohon per SATU fitur permukaan (dev_test) dan rata-rata per label (train):
              fitur  akurasi_%  rata2_fakta  rata2_hoaks
-n_titik_tanya_seru       64.8        3.698        4.653
- karakter_per_kata       63.2        7.229        7.562
-       pct_kapital       62.0        8.861       13.513
-           n_kutip       60.7        0.549        1.148
-        n_karakter       58.4      345.181      362.033
-            n_koma       57.7        2.514        1.571
-           n_angka       56.2        4.352        4.721
-            n_kata       51.2       47.648       47.691
-    Semua fitur bersama (pohon kedalaman 4): 71.2%
+           n_kutip       65.1        0.536        1.190
+       pct_kapital       62.3        9.430       14.591
+            n_koma       61.9        2.353        1.495
+ karakter_per_kata       60.6        7.191        7.356
+n_titik_tanya_seru       60.6        3.534        4.282
+        n_karakter       54.4      317.789      320.455
+            n_kata       53.6       44.029       43.506
+           n_angka       52.5        4.036        4.385
+    Semua fitur bersama (pohon kedalaman 4): 75.3%
 
 [5] Contoh acak (baca dan nilai wajar-tidaknya pembentukan teks):
 --- label 0 ---
-  [tempo.co] Selain Rian Ernest, Inilah Daftar Kader dan Politikus yang Lebih Dulu Mundur dari PSI. blakan Dukung Anies.
-  [kompas.com] Polemik Arteria Dahlan Jadi Pembelajaran Kader, Hasto: Dalam Politik Hati-hati Berbicara. Sekretaris Jenderal PDI-P Hasto Kristiyanto meminta seluruh pengurus dan kader partai tidak sembarangan dalam 
-  [kompas.com] Rencana Pemerintah Ubah Pandemi ke Endemi Dikhawatirkan Hanya demi Kepentingan Politik-Ekonomi. 19 saat ini, Dicky memastikan, Indonesia masih berada dam kondisi pandemi, belum endemi. Salah satu indi
-  [tempo.co] Ribuan Kepala Desa Kumpul di Istora Hari Ini, Jokowi Bakal Hadir. Malaysia: Saudara Serumpun Bisa Kerja Sama dengan Baik Sejumlah menteri juga diundang dalam kegiatan ini. Mulai dari Menteri Koordinat
-  [tempo.co] Kata PAN soal Isu Reshuffle dan Kabar Zulkifi Hasan Bakal Masuk Kabinet. dikit," kata Pratikno, Kamis pekan lalu.Pratikno juga enggan memberi bocoran pos menteri yang akan kena reshuffle kabinet. Ia h
-  [kompas.com] Bupati Nonaktif Bintan Apri Sujadi Divonis 5 Tahun Penjara, Majelis Hakim Tolak Cabut Hak Politik Terdakwa. Tim Majelis Hakim Pengadilan Negeri Tindak Pidana Korupsi Tanjungpinang menjatuhkan vonis 5 
+  [cnnindonesia.com] Pendaftaran Anggota KPU-Bawaslu Masih Sepi Peminat. Pendaftaran calon anggota Komisi Pemilihan Umum (KPU) dan Badan Pengawas Pemilu (Bawaslu) periode2022-2027 masih sepi peminat. Sampai saat ini, baru
+  [tempo.co] Reshuflle Kabinet Jokowi, PDIP Sambut Masuknya PAN. masing. Meskipun demikian, Jokowi tak menyebutkan kapan akan melakukan reshuffle kabinet.
+  [cnnindonesia.com] Ragam Proyek Kontroversial DPR: Multivitamin, Gorden hingga Cat Gedung. Sejumlah anggaran di Sekretariat Jenderal (Setjen) DPR RI memunculkan polemik di tengah publik dalam beberapa waktu terakhir.Sej
+  [cnnindonesia.com] Jokowi Perintahkan Setop Wacana Perpanjangan Jabatan Presiden. Presiden Jokowi melarang semua pihak di jajaran pemerintah membunyikan wacana perpanjangan masa jabatan presiden. Negara sedang menghadap
+  [tempo.co] Bupati Ratna Machmud dan Kisah Rumah Tahfidz Pengganti Warung Remang-remang. Tulisan ini adalah bagian dari seri tulisan edisi khusus tentang 7 perempuan kepala daerah berprestasi pilihan tempo.co. Tu
+  [cnnindonesia.com] Megawati: Banyak yang Enggak Senang Sama Saya. Ketua Umum PDIP Megawati Soekarnoputri memberikan pidato politik pada perayaan ulang tahun ke-50 PDIP di JI Expo Kemayoran, Jakarta, Selasa (10/1). Megaw
 --- label 1 ---
-  [hoax_archive_15k] TANGIS PILU KLUARGA BESAR ISTANA.. GIBRAN DICOPOT DARI KK..SURVEI WOWO TERJUN BEBAS. Unggahan video dengan klaim Gibran dicopot dari KK. Cover dan judul dari unggahan tersebut telah dimanipulasi. Isi 
-  [turnbackhoax.id] Volodymyr Zelenskyy Pecandu Kokain. THIS JUST IN Video Emerges Of Ukraine s President Zelensky Allegedly Praising Cocaine _ / . Penjelasan: Beberapa waktu lalu sempat beredar sebuah video yang menjela
-  [hoax_archive_15k] Kebijakan Pemerintah Tiongkok yang Mewajibkan Anak-Anak Menggunakan Baju Hazmat. Hoaks lama yang kembali beredar. Faktanya, anak-anak dalam video tersebut sedang menggunakan kostum astronot, bukan baj
-  [hoax_archive_15k] Artikel ‘Akal Pendek Obral Aset Bangsa !!!’ Ditulis Oleh Akbar Faisal, Anggota DPR RI Fraksi Partai NasDem. Artikel yang berjudul ‘Akal Pendek Obral Aset Bangsa !!!’ disebut sebagai tulisan dari Akbar
-  [hoax_archive_15k] Gambar Artikel CNN Indonesia “Gerindra Beber Program Jika Jadi Presiden: Makan Gratis” menggunakan foto Abu Janda. Artikel CNN Indonesia menggunakan foto Abu Janda sedang makan merupakan hasil editan.
-  [hoax_archive_15k] ALAT BANTU PAK DE CANGGIH. Sejauh ini belum ada bukti sahih yang menguatkan dugaan bahwa Jokowi menggunakan alat bantu dengar dalam debat capres kedua pada Minggu, 17 Februari 2019. Bantahan telah dis
+  [hoax_archive_15k] “Viral Kabar Ahok Tebus Ijazah Siswi, Ini Hasil Investigasi Disdik”. 02 Januari 2018, 19:15 WIBViral Kabar Ahok Tebus Ijazah Siswi, Ini Hasil Investigasi DisdikRois Jajeli – detikNewsJajaran Dinas Pen
+  [hoax_archive_15k] Gibran Ajukan Mundur Dari Politik Gegara Hal Mengejutkan Ini. Judul, isi video dan narasi dalam video tidak sesuai. Dalam video tersebut sama sekali tidak ditemukan informasi mengenai hal tersebut.===
+  [hoax_archive_15k] “Akhirnya Bocor Juga A. 1 Bpk-nya Jokowi yg asli”. HOAKS BERULANG. Bukan foto ayah dari Jokowi, melainkan foto Jendral Wang Zhen, seorang figur politik Tiongkok dan salah satu dari delapan Tetua Parta
+  [turnbackhoax.id] Video Siaran CNN Menyatakan Trump Akan Menangkan Pilpres AS. WATCH THE SAME CNN THAT PROJECTED BIDEN A WINNER THE SAME CNN IS NOW SAYING THAT TRUMP WILL WIN! SO IF GOD SAYS IT WHO CAN COME AGAINST IT 
+  [hoax_archive_15k] Hasil Survei Guru Besar IPB Anies Menang di Pemilihan Presiden 30 Provinsi. Pernyataan mengenai hasil survei independen Prof. Dr. Didin S. Damanhuri yang merupakan Guru Besar IPB bersama anggota tim d
+  [hoax_archive_15k] Menko Luhut Minta Warga dan Para Lansia Tidak Keluar Rumah Selama Sebulan ke Depan. Informasi yang menyesatkan. Dua judul artikel Liputan 6 yang berbunyi “Luhut Minta Masyarakat Tak Jalan-Jalan Dulu 4

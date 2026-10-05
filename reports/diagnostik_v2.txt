@@ -1,82 +1,92 @@
-train=9,892 dev_test=1,412 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+train=10,976 dev_test=1,568 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+
+[1] Akurasi probe linier per bagian teks:
+                 bagian  akurasi_%
+           teks lengkap      95.79
+            hanya JUDUL      91.90
+hanya ISI (tanpa judul)      96.36
+            8 kata awal      90.31
+          8 kata tengah      82.84
+           8 kata akhir      83.67
+ isi, tanpa 8 kata awal      94.26
 
 [2a] Kata-vonis per label (train, % teks):
-                   fakta_%  hoaks_%  selisih
-faktanya              0.10    24.06    23.96
-tidak benar           0.18    19.03    18.85
-hoaks                 0.55     7.46     6.91
-turnbackhoax          0.00     6.19     6.19
-palsu                 0.00     5.32     5.32
-klarifikasi           0.38     3.76     3.38
-hoax                  0.04     3.17     3.13
-penipuan              0.18     2.18     2.00
-periksa fakta         0.00     1.40     1.40
-hasil penelusuran     0.00     1.07     1.07
+               fakta_%  hoaks_%  selisih
+faktanya          0.07    26.49    26.42
+periksa fakta     0.00    24.20    24.20
+tidak benar       0.15    17.60    17.45
+hoaks             0.44     6.80     6.36
+palsu             0.09     6.03     5.94
+turnbackhoax      0.00     4.12     4.12
+mafindo           0.02     3.44     3.42
+hoax              0.02     2.64     2.62
+klarifikasi       0.47     3.08     2.61
+penipuan          0.13     1.84     1.71
 
 [2b] Token paling timpang di 8 kata awal (min 20 kemunculan):
   condong HOAKS:
           token  hoaks_%  fakta_%  log_odds
-mengatasnamakan      4.3      0.0      5.35
-         tautan      3.2      0.0      5.06
-        artikel      2.0      0.0      4.61
-     penjelasan     10.5      0.1      4.46
-        purbaya      1.5      0.0      4.29
-         gambar      1.4      0.0      4.25
-       whatsapp      4.0      0.1      4.20
-           2026      1.3      0.0      4.14
-      tangkapan      1.3      0.0      4.13
-           hoax      1.1      0.0      4.01
-      pertamina      1.1      0.0      3.99
-       lowongan      1.0      0.0      3.91
+mengatasnamakan      3.1      0.0      5.14
+        artikel      2.3      0.0      4.84
+         tautan      2.3      0.0      4.84
+         gambar      2.1      0.0      4.77
+        beredar      3.7      0.0      4.62
+      tangkapan      1.5      0.0      4.44
+     penjelasan      7.7      0.1      4.43
+      pertamina      1.3      0.0      4.28
+       whatsapp      3.7      0.1      4.22
+           2026      1.0      0.0      4.04
+       lowongan      1.0      0.0      4.01
+           hoax      0.9      0.0      3.85
   condong FAKTA:
-   token  hoaks_%  fakta_%  log_odds
-   rkuhp      0.0      1.2     -4.09
-kepuasan      0.0      0.9     -3.83
-    yudo      0.0      0.9     -3.81
- otorita      0.0      0.9     -3.78
-   pakar      0.0      0.9     -3.76
- politik      0.3     10.8     -3.64
- margono      0.0      0.7     -3.53
-  sentil      0.0      0.6     -3.47
-    tpks      0.0      0.6     -3.43
-   cipta      0.0      0.6     -3.40
-singgung      0.0      0.6     -3.37
-pengamat      0.0      1.2     -3.35
+    token  hoaks_%  fakta_%  log_odds
+  respons      0.0      1.2     -4.17
+    rkuhp      0.0      1.1     -4.14
+     yudo      0.0      1.0     -4.03
+ singgung      0.0      0.8     -3.81
+ kepuasan      0.0      0.8     -3.76
+  margono      0.0      0.8     -3.76
+  otorita      0.0      0.7     -3.66
+   sentil      0.0      0.7     -3.61
+     tpks      0.0      0.6     -3.56
+    bahas      0.1      1.9     -3.53
+penundaan      0.0      0.6     -3.50
+   anggap      0.0      0.6     -3.47
 
 [3] Leave-one-source-out: latih tanpa sumber S, ukur recall kelas S pada teks S (dev_test + train sumber itu):
   sumber_ditahan  label    n  recall_%
-cnnindonesia.com      0 2141     91.92
-hoax_archive_15k      1 2420     70.33
-   komdigi.go.id      1 1542     98.83
-      kompas.com      0 1103     84.77
-        tempo.co      0 2408     66.45
- turnbackhoax.id      1 1690     42.25
+cnnindonesia.com      0 2501     94.24
+hoax_archive_15k      1 3461     69.40
+   komdigi.go.id      1 1243     98.39
+      kompas.com      0 1245     86.91
+        tempo.co      0 2526     76.52
+ turnbackhoax.id      1 1568     32.27
     Catatan: kelas sumber yang ditahan masih punya sumber lain di data latih; ini probe, bukan bukti generalisasi sejati.
 
 [4] Akurasi pohon per SATU fitur permukaan (dev_test) dan rata-rata per label (train):
              fitur  akurasi_%  rata2_fakta  rata2_hoaks
-n_titik_tanya_seru       65.9        3.692        4.603
-           n_kutip       62.4        0.544        1.118
-            n_koma       59.6        2.486        1.684
-       pct_kapital       58.6        8.987       12.849
- karakter_per_kata       57.3        7.218        7.436
-        n_karakter       56.4      338.206      350.045
-           n_angka       54.9        4.207        4.708
-            n_kata       53.8       46.729       46.783
-    Semua fitur bersama (pohon kedalaman 4): 70.2%
+           n_kutip       61.5        0.543        1.058
+n_titik_tanya_seru       61.0        3.693        4.581
+ karakter_per_kata       60.2        7.219        7.491
+            n_koma       58.9        2.503        1.590
+       pct_kapital       58.6        8.937       12.819
+        n_karakter       58.4      343.022      355.952
+            n_kata       54.0       47.405       47.249
+           n_angka       51.5        4.329        4.482
+    Semua fitur bersama (pohon kedalaman 4): 69.8%
 
 [5] Contoh acak (baca dan nilai wajar-tidaknya pembentukan teks):
 --- label 0 ---
-  [kompas.com] Dituntut 12 Tahun, Psikis Richard Eliezer Terguncang?. ?Jaksa menuntut Eliezer dengan hukuman 12 tahun penjara. Namun, nasibnya belum final sampai sidang vonis yang akan digelar pada 15 Februari menda
-  [tempo.co] Panglima TNI: Super Garuda Shield Investasi Masa Depan. negara sahabat. "Minimal nanti kalau ada bencana alam, maka tentara yang ikut latihan tempur bersama ini bisa terbiasa untuk bekerja sama dalam 
-  [cnnindonesia.com] Pakar Sebut Ucapan Jokowi di Acara Perindo Seperti Ledekan. Pengamat politik dari Universitas Paramadina Ahmad Khoirul Umam menilai Presiden Joko Widodo sedang meledek menterinya, Prabowo Subianto soa
-  [kompas.com] Anggota Komisi VI DPR: Dibanding India dan Filipina, Kondisi Demokrasi Indonesia Lebih Baik. baik saja. Sebab, yang menyatakan buruk masih lebih kecil dibandingkan yang menyatakan baik. Walau begitu, 
-  [tempo.co] 6 Arahan Jokowi, Ada Penanganan Covid-19 Hingga Gejolak Ekonomi Global. Amerika.
-  [kompas.com] Mereka yang Tergiur Surga Politik, dari Artis, Anak Pejabat hingga Jubir Istana. 2024 sebagai anggota legislatif. Dari 13 artis tersebut, sebelumnya ada yang telah menjabat sebagai anggota dewan dan a
+  [kompas.com] Ditanya Apakah Akan Kembali ke Dunia Politik, Jawaban Ahok. Ignatius Haryanto, satu dari sepuluh penulis buku "Kami Ahok" yang mengunjungi Basuki Tjahaja Purnama di rutan Mako Brimob, Kelapa Dua, Depo
+  [cnnindonesia.com] Usai Uji Kelayakan Sabtu, Komisi I DPR ke Rumah Andika Hari Minggu. Anggota Komisi I DPR RI Syaifullah Tamliha mengatakan pihaknya bakal melakukan verifikasi faktual terhadap calon Panglima TNI Jender
+  [tempo.co] SMRC Prediksi Ganjar Pranowo dan Anies Baswedan Bersaing Ketat di Putaran Kedua Pilpres 2024. Saiful Mujani Research and Consulting (SMRC) memprediksi Pemilihan Presiden (Pilpres) 2024 akan digelar da
+  [tempo.co] DPR Ungkap 3 Hal yang Didalami untuk Memilih Pengganti Lili Pintauli. teman yang di komisi dengan terpaksa voting one man one vote,” kata dia.Adies mengatakan calon yang terpilih menggantikan Lili Pin
+  [cnnindonesia.com] Komisaris BUMN Heddy Lugito Terpilih Jadi Ketua DKPP. Komisaris Independen Badan Usaha Milik Negara (BUMN) PT Sang Hyang Seri Heddy Lugito terpilih menjadi Ketua Dewan Kehormatan Penyelenggara Pemilu 
+  [cnnindonesia.com] NasDem Janji Kawal Jokowi Hingga 2024 Meski Kena Reshuffle. Wakil Ketua Umum Partai NasDem, Ahmad Ali berjanji partainya akan tetap bersama Presiden Joko Widodo (Jokowi) hingga akhir masa pemerintahan
 --- label 1 ---
-  [turnbackhoax.id] Gambar Seorang WNA akan Voting Jokowi 10 Periode Jika Tidak Diberi 1 Dollar. 10 PERIODE? BISA ADA YANG BUNUH DIRI MASSAL DOOOONG .. Ini mungkin orang aseng yang mau mengadu domba ya? GIVE ME 1 DOLLAR 
-  [hoax_archive_15k] Video Penangkapan Pencoblos Gelap di Makassar Berkaitan dengan Pemilu 2024.
-  [turnbackhoax.id] Aplikasi Program War Room TKN, Bisa Mengubah Data. Ada yang kenal dengan ibu ini? Dari sini kalian bisa paham ya aplikasi program war room TKN sampai ibu ini keceplosan wah hebat ya . Untuk mengubah-u
-  [hoax_archive_15k] “Dibohongi Mie Instan”. Status FacebookYayasan Lembaga Konsumen Indonesia (YLKI)berjudul ‘Dibohongi Mi Instan’ menjadi viral sejak diunggah Minggu (31/1/2016) petang.Apa motif di balik status tersebut
-  [hoax_archive_15k] Video Anies Akan Jadi Gamer Setelah Kekalahannya Dalam Pilpres. Periksa Fakta Vania.Faktanya, audio dalam video tersebut dibuat dengan teknologi AI, sedangkan klip asli video tersebut merupakan video 
-  [hoax_archive_15k] Cawagub Jakarta Rano Karno Bagi-Bagi Rp50 Juta di TikTok. Video Rano Karno membagikan uang hingga 50 juta rupiah di Tiktok merupakan konten buatan AI dengan probabilitas 99%.Unggahan tentang Rano Karn
+  [turnbackhoax.id] Surat Pemberitahuan Pembekalan dan Penetapan Nama ASN Yang Lulus Dari Jalur Kebijakan Kementerian. BADAN KEPEGAWAIAN NEGARA NOMOR : K.3-47/11.11.03/19SIFAT : PENTINGPERIHAL : PEMBERITAHUAN PEMBEKALAN 
+  [turnbackhoax.id] Arnold Schwarzenegger Tidur di Luar Hotel Karena Tidak Dapat Memesan Kamar. Penghargaan manusia hanya sementara. Arnold Schwarzenegger, mantan Gubernur California & Body Builder. Ketika sudah pensiun,
+  [hoax_archive_15k] Presiden Jokowi Minta Masyarakat Tidak Mengkritik Kenaikan Pangkat Bintang 4 Menteri Pertahanan Prabowo Subianto. Hasil periksa fakta Raymondha ElshaVideo Jokowi meminta masyarakat tidak mengkritik ke
+  [hoax_archive_15k] Mantan Bupati Gresik Meninggal Dunia. Hasil periksa fakta Rahmah an nisaa (Uin Sunan Ampel Surabaya).Infomasi tersebut hoaks. Faktanya, Kabag Humas Pemkab Gresik Reza Pahlevi, mengatakan, kabar mening
+  [turnbackhoax.id] Video “Artis Dessi Ratnasari Meninggall Dunia! Tangiss Sang Anak Pecah Terungkap Penyebabnya”. Artis Dessi Ratnasari Meninggall Dunia! Tangiss Sang Anak Pecah Terungkap Penyebabnya Penjelasan: Kanal Y
+  [hoax_archive_15k] RUU-145 Melegalkan Pedofilia di California. Hasil periksa fakta Evarizma Zahra (Universitas Diponegoro)Informasi tersebut palsu. Faktanya, RUU-145 mengatur tentang peran hakim dalam menentukan hukuman

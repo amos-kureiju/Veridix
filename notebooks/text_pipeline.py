@@ -17,8 +17,9 @@ TAG = re.compile(
 )
 # penanda bagian "bantahan" milik situs pemeriksa fakta
 DEBUNK_CUT = re.compile(
-    r"\b(PENJELASAN\s*:|FAKTANYA\s*:|FAKTA SEBENARNYA|HASIL CEK FAKTA|HASIL PERIKSA FAKTA|"
-    r"BERDASARKAN PENELUSURAN|SETELAH DITELUSURI|HASIL VERIFIKASI)\b.*",
+    r"\b(PENJELASAN\s*[:,-]|FAKTANYA\s*[:,-]|FAKTA SEBENARNYA\s*[:,-]|HASIL CEK FAKTA\s*[:,-]|"
+    r"HASIL PERIKSA FAKTA\s*[:,-]|BERDASARKAN PENELUSURAN\s*[:,-]|SETELAH DITELUSURI\s*[:,-]|"
+    r"HASIL VERIFIKASI\s*[:,-]|PERIKSA FAKTA\s+[A-Za-z\s]+\.|\bMERUPAKAN KONTEN BUATAN AI\b)\b.*",
     re.I | re.S,
 )
 FOOTNOTE = re.compile(r"\bsumber\s*:.*$", re.I | re.S)

@@ -1,9 +1,9 @@
 kriteria,nilai,ambang,lulus
-C1 judul ganda [train],7.819761567993535,5.0,False
-C1 judul ganda [val],5.498071413709768,5.0,False
-C1 judul ganda [dev_test],4.970711096173235,5.0,True
-C2 KS panjang kata,0.03300330033003307,0.1,True
+C1 judul ganda [train],2.992317023857663,5.0,True
+C1 judul ganda [val],2.2662889518413594,5.0,True
+C1 judul ganda [dev_test],4.532577903682719,5.0,True
+C2 KS panjang kata,0.037747719408618985,0.1,True
 C3 berakhir tanda baca,0.0,5.0,True
-C4 akurasi fitur panjang (dev_test),0.6951909476661952,0.6,False
+C4 akurasi fitur panjang (dev_test),0.6947592067988668,0.6,False
 C5 grup melintasi split,0.0,0.0,True
-C6 selisih proporsi sub-topik,0.14144271570014078,2.0,True
+C6 selisih proporsi sub-topik,0.23592324630387074,2.0,True

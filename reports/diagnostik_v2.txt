@@ -1,0 +1,82 @@
+train=9,892 dev_test=1,412 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+
+[2a] Kata-vonis per label (train, % teks):
+                   fakta_%  hoaks_%  selisih
+faktanya              0.10    24.06    23.96
+tidak benar           0.18    19.03    18.85
+hoaks                 0.55     7.46     6.91
+turnbackhoax          0.00     6.19     6.19
+palsu                 0.00     5.32     5.32
+klarifikasi           0.38     3.76     3.38
+hoax                  0.04     3.17     3.13
+penipuan              0.18     2.18     2.00
+periksa fakta         0.00     1.40     1.40
+hasil penelusuran     0.00     1.07     1.07
+
+[2b] Token paling timpang di 8 kata awal (min 20 kemunculan):
+  condong HOAKS:
+          token  hoaks_%  fakta_%  log_odds
+mengatasnamakan      4.3      0.0      5.35
+         tautan      3.2      0.0      5.06
+        artikel      2.0      0.0      4.61
+     penjelasan     10.5      0.1      4.46
+        purbaya      1.5      0.0      4.29
+         gambar      1.4      0.0      4.25
+       whatsapp      4.0      0.1      4.20
+           2026      1.3      0.0      4.14
+      tangkapan      1.3      0.0      4.13
+           hoax      1.1      0.0      4.01
+      pertamina      1.1      0.0      3.99
+       lowongan      1.0      0.0      3.91
+  condong FAKTA:
+   token  hoaks_%  fakta_%  log_odds
+   rkuhp      0.0      1.2     -4.09
+kepuasan      0.0      0.9     -3.83
+    yudo      0.0      0.9     -3.81
+ otorita      0.0      0.9     -3.78
+   pakar      0.0      0.9     -3.76
+ politik      0.3     10.8     -3.64
+ margono      0.0      0.7     -3.53
+  sentil      0.0      0.6     -3.47
+    tpks      0.0      0.6     -3.43
+   cipta      0.0      0.6     -3.40
+singgung      0.0      0.6     -3.37
+pengamat      0.0      1.2     -3.35
+
+[3] Leave-one-source-out: latih tanpa sumber S, ukur recall kelas S pada teks S (dev_test + train sumber itu):
+  sumber_ditahan  label    n  recall_%
+cnnindonesia.com      0 2141     91.92
+hoax_archive_15k      1 2420     70.33
+   komdigi.go.id      1 1542     98.83
+      kompas.com      0 1103     84.77
+        tempo.co      0 2408     66.45
+ turnbackhoax.id      1 1690     42.25
+    Catatan: kelas sumber yang ditahan masih punya sumber lain di data latih; ini probe, bukan bukti generalisasi sejati.
+
+[4] Akurasi pohon per SATU fitur permukaan (dev_test) dan rata-rata per label (train):
+             fitur  akurasi_%  rata2_fakta  rata2_hoaks
+n_titik_tanya_seru       65.9        3.692        4.603
+           n_kutip       62.4        0.544        1.118
+            n_koma       59.6        2.486        1.684
+       pct_kapital       58.6        8.987       12.849
+ karakter_per_kata       57.3        7.218        7.436
+        n_karakter       56.4      338.206      350.045
+           n_angka       54.9        4.207        4.708
+            n_kata       53.8       46.729       46.783
+    Semua fitur bersama (pohon kedalaman 4): 70.2%
+
+[5] Contoh acak (baca dan nilai wajar-tidaknya pembentukan teks):
+--- label 0 ---
+  [kompas.com] Dituntut 12 Tahun, Psikis Richard Eliezer Terguncang?. ?Jaksa menuntut Eliezer dengan hukuman 12 tahun penjara. Namun, nasibnya belum final sampai sidang vonis yang akan digelar pada 15 Februari menda
+  [tempo.co] Panglima TNI: Super Garuda Shield Investasi Masa Depan. negara sahabat. "Minimal nanti kalau ada bencana alam, maka tentara yang ikut latihan tempur bersama ini bisa terbiasa untuk bekerja sama dalam 
+  [cnnindonesia.com] Pakar Sebut Ucapan Jokowi di Acara Perindo Seperti Ledekan. Pengamat politik dari Universitas Paramadina Ahmad Khoirul Umam menilai Presiden Joko Widodo sedang meledek menterinya, Prabowo Subianto soa
+  [kompas.com] Anggota Komisi VI DPR: Dibanding India dan Filipina, Kondisi Demokrasi Indonesia Lebih Baik. baik saja. Sebab, yang menyatakan buruk masih lebih kecil dibandingkan yang menyatakan baik. Walau begitu, 
+  [tempo.co] 6 Arahan Jokowi, Ada Penanganan Covid-19 Hingga Gejolak Ekonomi Global. Amerika.
+  [kompas.com] Mereka yang Tergiur Surga Politik, dari Artis, Anak Pejabat hingga Jubir Istana. 2024 sebagai anggota legislatif. Dari 13 artis tersebut, sebelumnya ada yang telah menjabat sebagai anggota dewan dan a
+--- label 1 ---
+  [turnbackhoax.id] Gambar Seorang WNA akan Voting Jokowi 10 Periode Jika Tidak Diberi 1 Dollar. 10 PERIODE? BISA ADA YANG BUNUH DIRI MASSAL DOOOONG .. Ini mungkin orang aseng yang mau mengadu domba ya? GIVE ME 1 DOLLAR 
+  [hoax_archive_15k] Video Penangkapan Pencoblos Gelap di Makassar Berkaitan dengan Pemilu 2024.
+  [turnbackhoax.id] Aplikasi Program War Room TKN, Bisa Mengubah Data. Ada yang kenal dengan ibu ini? Dari sini kalian bisa paham ya aplikasi program war room TKN sampai ibu ini keceplosan wah hebat ya . Untuk mengubah-u
+  [hoax_archive_15k] “Dibohongi Mie Instan”. Status FacebookYayasan Lembaga Konsumen Indonesia (YLKI)berjudul ‘Dibohongi Mi Instan’ menjadi viral sejak diunggah Minggu (31/1/2016) petang.Apa motif di balik status tersebut
+  [hoax_archive_15k] Video Anies Akan Jadi Gamer Setelah Kekalahannya Dalam Pilpres. Periksa Fakta Vania.Faktanya, audio dalam video tersebut dibuat dengan teknologi AI, sedangkan klip asli video tersebut merupakan video 
+  [hoax_archive_15k] Cawagub Jakarta Rano Karno Bagi-Bagi Rp50 Juta di TikTok. Video Rano Karno membagikan uang hingga 50 juta rupiah di Tiktok merupakan konten buatan AI dengan probabilitas 99%.Unggahan tentang Rano Karn

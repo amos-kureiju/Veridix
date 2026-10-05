@@ -18,10 +18,11 @@
   "DEVTEST_FOLDS": 2,
   "LOCKBOX_FOLDS": 2,
   "SEED": 42,
+  "pipeline_version": "tp-1.1",
   "python": "3.13.5",
   "pandas": "3.0.6",
   "numpy": "2.3.5",
-  "created": "2026-10-05T08:17:28",
+  "created": "2026-10-05T09:18:22",
   "raw_dir": "../data/raw",
   "all_criteria_passed": false
 }

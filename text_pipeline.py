@@ -15,10 +15,10 @@ TAG = re.compile(
     r"[\[\(\{]\s*(SALAH|HOAKS|HOAX|DISINFORMASI|MANIPULASI|MISLEADING|FITNAH|KLARIFIKASI|BENAR|FALSE)\s*[\]\)\}]\s*:?",
     re.I,
 )
-# 1. Penanda potongan bagian akhir (hanya memotong jika ada penanda tegas bantahan)
+# 1. Penanda potongan bagian akhir (memotong teks debunker baik ber-tanda baca maupun bersambung kata)
 DEBUNK_CUT = re.compile(
-    r"\b(PENJELASAN\s*[:,-]|FAKTANYA\s*[:,-]|FAKTA SEBENARNYA\s*[:,-]|HASIL CEK FAKTA\s*[:,-]|"
-    r"BERDASARKAN PENELUSURAN\s*[:,-]|SETELAH DITELUSURI\s*[:,-]|HASIL VERIFIKASI\s*[:,-])\b.*",
+    r"\b(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|FAKTA SEBENARNYA|HASIL CEK FAKTA|"
+    r"BERDASARKAN PENELUSURAN|SETELAH DITELUSURI|HASIL VERIFIKASI|KESIMPULAN)\b.*",
     re.I | re.S,
 )
 

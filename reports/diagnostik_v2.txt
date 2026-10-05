@@ -1,92 +1,92 @@
-train=10,976 dev_test=1,568 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+train=11,276 dev_test=1,610 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
 
 [1] Akurasi probe linier per bagian teks:
                  bagian  akurasi_%
-           teks lengkap      95.79
-            hanya JUDUL      91.90
-hanya ISI (tanpa judul)      96.36
-            8 kata awal      90.31
-          8 kata tengah      82.84
-           8 kata akhir      83.67
- isi, tanpa 8 kata awal      94.26
+           teks lengkap      96.21
+            hanya JUDUL      91.80
+hanya ISI (tanpa judul)      96.52
+            8 kata awal      90.75
+          8 kata tengah      83.85
+           8 kata akhir      84.97
+ isi, tanpa 8 kata awal      93.91
 
 [2a] Kata-vonis per label (train, % teks):
                fakta_%  hoaks_%  selisih
-faktanya          0.07    26.49    26.42
-periksa fakta     0.00    24.20    24.20
-tidak benar       0.15    17.60    17.45
-hoaks             0.44     6.80     6.36
-palsu             0.09     6.03     5.94
-turnbackhoax      0.00     4.12     4.12
-mafindo           0.02     3.44     3.42
-hoax              0.02     2.64     2.62
-klarifikasi       0.47     3.08     2.61
-penipuan          0.13     1.84     1.71
+faktanya          0.07    25.53    25.46
+tidak benar       0.12    14.58    14.46
+palsu             0.04     6.88     6.84
+hoaks             0.39     6.60     6.21
+turnbackhoax      0.00     4.10     4.10
+hoax              0.02     2.61     2.59
+klarifikasi       0.46     2.82     2.36
+penipuan          0.12     1.65     1.53
+periksa fakta     0.00     1.12     1.12
+disinformasi      0.00     1.08     1.08
 
 [2b] Token paling timpang di 8 kata awal (min 20 kemunculan):
   condong HOAKS:
           token  hoaks_%  fakta_%  log_odds
-mengatasnamakan      3.1      0.0      5.14
-        artikel      2.3      0.0      4.84
-         tautan      2.3      0.0      4.84
-         gambar      2.1      0.0      4.77
-        beredar      3.7      0.0      4.62
-      tangkapan      1.5      0.0      4.44
-     penjelasan      7.7      0.1      4.43
-      pertamina      1.3      0.0      4.28
-       whatsapp      3.7      0.1      4.22
-           2026      1.0      0.0      4.04
-       lowongan      1.0      0.0      4.01
-           hoax      0.9      0.0      3.85
+mengatasnamakan      2.7      0.0      5.02
+       faktanya      2.3      0.0      4.86
+         tautan      2.3      0.0      4.85
+        artikel      2.0      0.0      4.73
+       whatsapp      3.9      0.1      4.30
+      tangkapan      1.3      0.0      4.30
+          layar      1.3      0.0      4.29
+       kategori      1.2      0.0      4.22
+      pertamina      1.2      0.0      4.17
+           akun      5.6      0.1      4.15
+         gambar      2.1      0.0      4.10
+       lowongan      1.0      0.0      4.04
   condong FAKTA:
     token  hoaks_%  fakta_%  log_odds
-  respons      0.0      1.2     -4.17
-    rkuhp      0.0      1.1     -4.14
-     yudo      0.0      1.0     -4.03
- singgung      0.0      0.8     -3.81
- kepuasan      0.0      0.8     -3.76
-  margono      0.0      0.8     -3.76
+    rkuhp      0.0      1.2     -4.19
+     yudo      0.0      1.0     -4.01
+ kepuasan      0.0      0.8     -3.83
+ singgung      0.0      0.8     -3.76
+   sentil      0.0      0.7     -3.74
   otorita      0.0      0.7     -3.66
-   sentil      0.0      0.7     -3.61
-     tpks      0.0      0.6     -3.56
-    bahas      0.1      1.9     -3.53
-penundaan      0.0      0.6     -3.50
-   anggap      0.0      0.6     -3.47
+  margono      0.0      0.7     -3.64
+reshuffle      0.0      1.3     -3.58
+    bahas      0.1      1.8     -3.55
+   anggap      0.0      0.6     -3.53
+     tpks      0.0      0.6     -3.53
+   dudung      0.0      0.6     -3.53
 
 [3] Leave-one-source-out: latih tanpa sumber S, ukur recall kelas S pada teks S (dev_test + train sumber itu):
   sumber_ditahan  label    n  recall_%
-cnnindonesia.com      0 2501     94.24
-hoax_archive_15k      1 3461     69.40
-   komdigi.go.id      1 1243     98.39
-      kompas.com      0 1245     86.91
-        tempo.co      0 2526     76.52
- turnbackhoax.id      1 1568     32.27
+cnnindonesia.com      0 2614     95.26
+hoax_archive_15k      1 3815     69.62
+   komdigi.go.id      1 1166     99.31
+      kompas.com      0 1309     87.78
+        tempo.co      0 2521     77.87
+ turnbackhoax.id      1 1461     33.26
     Catatan: kelas sumber yang ditahan masih punya sumber lain di data latih; ini probe, bukan bukti generalisasi sejati.
 
 [4] Akurasi pohon per SATU fitur permukaan (dev_test) dan rata-rata per label (train):
              fitur  akurasi_%  rata2_fakta  rata2_hoaks
-           n_kutip       61.5        0.543        1.058
-n_titik_tanya_seru       61.0        3.693        4.581
- karakter_per_kata       60.2        7.219        7.491
-            n_koma       58.9        2.503        1.590
-       pct_kapital       58.6        8.937       12.819
-        n_karakter       58.4      343.022      355.952
-            n_kata       54.0       47.405       47.249
-           n_angka       51.5        4.329        4.482
-    Semua fitur bersama (pohon kedalaman 4): 69.8%
+ karakter_per_kata       62.7        7.226        7.557
+n_titik_tanya_seru       62.5        3.694        4.646
+           n_kutip       61.7        0.551        1.148
+       pct_kapital       60.7        8.876       13.495
+            n_koma       59.9        2.514        1.586
+        n_karakter       56.1      345.440      362.920
+            n_kata       53.1       47.695       47.840
+           n_angka       53.0        4.397        4.766
+    Semua fitur bersama (pohon kedalaman 4): 71.8%
 
 [5] Contoh acak (baca dan nilai wajar-tidaknya pembentukan teks):
 --- label 0 ---
-  [kompas.com] Ditanya Apakah Akan Kembali ke Dunia Politik, Jawaban Ahok. Ignatius Haryanto, satu dari sepuluh penulis buku "Kami Ahok" yang mengunjungi Basuki Tjahaja Purnama di rutan Mako Brimob, Kelapa Dua, Depo
-  [cnnindonesia.com] Usai Uji Kelayakan Sabtu, Komisi I DPR ke Rumah Andika Hari Minggu. Anggota Komisi I DPR RI Syaifullah Tamliha mengatakan pihaknya bakal melakukan verifikasi faktual terhadap calon Panglima TNI Jender
-  [tempo.co] SMRC Prediksi Ganjar Pranowo dan Anies Baswedan Bersaing Ketat di Putaran Kedua Pilpres 2024. Saiful Mujani Research and Consulting (SMRC) memprediksi Pemilihan Presiden (Pilpres) 2024 akan digelar da
-  [tempo.co] DPR Ungkap 3 Hal yang Didalami untuk Memilih Pengganti Lili Pintauli. teman yang di komisi dengan terpaksa voting one man one vote,” kata dia.Adies mengatakan calon yang terpilih menggantikan Lili Pin
-  [cnnindonesia.com] Komisaris BUMN Heddy Lugito Terpilih Jadi Ketua DKPP. Komisaris Independen Badan Usaha Milik Negara (BUMN) PT Sang Hyang Seri Heddy Lugito terpilih menjadi Ketua Dewan Kehormatan Penyelenggara Pemilu 
-  [cnnindonesia.com] NasDem Janji Kawal Jokowi Hingga 2024 Meski Kena Reshuffle. Wakil Ketua Umum Partai NasDem, Ahmad Ali berjanji partainya akan tetap bersama Presiden Joko Widodo (Jokowi) hingga akhir masa pemerintahan
+  [tempo.co] RUU KIA yang Atur Cuti Melahirkan 6 Bulan, Sah Jadi Inisiatif DPR. anak generasi penerus bangsa memiliki tumbuh kembang yang baik agar menjadi sumber daya manusia (SDM) yang unggul.Dalam RUU KIA ini, 
+  [cnnindonesia.com] Buntut Panjang Kasus Dugaan Kekerasan Benny K Harman. Kasus dugaan kekerasan yang dilakukan anggota Komisi III DPR Fraksi Partai Demokrat Benny K Harman ke pegawai restoran di Labuan Bajo, Nusa Tengga
+  [cnnindonesia.com] Ulang Tahun Jakarta, Jokowi Terbang ke IKN. Presiden Joko Widodo berkunjung ke Ibu Kota Negara (IKN) Nusantara saat DKI Jakarta merayakan hari ulang tahun (HUT) ke-495.Kepala Sekretariat Presiden Heru
+  [tempo.co] Effendi Simbolon Mengaku Siap Dipertemukan dengan KSAD Dudung Abdurachman. ngobrol bahwa ini penting, supaya tidak terjadi lah misalnya mitra kita di DPR merasa tersinggung, lalu dia menyebarkan ke ba
+  [tempo.co] Jokowi Minta Sandiaga Bikin Danau Toba Beda dengan Destinasi Lain. kawasan destinasi wisata lainnya."Saya melihat sebuah potensi yang besar, yang ada di kawasan Danau Toba ini," kata dia saat mengecek
+  [tempo.co] Bivitri Nilai Perpu Cipta Kerja Pro Pengusaha dan Tak Penuhi Syarat Kegentingan: DPR Bisa Menolak. benar membajak demokrasi," kata dia.Adapun dalam pertimbangan pemerintah, Mahfud menyebut ada kebutuh
 --- label 1 ---
-  [turnbackhoax.id] Surat Pemberitahuan Pembekalan dan Penetapan Nama ASN Yang Lulus Dari Jalur Kebijakan Kementerian. BADAN KEPEGAWAIAN NEGARA NOMOR : K.3-47/11.11.03/19SIFAT : PENTINGPERIHAL : PEMBERITAHUAN PEMBEKALAN 
-  [turnbackhoax.id] Arnold Schwarzenegger Tidur di Luar Hotel Karena Tidak Dapat Memesan Kamar. Penghargaan manusia hanya sementara. Arnold Schwarzenegger, mantan Gubernur California & Body Builder. Ketika sudah pensiun,
-  [hoax_archive_15k] Presiden Jokowi Minta Masyarakat Tidak Mengkritik Kenaikan Pangkat Bintang 4 Menteri Pertahanan Prabowo Subianto. Hasil periksa fakta Raymondha ElshaVideo Jokowi meminta masyarakat tidak mengkritik ke
-  [hoax_archive_15k] Mantan Bupati Gresik Meninggal Dunia. Hasil periksa fakta Rahmah an nisaa (Uin Sunan Ampel Surabaya).Infomasi tersebut hoaks. Faktanya, Kabag Humas Pemkab Gresik Reza Pahlevi, mengatakan, kabar mening
-  [turnbackhoax.id] Video “Artis Dessi Ratnasari Meninggall Dunia! Tangiss Sang Anak Pecah Terungkap Penyebabnya”. Artis Dessi Ratnasari Meninggall Dunia! Tangiss Sang Anak Pecah Terungkap Penyebabnya Penjelasan: Kanal Y
-  [hoax_archive_15k] RUU-145 Melegalkan Pedofilia di California. Hasil periksa fakta Evarizma Zahra (Universitas Diponegoro)Informasi tersebut palsu. Faktanya, RUU-145 mengatur tentang peran hakim dalam menentukan hukuman
+  [hoax_archive_15k] Rekomendasi Sprei Murah oleh Jokowi. ===========[KATEGORI]: Konten dimanipulasi===========[SUMBER]: Tiktok “Promo sprei Rp. 50.000 REKOMENDASI BPK. JOKOWI”===========[PENJELASAN]:Beredar video di Tikt
+  [hoax_archive_15k] Gambar Tangkapan Layar Artikel DEMOCRAZY News “Jokowi Geram pulau Maluku sudah diambil China sebagian”. Gambar tersebut telah disunting pada bagian judul artikel. Faktanya, judul yang asli adalah “Sis
+  [hoax_archive_15k] “The Family MCA dan Saracen, Bisnis Hoaks Serupa tetapi Tak Sama”. Family MCA dan Saracen, Bisnis Hoaks Serupa tetapi Tak SamaAMBARANIE NADIA KEMALA MOVANITAKompas.com – 28/02/2018, 07:55 WIBUjaran ke
+  [hoax_archive_15k] “Zainal mahasiswa yg demo di dpn Gedung DPR”. Yang berada di foto pertama bukan Zainal tetapi Ikhsan, keponakan dari almarhum Zainal Abidin yang meninggal karena diduga berkelahi dengan Polisi setelah
+  [turnbackhoax.id] “Bonus Rp 12 Miliar buat team “Garuda” dikejuaraan AFF 2020″. Harapan Pak @jokowi dan seluruh Rakyat Indonesia semoga menjadi Juara dan Pemenang . @PSSI pacu terus team Garuda Indonesia. .
+  [hoax_archive_15k] “aseng mulai pake no seri mobil china”. Bukan pelat nomor Cina. Pelat nomor yang digunakan oleh pengemudi BMW itu adalah pelat nomor Jepang. Mobil itu dikemudikan oleh seorang mahasiswa berinisial DAN

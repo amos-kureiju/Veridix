@@ -15,12 +15,18 @@ TAG = re.compile(
     r"[\[\(\{]\s*(SALAH|HOAKS|HOAX|DISINFORMASI|MANIPULASI|MISLEADING|FITNAH|KLARIFIKASI|BENAR|FALSE)\s*[\]\)\}]\s*:?",
     re.I,
 )
-# penanda bagian "bantahan" milik situs pemeriksa fakta
+# 1. Penanda potongan bagian akhir (hanya memotong jika ada penanda tegas bantahan)
 DEBUNK_CUT = re.compile(
     r"\b(PENJELASAN\s*[:,-]|FAKTANYA\s*[:,-]|FAKTA SEBENARNYA\s*[:,-]|HASIL CEK FAKTA\s*[:,-]|"
-    r"HASIL PERIKSA FAKTA\s*[:,-]|BERDASARKAN PENELUSURAN\s*[:,-]|SETELAH DITELUSURI\s*[:,-]|"
-    r"HASIL VERIFIKASI\s*[:,-]|PERIKSA FAKTA\s+[A-Za-z\s]+\.|\bMERUPAKAN KONTEN BUATAN AI\b)\b.*",
+    r"BERDASARKAN PENELUSURAN\s*[:,-]|SETELAH DITELUSURI\s*[:,-]|HASIL VERIFIKASI\s*[:,-])\b.*",
     re.I | re.S,
+)
+
+# 2. Pembersih kalimat pengantar debunker di AWAL teks (hanya membuang 1 kalimat stempel debunker)
+DEBUNKER_HEADER = re.compile(
+    r"^\s*hasil\s+(?:periksa|cek)\s+fakta\s+[^\.\n]+(?:\([^\)]+\))?[\.\:\,\-]?\s*"
+    r"(?:(?:informasi|konten|klaim|kabar|video|narasi)\s+tersebut\s+(?:hoaks|hoax|palsu|tidak\s+benar|keliru|disinformasi)[\.\:\,\-]?)?\s*",
+    re.I
 )
 FOOTNOTE = re.compile(r"\bsumber\s*:.*$", re.I | re.S)
 # tag kategori di awal teks, mis. "[BERITA]", "(HASUT)", "[PENIPUAN]": generik, bukan daftar yang disusun dari contoh uji
@@ -41,7 +47,9 @@ def clean(t) -> str:
     t = URL.sub(" ", t)
     t = HTML_TAG.sub(" ", t)
     t = LEADING_TAG.sub("", norm_ws(t))
+    t = DEBUNKER_HEADER.sub("", t)
     t = TAG.sub(" ", t)
+    t = DEBUNK_CUT.sub("", t)
     t = DEBUNK_CUT.sub("", t)
     t = FOOTNOTE.sub("", t)
     return norm_ws(t)

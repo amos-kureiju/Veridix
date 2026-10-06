@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import re
 import os
+os.environ["FLAGS_enable_pir_api"] = "0"   # Matikan PIR engine agar PaddleOCR memakai engine stabil
 
 # --- PERBAIKAN: Baca direktori processed_v2 yang valid ---
 PROCESSED_DIR = "data/processed_v2" if os.path.exists("data/processed_v2") else "../data/processed_v2"
@@ -158,21 +159,27 @@ print("─" * 65)
 
 try:
     from paddleocr import PaddleOCR
-    ocr = PaddleOCR(use_angle_cls=True, lang='id', show_log=False)
+    # Ganti baris inisialisasi PaddleOCR menjadi parameter modern:
+    ocr = PaddleOCR(use_textline_orientation=True, lang="id")
     print("  ✓ PaddleOCR berhasil diinisialisasi (lang='id')")
 
     from PIL import Image, ImageDraw
-    img = Image.new('RGB', (400, 80), color='white')
+    img = Image.new('RGB', (450, 80), color='white')
     draw = ImageDraw.Draw(img)
-    draw.text((10, 20), "Jokowi Bertemu Prabowo di Istana", fill='black')
+    draw.text((10, 25), "Jokowi Bertemu Prabowo di Istana Negara", fill='black')
+    
+    test_img_path = "test_ocr_temp.png"
+    img.save(test_img_path)
+    
+    result = ocr.ocr(test_img_path)
+    if os.path.exists(test_img_path):
+        os.remove(test_img_path)
 
-    img_arr = np.array(img)
-    result = ocr.ocr(img_arr, cls=True)
     if result and result[0]:
         teks_terdeteksi = " ".join([line[1][0] for line in result[0]])
         print(f"  ✓ Tes OCR berhasil: '{teks_terdeteksi}'")
     else:
-        print("  ⚠ OCR tidak mendeteksi teks di gambar tes")
+        print("  ⚠ OCR tidak mendeteksi teks")
 except ImportError:
     print("  ✗ PaddleOCR belum terinstall (Jalankan: pip install paddlepaddle paddleocr)")
 except Exception as e:

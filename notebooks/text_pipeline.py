@@ -1,40 +1,58 @@
 """
-text_pipeline.py
-Satu-satunya tempat aturan pembentukan teks (Single Source of Truth).
-Dipakai oleh notebook dataset (01b), training (03), dan backend inferensi.
+text_pipeline.py — Versi tp-1.3 (Bedah Presisi & Integrasi Menyeluruh)
+Mengintegrasikan perbaikan presisi:
+  - BUANG   : blok metadata === KATEGORI ... ===
+  - BUANG   : teks bantahan jurnalis setelah PENJELASAN:/FAKTANYA:
+  - SIMPAN  : teks narasi/klaim hoaks di antaranya
+  - LENGKAP : memuat clean(), cap_sentences(), dup_title(), build_text()
 """
+
 import html
 import re
 
-PIPELINE_VERSION = "tp-1.2"   # Naik ke 1.2: pembersih pembatas garis === dan metadata KATEGORI
+PIPELINE_VERSION = "tp-1.3"
 
-# ---- pembersihan -----------------------------------------------------------
-TAG = re.compile(
-    r"[\[\(\{]\s*(SALAH|HOAKS|HOAX|DISINFORMASI|MANIPULASI|MISLEADING|FITNAH|KLARIFIKASI|BENAR|FALSE)\s*[\]\)\}]\s*:?",
-    re.I,
+# ── 1. REGEX BEDAH PRESISI (LOGIKA REVIEWER) ────────────────────────────────
+
+# Hapus baris pembatas yang seluruhnya berisi tanda ===
+STANDALONE_DIVIDER = re.compile(r"^={3,}\s*$", re.MULTILINE)
+
+# Hapus blok metadata Mafindo (contoh: === KATEGORI: KONTEN YANG MENYESATKAN ===)
+MAFINFO_META = re.compile(
+    r"={3,}\s*(KATEGORI|KONTEN|STATUS|LABEL)[^\n]*={0,}\n?",
+    re.IGNORECASE
 )
 
-# Pemotong pembatas garis Mafindo/TurnBackHoax (misal: ==========================KATEGORI: ...)
-DIVIDER_CUT = re.compile(r"\s*={3,}.*", re.S)
-
-# Penanda potongan bagian akhir bantahan/vonis jurnalis
+# Potong bagian penjelasan jurnalis (hanya teks setelah kata ini yang dibuang)
 DEBUNK_CUT = re.compile(
-    r"\b(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|FAKTA SEBENARNYA|HASIL CEK FAKTA|"
-    r"BERDASARKAN PENELUSURAN|SETELAH DITELUSURI|HASIL VERIFIKASI|KESIMPULAN|"
-    r"KATEGORI\s*:|INFORMASI MENYESATKAN|KONTEN SUDAH DIMANIPULASI|MENYESATKAN\.\s*FAKTA)\b.*",
-    re.I | re.S,
+    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
+    r"HOAKS ATAU FAKTA\?|KESIMPULAN|ANALISIS)\s*:.*",
+    re.IGNORECASE | re.S
 )
 
-# Pembersih kalimat pengantar debunker di awal teks
+# Pembersih stempel debunker di awal kalimat
 DEBUNKER_HEADER = re.compile(
     r"^\s*hasil\s+(?:periksa|cek)\s+fakta\s+[^\.\n]+(?:\([^\)]+\))?[\.\:\,\-]?\s*"
     r"(?:(?:informasi|konten|klaim|kabar|video|narasi)\s+tersebut\s+(?:hoaks|hoax|palsu|tidak\s+benar|keliru|disinformasi)[\.\:\,\-]?)?\s*",
     re.I
 )
 
-FOOTNOTE = re.compile(r"\bsumber\s*:.*$", re.I | re.S)
+# Hapus label awalan NARASI: (konten klaimnya tetap disimpan)
+NARASI_LABEL = re.compile(
+    r"^(NARASI|KLAIM|INFORMASI YANG BEREDAR)\s*:?\s*",
+    re.IGNORECASE | re.MULTILINE
+)
+
+# Hapus footnote dan URL
+FOOTNOTE = re.compile(r"\(sumber:.*?\)|\[.*?\]|https?://\S+", re.IGNORECASE)
+
+# Tag status awal
+TAG = re.compile(
+    r"\[(HOAKS|SALAH|DISINFORMASI|MANIPULASI|FALSE|BENAR|EDUKASI|HASUT)\]",
+    re.IGNORECASE
+)
+
 LEADING_TAG = re.compile(r"^\s*(?:[\[\(\{][^\]\)\}]{1,25}[\]\)\}]\s*:?\s*)+")
-URL = re.compile(r"https?://\S+|www\.\S+")
 HTML_TAG = re.compile(r"<[^>]+>")
 
 
@@ -42,24 +60,44 @@ def norm_ws(t: str) -> str:
     return re.sub(r"\s+", " ", str(t)).strip()
 
 
-def clean(t) -> str:
-    """Pembersihan minimal yang sama untuk semua kelas. Tidak membuang tanda baca esensial."""
-    if t is None:
+def clean(text: str) -> str:
+    """
+    Pipeline pembersihan bedah presisi. Satu fungsi untuk semua kelas.
+    """
+    if text is None:
         return ""
-    t = html.unescape(str(t))
+    t = html.unescape(str(text))
     if t.strip().lower() in ("nan", "none"):
         return ""
-    t = URL.sub(" ", t)
+
     t = HTML_TAG.sub(" ", t)
     t = LEADING_TAG.sub("", norm_ws(t))
     t = DEBUNKER_HEADER.sub("", t)
-    t = DIVIDER_CUT.sub("", t)       # Memotong garis pembatas === Mafindo
-    t = TAG.sub(" ", t)
+
+    # 1. Potong bagian penjelasan jurnalis di akhir
     t = DEBUNK_CUT.sub("", t)
+
+    # 2. Hapus blok metadata Mafindo (KATEGORI: ...)
+    t = MAFINFO_META.sub(" ", t)
+
+    # 3. Hapus garis pembatas ===
+    t = STANDALONE_DIVIDER.sub(" ", t)
+
+    # 4. Hapus label NARASI:
+    t = NARASI_LABEL.sub("", t)
+
+    # 5. Hapus footnote, URL, dan tag status
     t = FOOTNOTE.sub("", t)
+    t = TAG.sub("", t)
+
     return norm_ws(t)
 
 
+# Alias untuk kompatibilitas jika dipanggil clean_pipeline
+clean_pipeline = clean
+
+
+# ── 2. PEMBENTUKAN TEKS & PENCEGAH JUDUL GANDA ──────────────────────────────
 def _alnum(s: str) -> str:
     return "".join(c for c in s.lower() if c.isalnum())
 
@@ -92,9 +130,14 @@ def ensure_end(text: str) -> str:
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
-def build_text(title, body) -> str:
-    """Judul tepat SATU kali, lalu isi. Sama untuk fakta maupun hoaks."""
-    title, body = clean(title), clean(body)
+def build_text(title: str, body: str) -> str:
+    """
+    Bangun teks final dari judul dan isi.
+    Mencegah jalan pintas judul ganda pada portal berita.
+    """
+    title = clean(str(title)).strip()
+    body = clean(str(body)).strip()
+
     body = strip_leading_title(title, body)
     title = title.rstrip(" .:-–—")
     out = f"{title}. {body}" if (title and body) else (title or body)
@@ -102,7 +145,7 @@ def build_text(title, body) -> str:
 
 
 def cap_sentences(text: str, max_words: int) -> str:
-    """Batas panjang yang sama untuk semua kelas; potong di batas kalimat bila ada."""
+    """Batas panjang yang sama untuk semua kelas; potong di batas kalimat."""
     w = text.split()
     if len(w) <= max_words:
         return text

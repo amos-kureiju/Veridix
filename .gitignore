@@ -37,3 +37,33 @@ frontend-hoax-detector/.vercel/
 # OS Specific
 .DS_Store
 Thumbs.db
+
+# Dependencies / Node Modules
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Python Virtual Environment
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Model AI (Opsional: karena ukurannya 470MB, biasanya tidak di-push ke GitHub, cukup disimpan di Google Drive / Local)
+saved_models/*.pt
+
+# OS Files
+.DS_Store
+Thumbs.db

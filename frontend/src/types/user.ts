@@ -1,0 +1,2 @@
+export interface User { id: string; name: string; email: string; role: "user" | "admin"; avatar?: string }
+export interface UserStats { total: number; hoax: number; feedback_sent: number; feedback_processing: number; today: number }

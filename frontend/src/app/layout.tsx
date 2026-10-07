@@ -1,4 +1,4 @@
-import type { Metadata } from "node_modules/@types/react";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 

@@ -1,12 +1,12 @@
 export interface LimeToken {
     word: string;
     weight: number;
-    influence: "hoax" | "fact";
+    influence: "hoax" | "fact"| string;
 }
 
 export interface DetectionResult {
     id?: string;
-    status: "success" | "rejected" | "error";
+    status: string;
     message?: string;
     data: {
         is_political: boolean;
@@ -27,9 +27,21 @@ export interface DetectionResult {
 
 export interface HistoryItem {
     id: string;
-    text_snippet: string;
+    full_text: string;
     prediction: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI";
     confidence_score: number;
     political_topic: string;
+    created_at: string;
+    inference_time?: number;
+}
+
+export interface FeedbackItem {
+    id: string;
+    detection_id: string;
+    news_snippet: string;
+    model_verdict: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI";
+    user_claim: "HOAKS" | "FAKTA";
+    user_note: string;
+    status: "PENDING" | "REVIEWED" | "RETRAINED";
     created_at: string;
 }

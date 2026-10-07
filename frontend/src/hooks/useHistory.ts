@@ -1,33 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useCallback } from "react";
 import { apiClient as api } from "@/lib/apiClient";
 import type { HistoryItem } from "@/types/detector";
 
 export function useHistory(enabled: boolean) {
     const [items, setItems] = useState<HistoryItem[]>([]);
-    const [q, setQ] = useState("");
-    const [topic, setTopic] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [nonce, setNonce] = useState(0);
+    const [loading, setLoading] = useState<boolean>(false);
 
-    useEffect(() => {
+    const fetchHistory = useCallback(async () => {
         if (!enabled) return;
         setLoading(true);
-        const p = new URLSearchParams();
-        if (q) p.set("q", q);
-        if (topic) p.set("topic", topic);
-        const t = setTimeout(
-            () => api.get<HistoryItem[]>(`/api/history?${p}`).then(setItems).catch(() => setItems([])).finally(() => setLoading(false)),
-            250
-        );
-        return () => clearTimeout(t);
-    }, [enabled, q, topic, nonce]);
+        try {
+            const res = await api.get("/api/v1/history");
+            setItems(res.data || []);
+        } catch {
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [enabled]);
 
-    const remove = async (id: string) => {
-        await api.post(`/api/history/${id}/delete`, {});
-        setItems((l) => l.filter((i) => i.id !== id));
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
+
+    return {
+        items,
+        loading,
+        reload: fetchHistory,
     };
-    const reload = () => setNonce((n) => n + 1);
-
-    return { items, loading, q, setQ, topic, setTopic, remove, reload };
 }

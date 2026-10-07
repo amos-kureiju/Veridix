@@ -4,23 +4,22 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDetection } from "@/hooks/useDetection";
 import { useHistory } from "@/hooks/useHistory";
-import { useState as useReactState } from "react";
 
-// Komponen Layout & Shared yang sudah ada
+// Layout & Komponen Visual
 import UserSidebar from "@/components/layout/UserSidebar";
+import UserTopbar from "@/components/layout/UserTopbar";
 import HeaderStats from "@/components/layout/HeaderStats";
 import GuestBanner from "@/components/shared/GuestBanner";
 
-// Komponen Detector
+// Komponen Deteksi
 import NewsInputForm from "@/components/detector/NewsInputForm";
 import VerdictCard from "@/components/detector/VerdictCard";
 
 export default function Home() {
-    const { user, isGuest, logout } = useAuth();
+    const { user, isGuest } = useAuth();
     const d = useDetection();
     const history = useHistory(!!user);
 
-    // State sederhana untuk kuota tamu (jika belum ada hook khusus, kita kelola lokal)
     const [guestQuota, setGuestQuota] = useState(3);
     const blocked = isGuest && guestQuota === 0;
 
@@ -35,28 +34,41 @@ export default function Home() {
     };
 
     return (
-        <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
-            {/* Sidebar Navigasi User */}
-            <UserSidebar />
+        <div className="flex h-screen bg-[#f1f5f5] text-slate-800 overflow-hidden font-sans">
 
-            {/* Konten Utama */}
-            <main className="flex-1 overflow-y-auto p-8 lg:p-10 space-y-6">
+            {/* 1. Sidebar Hijau Vizora di Kiri */}
+            <UserSidebar guest={isGuest} />
+
+            {/* 2. Area Konten Utama di Kanan */}
+            <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+
+                {/* TOPBAR HEADER VIZORA DI PALING ATAS */}
+                <UserTopbar
+                    title="Dashboard"
+                    subtitle={isGuest ? "Selamat datang di INSPECT-AI (Mode Tamu)" : `Welcome back ${user?.name || "Tony Robert"}`}
+                />
 
                 {/* Banner Tamu jika belum login */}
                 {isGuest && <GuestBanner remainingFreeDetections={guestQuota} />}
 
-                {/* Header Statistik */}
-                <HeaderStats />
+                {/* 4 Kartu Mini Statistik */}
+                <HeaderStats
+                    totalDetections={0}
+                    hoaxCount={0}
+                    feedbackCount={0}
+                    quotaLeft={guestQuota}
+                    isGuest={isGuest}
+                />
 
-                {/* Pesan Error jika ada */}
+                {/* Alert Error jika ada kendala backend */}
                 {d.error && (
-                    <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm text-rose-400">
+                    <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-600">
                         {d.error}
                     </div>
                 )}
 
-                {/* Grid Utama: Form Input di Kiri, Hasil Analisis di Kanan */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Grid Dua Kolom: Input & Hasil */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
                     <NewsInputForm
                         loading={d.loading}
                         blocked={blocked}
@@ -67,6 +79,7 @@ export default function Home() {
                         loading={d.loading}
                     />
                 </div>
+
             </main>
         </div>
     );

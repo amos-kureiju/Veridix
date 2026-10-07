@@ -10,7 +10,6 @@ export interface User {
 }
 
 export function useAuth() {
-    // Sementara set mode guest true agar dashboard langsung bisa dirender
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState<boolean>(true);
 

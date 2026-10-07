@@ -1,35 +1,44 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Info, Bell, Download, ChevronDown, UserCircle, Settings, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+    Menu,
+    Bell,
+    ChevronDown,
+    UserCircle,
+    Settings,
+    LogOut,
+    Cpu,
+    RefreshCw
+} from "lucide-react";
 
 interface UserTopbarProps {
     title?: string;
     subtitle?: string;
     userName?: string;
+    userRole?: string;
     guest?: boolean;
-    showExport?: boolean;
-    onExport?: () => void;
-    onProfile?: () => void;
-    onSettings?: () => void;
+    aiStatus?: "ready" | "syncing";
+    onToggleSidebar?: () => void;
     onLogout?: () => void;
 }
 
 export default function UserTopbar({
-    title = "Deteksi Berita",
-    subtitle = "Masukkan teks atau upload gambar untuk dianalisis",
+    title,
+    subtitle,
     userName = "Amos Manurung",
+    userRole = "USER",
     guest = false,
-    showExport = false,
-    onExport,
-    onProfile,
-    onSettings,
+    aiStatus = "ready",
+    onToggleSidebar,
     onLogout,
 }: UserTopbarProps) {
+    const pathname = usePathname();
+    const router = useRouter();
     const [accountOpen, setAccountOpen] = useState(false);
     const accountRef = useRef<HTMLDivElement>(null);
 
-    // Tutup dropdown akun saat klik di luar area
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
@@ -40,127 +49,131 @@ export default function UserTopbar({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleExport = () => {
-        if (onExport) {
-            onExport();
-        } else {
-            alert("Fitur Export Laporan (PDF/CSV) siap dihubungkan!");
-        }
+    const getRouteInfo = () => {
+        if (title) return { heading: title, sub: subtitle || "" };
+        if (pathname === "/") return { heading: "DASHBOARD", sub: "Deteksi disinformasi teks & tangkapan layar politik" };
+        if (pathname.startsWith("/history")) return { heading: "RIWAYAT DETEKSI", sub: "Histori verifikasi IndoBERT & LIME" };
+        if (pathname.startsWith("/feedback")) return { heading: "FEEDBACK SAYA", sub: "Status evaluasi sanggahan & kandidat retraining" };
+        if (pathname.startsWith("/profile")) return { heading: "PROFIL SAYA", sub: "Kelola profil akun dan keamanan" };
+        if (pathname.startsWith("/settings")) return { heading: "PENGATURAN", sub: "Konfigurasi preferensi sistem" };
+        if (pathname.startsWith("/help")) return { heading: "PUSAT BANTUAN", sub: "Panduan transparansi XAI 4 Lapis" };
+        return { heading: "VERIDIX SYSTEM", sub: "AI Fact Intelligence Platform" };
     };
 
+    const routeInfo = getRouteInfo();
+
     return (
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 mb-5 border-b border-slate-200">
-            {/* Sisi Kiri: Judul Halaman & Subtitle */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-tight">
-                    {title}
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                    {subtitle}
-                </p>
+        <header className="w-full bg-white border-b border-slate-200/80 px-6 py-3.5 flex items-center justify-between select-none shrink-0 shadow-2xs">
+
+            {/* Sisi Kiri: Menu + Pembatas + Judul Halaman */}
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={onToggleSidebar}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition"
+                    title="Toggle Menu"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-2.5">
+                    <span className="text-slate-300 font-light text-lg">|</span>
+                    <div className="leading-tight">
+                        <h1 className="text-sm sm:text-base font-extrabold tracking-wider uppercase text-slate-800 italic">
+                            {routeInfo.heading}
+                        </h1>
+                        {routeInfo.sub && (
+                            <p className="text-[10px] text-slate-400 font-medium hidden md:block">
+                                {routeInfo.sub}
+                            </p>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* Sisi Kanan: Info + Notifikasi + Export (opsional) + Akun */}
-            <div className="flex items-center gap-3">
+            {/* Sisi Kanan: Status AI + Notifikasi + Profil */}
+            <div className="flex items-center gap-3 sm:gap-4">
 
-                {/* Ikon Info */}
+                {/* Status AI Badge */}
+                <div className="hidden sm:flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-300/60 px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide shadow-2xs">
+                    {aiStatus === "syncing" ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                        <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                    <span>SYNC AI</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+
+                {/* Lonceng Notifikasi */}
                 <button
                     type="button"
-                    title="Informasi Sistem"
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 rounded-xl transition"
-                >
-                    <Info className="w-4 h-4" />
-                </button>
-
-                {/* Ikon Lonceng Notifikasi dengan Dot Aktif */}
-                <button
-                    type="button"
+                    className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition"
                     title="Notifikasi"
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 rounded-xl transition relative"
                 >
                     <Bell className="w-4 h-4" />
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full absolute top-2 right-2 ring-2 ring-white" />
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
                 </button>
 
-                {/* Tombol Export — hanya tampil kalau halaman memang butuh (mis. Riwayat) */}
-                {showExport && (
-                    <button
-                        type="button"
-                        onClick={handleExport}
-                        className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition"
-                    >
-                        <span>Export</span>
-                        <Download className="w-3.5 h-3.5" />
-                    </button>
-                )}
+                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-                {/* Separator Garis Tipis */}
-                <div className="h-5 w-px bg-slate-200 mx-1" />
-
-                {/* Tombol Akun */}
+                {/* Profil User */}
                 <div className="relative" ref={accountRef}>
                     <button
                         type="button"
-                        onClick={() => setAccountOpen((prev) => !prev)}
-                        className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-xl hover:bg-slate-200/50 transition"
-                        title="Akun saya"
+                        onClick={() => setAccountOpen(!accountOpen)}
+                        className="flex items-center gap-2.5 p-1 pr-2 rounded-xl hover:bg-slate-100 transition group"
                     >
-                        <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-xs shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-emerald-800 border border-slate-200 text-emerald-100 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                             {guest ? "G" : userName.charAt(0)}
                         </div>
-                        <span className="text-xs font-semibold text-slate-700 hidden sm:inline max-w-[90px] truncate">
-                            {guest ? "Mode Tamu" : userName}
-                        </span>
-                        <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform ${accountOpen ? "rotate-180" : ""
-                                }`}
-                        />
+
+                        <div className="hidden md:flex flex-col text-left leading-tight">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-tight">
+                                {guest ? "MODE TAMU" : userName}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-600 tracking-wider uppercase">
+                                {guest ? "TAMU" : userRole}
+                            </span>
+                        </div>
+
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform ${accountOpen ? "rotate-180" : ""}`} />
                     </button>
 
-                    {/* Dropdown Akun */}
                     {accountOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50">
-                            <div className="px-3 py-2 border-b border-slate-100">
-                                <p className="text-xs font-semibold text-slate-800 truncate">
-                                    {guest ? "Mode Tamu" : userName}
-                                </p>
-                                <p className="text-[10px] text-slate-400 truncate">
-                                    {guest ? "3 Kuota Tersisa" : "User Terdaftar"}
-                                </p>
+                        <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 text-xs text-slate-700 z-50 animate-in fade-in zoom-in-95">
+                            <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                                <p className="font-bold text-slate-800 truncate">{guest ? "Mode Tamu" : userName}</p>
+                                <p className="text-[10px] text-slate-400">{guest ? "3 Kuota Tersisa" : userRole}</p>
                             </div>
+
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setAccountOpen(false);
-                                    onProfile?.();
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition"
+                                onClick={() => { setAccountOpen(false); router.push("/profile"); }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition text-left"
                             >
-                                <UserCircle className="w-4 h-4" />
-                                Profil Saya
+                                <UserCircle className="w-4 h-4 text-slate-400" />
+                                <span>Profil Saya</span>
                             </button>
+
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setAccountOpen(false);
-                                    onSettings?.();
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition"
+                                onClick={() => { setAccountOpen(false); router.push("/settings"); }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition text-left"
                             >
-                                <Settings className="w-4 h-4" />
-                                Pengaturan
+                                <Settings className="w-4 h-4 text-slate-400" />
+                                <span>Pengaturan</span>
                             </button>
+
                             <div className="my-1 border-t border-slate-100" />
+
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setAccountOpen(false);
-                                    onLogout?.();
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition"
+                                onClick={() => { setAccountOpen(false); onLogout?.(); }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 transition text-left"
                             >
                                 <LogOut className="w-4 h-4" />
-                                {guest ? "Masuk ke Akun" : "Keluar"}
+                                <span>{guest ? "Masuk Akun" : "Keluar Akun"}</span>
                             </button>
                         </div>
                     )}

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
-    ShieldAlert,
     Search,
     Newspaper,
     History,
@@ -158,16 +157,25 @@ export default function UserSidebar({
             {/* BAGIAN ATAS: LOGO + SEARCH + MENU */}
             <div className="space-y-5 overflow-y-auto overflow-x-hidden pr-1">
 
-                {/* Brand Header & Collapse Icon */}
+                {/* Brand Header VERIDIX & Collapse Icon */}
                 <div className={`flex items-center pt-1 ${collapsed ? "flex-col gap-2" : "justify-between px-2"}`}>
                     <div className={`flex items-center ${collapsed ? "" : "gap-2.5"}`}>
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shadow-sm shrink-0">
-                            <ShieldAlert strokeWidth={2.25} className="w-[18px] h-[18px] text-emerald-400" />
+                        {/* Wadah Logo Gambar Monogram V */}
+                        <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center p-1.5 shadow-sm shrink-0 backdrop-blur-xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src="/logo.png"
+                                alt="VERIDIX Logo"
+                                className="w-full h-full object-contain drop-shadow-sm"
+                            />
                         </div>
                         {!collapsed && (
                             <div className="leading-tight">
-                                <span className="text-sm font-bold text-white tracking-tight">INSPECT-AI</span>
-                                <p className="text-[10px] text-emerald-400/80 font-medium">Deteksi Hoaks Politik</p>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-sm font-extrabold text-white tracking-wider">VERIDIX</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                </div>
+                                <p className="text-[10px] text-emerald-400/80 font-medium">AI Fact Intelligence</p>
                             </div>
                         )}
                     </div>

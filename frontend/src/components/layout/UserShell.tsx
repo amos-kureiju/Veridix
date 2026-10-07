@@ -1,32 +1,52 @@
-import type { NavKey } from "@/lib/navigation";
-import type { User } from "@/types/user";
-import Footer from "@/components/shared/Footer";
+"use client";
+
 import UserSidebar from "./UserSidebar";
 import UserTopbar from "./UserTopbar";
 
-interface Props {
-    user: User | null;
-    guest: boolean;
-    active: NavKey;
-    title: string;
-    subtitle: string;
-    notif?: number;
-    onLogout: () => void;
+interface UserShellProps {
+    guest?: boolean;
+    userName?: string;
+    userRole?: string;
+    title?: string;
+    subtitle?: string;
+    onLogout?: () => void;
     children: React.ReactNode;
 }
 
-export default function UserShell({ user, guest, active, title, subtitle, notif, onLogout, children }: Props) {
+export default function UserShell({
+    guest = false,
+    userName = "Amos Manurung",
+    userRole = "USER",
+    title,
+    subtitle,
+    onLogout,
+    children,
+}: UserShellProps) {
     return (
-        <div className="min-h-screen bg-[#e3ebe7] lg:p-4">
-            <div className="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white shadow-xl shadow-emerald-900/10 lg:min-h-[calc(100vh-2rem)] lg:rounded-3xl">
-                <UserSidebar user={user} active={active} feedbackBadge={notif} onLogout={onLogout} />
-                <div className="flex min-w-0 flex-1 flex-col">
-                    <UserTopbar title={title} subtitle={subtitle} guest={guest} notif={notif} />
-                    <main className="flex-1 space-y-4 bg-white p-5 lg:p-6">
-                        {children}
-                        <Footer />
-                    </main>
-                </div>
+        // 1. Kunci layar total (h-screen overflow-hidden)
+        <div className="flex h-screen w-full bg-[#f1f5f5] text-slate-800 overflow-hidden font-sans">
+
+            {/* 2. Sidebar Kiri (Menetap permanen) */}
+            <UserSidebar guest={guest} userName={userName} onLogout={onLogout} />
+
+            {/* 3. Kolom Kanan Membentang Penuh */}
+            <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+
+                {/* TOPBAR MENEMPEL PENUH DI ATAS (TIDAK ADA CELAH / BORDER MELAYANG) */}
+                <UserTopbar
+                    title={title}
+                    subtitle={subtitle}
+                    userName={userName}
+                    userRole={userRole}
+                    guest={guest}
+                    onLogout={onLogout}
+                />
+
+                {/* AREA KONTEN (HANYA INI YANG BERGULIR SAAT DI-SCROLL) */}
+                <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 space-y-6">
+                    {children}
+                </main>
+
             </div>
         </div>
     );

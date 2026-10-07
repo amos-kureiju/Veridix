@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useHistory } from "@/hooks/useHistory";
-import UserSidebar from "@/components/layout/UserSidebar";
+import UserSidebar from "@/components/layout/UserShell";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import {
     Search,
@@ -22,6 +22,7 @@ import {
     X
 } from "lucide-react";
 import type { HistoryItem } from "@/types/detector";
+import UserShell from "@/components/layout/UserShell";
 
 export default function HistoryPage() {
     const { user, isGuest } = useAuth();
@@ -119,34 +120,23 @@ export default function HistoryPage() {
     };
 
     return (
-        <div className="flex h-screen bg-[#f1f5f5] text-slate-800 overflow-hidden font-sans">
-
-            {/* 1. Sidebar Navigasi Vizora */}
-            <UserSidebar guest={isGuest} />
-
-            {/* 2. Area Konten Utama */}
-            <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-
-                {/* TOPBAR HEADER */}
-                <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-tight">
-                            Riwayat Deteksi
-                        </h1>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Daftar seluruh berita yang pernah Anda periksa dengan IndoBERT dan LIME.
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleExportCSV}
-                        className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition self-start sm:self-auto"
-                    >
-                        <span>Ekspor CSV</span>
-                        <Download className="w-3.5 h-3.5" />
-                    </button>
-                </header>
+        <UserShell
+            guest={isGuest}
+            userName={user?.name}
+            userRole={user?.role}
+            onLogout={reload}
+        >
+            {/* Tombol Ekspor CSV di Sudut Kanan Atas */}
+            <div className="flex justify-end pb-2">
+                <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs transition"
+                >
+                    <span>Ekspor CSV</span>
+                    <Download className="w-3.5 h-3.5" />
+                </button>
+            </div>
 
                 {/* JIKA USER BERSTATUS TAMU (GUEST BANNER PROTEKSI) */}
                 {isGuest && (
@@ -342,8 +332,6 @@ export default function HistoryPage() {
                     </div>
                 </div>
 
-            </main>
-
             {/* ========================================================= */}
             {/* MODAL LIHAT DETAIL RIWAYAT LENGKAP                        */}
             {/* ========================================================= */}
@@ -410,6 +398,6 @@ export default function HistoryPage() {
                 onCancel={() => setDeleteId(null)}
             />
 
-        </div>
+        </UserShell>
     );
 }

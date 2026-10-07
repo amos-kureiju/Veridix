@@ -3,10 +3,11 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import UserSidebar from "@/components/layout/UserSidebar";
+import UserSidebar from "@/components/layout/UserShell";
 import FeedbackCard from "@/components/detector/FeedbackCard";
 import { FeedbackItem } from "@/types/detector";
 import { Search, Send, Lock } from "lucide-react";
+import UserShell from "@/components/layout/UserShell";
 
 export default function UserFeedbackPage() {
     const { isGuest } = useAuth();
@@ -56,29 +57,17 @@ export default function UserFeedbackPage() {
     }, [dummyFeedbacks, searchTerm, selectedStatus]);
 
     return (
-        <div className="flex h-screen bg-[#f1f5f5] text-slate-800 overflow-hidden font-sans">
-            <UserSidebar guest={isGuest} />
-
-            <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-                {/* Header Topbar */}
-                <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-tight">
-                            Feedback Saya
-                        </h1>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Pantau status evaluasi sanggahan hasil deteksi AI yang Anda ajukan.
-                        </p>
-                    </div>
-
-                    <Link
-                        href="/"
-                        className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition"
-                    >
-                        <span>Deteksi Berita Baru</span>
-                        <Send className="w-3.5 h-3.5" />
-                    </Link>
-                </header>
+        <UserShell guest={isGuest}>
+            {/* Tombol Buat Deteksi Baru */}
+            <div className="flex justify-end pb-2">
+                <Link
+                    href="/"
+                    className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition"
+                >
+                    <span>Deteksi Berita Baru</span>
+                    <Send className="w-3.5 h-3.5" />
+                </Link>
+            </div>
 
                 {/* Guest Banner */}
                 {isGuest && (
@@ -131,7 +120,6 @@ export default function UserFeedbackPage() {
                         ))
                     )}
                 </div>
-            </main>
-        </div>
+        </UserShell>
     );
 }

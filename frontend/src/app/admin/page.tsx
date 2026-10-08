@@ -24,10 +24,10 @@ const PILL = "text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 round
 type Period = "week" | "month" | "year";
 type RegPoint = { label: string; count: number };
 
-const PERIODS: { key: Period; label: string; sub: string }[] = [
-    { key: "week", label: "Minggu", sub: "Pendaftar 7 hari terakhir" },
-    { key: "month", label: "Bulan", sub: "Pendaftar per minggu bulan ini" },
-    { key: "year", label: "Tahun", sub: "Pendaftar per bulan tahun ini" },
+const PERIODS: { key: Period; label: string; sub: string; unit: string }[] = [
+    { key: "week", label: "Minggu", sub: "Pendaftar 7 hari terakhir", unit: "hari" },
+    { key: "month", label: "Bulan", sub: "Pendaftar per minggu bulan ini", unit: "minggu" },
+    { key: "year", label: "Tahun", sub: "Pendaftar per bulan tahun ini", unit: "bulan" },
 ];
 
 /** Data contoh, hanya dipakai bila backend belum mengirim `stats.registrations` */
@@ -53,21 +53,55 @@ export default function AdminDashboardPage() {
     const logs = recentLogs ?? [];
     const chrono = [...logs].reverse(); // lama -> baru
 
-    // 2) Pendaftaran akun baru (filter dinamis)
+    // 1) Pendaftaran akun baru (filter dinamis)
     const [period, setPeriod] = useState<Period>("week");
+    const [hover, setHover] = useState<number | null>(null);
 
     // Backend cukup mengirim: stats.registrations = { week: [...], month: [...], year: [...] }
     const apiReg = (stats as unknown as { registrations?: Partial<Record<Period, RegPoint[]>> }).registrations;
     const apiSeries = apiReg?.[period];
     const isSample = !apiSeries || apiSeries.length === 0;
     const series: RegPoint[] = isSample ? SAMPLE_REG[period] : apiSeries!;
+    const meta = PERIODS.find((p) => p.key === period)!;
 
-    const maxReg = Math.max(...series.map((w) => w.count), 1);
+    const n = series.length;
+    const maxReg = Math.max(...series.map((w) => w.count), 0);
     const totalReg = series.reduce((a, w) => a + w.count, 0);
-    const lastReg = series.length ? series[series.length - 1].count : 0;
-    const prevReg = series.length > 1 ? series[series.length - 2].count : 0;
+    const avgReg = n ? totalReg / n : 0;
+    const peak = series.reduce((best, w) => (w.count > best.count ? w : best), series[0] ?? { label: "-", count: 0 });
+    const lastReg = n ? series[n - 1].count : 0;
+    const prevReg = n > 1 ? series[n - 2].count : 0;
     const regDelta = prevReg > 0 ? ((lastReg - prevReg) / prevReg) * 100 : 0;
-    const dense = series.length > 8; // mode rapat untuk 12 bulan
+
+    // Geometri grafik area
+    const CW = 760, CH = 280, CL = 42, CR = 18, CT = 18, CB = 30;
+    const cInnerW = CW - CL - CR;
+    const cInnerH = CH - CT - CB;
+    const TICKS = 4;
+    const rawStep = Math.max(maxReg, 1) / TICKS;
+    const pow = 10 ** Math.floor(Math.log10(rawStep));
+    const frac = rawStep / pow;
+    const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 5 ? 5 : 10;
+    const stepY = niceFrac * pow;
+    const topY = stepY * TICKS;
+    const cx = (i: number) => (n > 1 ? CL + (i * cInnerW) / (n - 1) : CL + cInnerW / 2);
+    const cy = (v: number) => CT + (1 - v / topY) * cInnerH;
+    const cpts = series.map((w, i) => ({ x: cx(i), y: cy(w.count) }));
+    // Kurva halus (bezier dengan tangen horizontal, tanpa overshoot)
+    const curve = cpts.reduce((d, p, i) => {
+        if (i === 0) return `M${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+        const q = cpts[i - 1];
+        const mx = ((q.x + p.x) / 2).toFixed(1);
+        return `${d} C${mx},${q.y.toFixed(1)} ${mx},${p.y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    }, "");
+    const area = cpts.length
+        ? `${curve} L${cpts[n - 1].x.toFixed(1)},${CT + cInnerH} L${cpts[0].x.toFixed(1)},${CT + cInnerH} Z`
+        : "";
+    const active = hover ?? n - 1;
+    const colW = n > 1 ? cInnerW / (n - 1) : cInnerW;
+    const TW = 132, TH = 46;
+    const tipX = cpts[active] ? Math.min(Math.max(cpts[active].x - TW / 2, CL), CW - CR - TW) : 0;
+    const tipY = cpts[active] ? (cpts[active].y - TH - 14 < CT ? cpts[active].y + 14 : cpts[active].y - TH - 14) : 0;
 
     // Mini bar kartu hoaks (8 log terakhir)
     const miniBars = chrono.slice(-8);
@@ -189,75 +223,151 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* 3. GRAFIK BARU */}
-            <div className="grid grid-cols-1 gap-6">
+            {/* 3. GRAFIK PENGGUNA BARU */}
+            <div className={`${CARD} p-6 sm:p-7`}>
 
-                {/* Pendaftaran akun baru */}
-                <div className={`${CARD} p-6`}>
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className={CHIP}><Users className="w-4 h-4" /></div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900 leading-tight flex items-center gap-2">
-                                    Pendaftaran Akun Baru
-                                    {isSample && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
-                                            Contoh
-                                        </span>
-                                    )}
-                                </h3>
-                                <p className="text-xs text-slate-400 mt-0.5">{PERIODS.find((p) => p.key === period)?.sub}</p>
-                            </div>
-                        </div>
-
-                        {/* Filter dinamis */}
-                        <div className="inline-flex rounded-xl bg-emerald-50 p-1 border border-emerald-100">
-                            {PERIODS.map((p) => (
-                                <button
-                                    key={p.key}
-                                    type="button"
-                                    onClick={() => setPeriod(p.key)}
-                                    className={`px-3 py-1 text-[11px] font-bold rounded-lg transition ${period === p.key
-                                        ? "bg-emerald-700 text-white shadow-sm"
-                                        : "text-emerald-700 hover:bg-emerald-100"
-                                        }`}
-                                >
-                                    {p.label}
-                                </button>
-                            ))}
+                {/* Header + filter */}
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className={CHIP}><Users className="w-4 h-4" /></div>
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-900 leading-tight flex items-center gap-2">
+                                Pendaftaran Akun Baru
+                                {isSample && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                                        Contoh
+                                    </span>
+                                )}
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-0.5">{meta.sub}</p>
                         </div>
                     </div>
 
-                    {/* Ringkasan */}
-                    <div className="mt-4 flex flex-wrap items-baseline gap-3">
-                        <p className="text-2xl font-extrabold text-slate-900 leading-none">{totalReg.toLocaleString("id-ID")}</p>
-                        <span className="text-xs text-slate-400">akun baru</span>
-                        <span className={`text-[11px] font-bold ${regDelta >= 0 ? "text-emerald-700" : "text-slate-500"}`}>
-                            {regDelta >= 0 ? "▲" : "▼"} {Math.abs(regDelta).toFixed(1)}% vs periode sebelumnya
-                        </span>
-                    </div>
-
-                    {/* Bar chart */}
-                    <div className={`mt-5 flex items-end h-40 ${dense ? "gap-1.5" : "gap-3"}`}>
-                        {series.map((w, i) => {
-                            const isLast = i === series.length - 1;
-                            return (
-                                <div key={w.label} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group">
-                                    {!dense && <span className="text-[11px] font-bold text-slate-600">{w.count}</span>}
-                                    <div
-                                        title={`${w.label}: ${w.count} akun baru`}
-                                        style={{ height: `${Math.max((w.count / maxReg) * 100, 6)}%` }}
-                                        className={`w-full rounded-t-lg transition-all duration-700 ${isLast
-                                            ? "bg-gradient-to-t from-emerald-700 to-emerald-500"
-                                            : "bg-emerald-100 group-hover:bg-emerald-200"
-                                            }`}
-                                    />
-                                    <span className="text-[10px] font-semibold text-slate-400">{w.label}</span>
-                                </div>
-                            );
-                        })}
+                    <div className="inline-flex rounded-xl bg-emerald-50 p-1 border border-emerald-100">
+                        {PERIODS.map((p) => (
+                            <button
+                                key={p.key}
+                                type="button"
+                                onClick={() => { setPeriod(p.key); setHover(null); }}
+                                className={`px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition ${period === p.key
+                                    ? "bg-emerald-700 text-white shadow-sm"
+                                    : "text-emerald-700 hover:bg-emerald-100"
+                                    }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
+
+                {/* Ringkasan */}
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-2xl bg-emerald-50/70 border border-emerald-100 px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total akun baru</p>
+                        <div className="mt-1 flex items-baseline gap-2">
+                            <span className="text-2xl font-extrabold text-slate-900 leading-none">{totalReg.toLocaleString("id-ID")}</span>
+                            <span className={`text-[11px] font-bold ${regDelta >= 0 ? "text-emerald-700" : "text-slate-500"}`}>
+                                {regDelta >= 0 ? "▲" : "▼"} {Math.abs(regDelta).toFixed(1)}%
+                            </span>
+                        </div>
+                    </div>
+                    <div className="rounded-2xl bg-emerald-50/70 border border-emerald-100 px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Rata-rata per {meta.unit}</p>
+                        <span className="mt-1 block text-2xl font-extrabold text-slate-900 leading-none">{avgReg.toFixed(1)}</span>
+                    </div>
+                    <div className="rounded-2xl bg-emerald-50/70 border border-emerald-100 px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Puncak</p>
+                        <div className="mt-1 flex items-baseline gap-2">
+                            <span className="text-2xl font-extrabold text-slate-900 leading-none">{peak.count}</span>
+                            <span className="text-[11px] font-semibold text-emerald-700">{peak.label}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Grafik area halus + tooltip */}
+                <svg
+                    viewBox={`0 0 ${CW} ${CH}`}
+                    className="mt-5 w-full h-auto"
+                    role="img"
+                    aria-label="Grafik pendaftaran akun baru"
+                    onMouseLeave={() => setHover(null)}
+                >
+                    <defs>
+                        <linearGradient id="vx-reg" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.32" />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Grid + sumbu Y */}
+                    {Array.from({ length: TICKS + 1 }, (_, i) => i * stepY).map((v) => (
+                        <g key={v}>
+                            <line x1={CL} x2={CW - CR} y1={cy(v)} y2={cy(v)} className="stroke-slate-200/80" strokeDasharray={v === 0 ? "0" : "3 5"} />
+                            <text x={CL - 8} y={cy(v) + 3} textAnchor="end" fontSize="10" className="fill-slate-400">{Number.isInteger(v) ? v : v.toFixed(1)}</text>
+                        </g>
+                    ))}
+
+                    {/* Garis panduan titik aktif */}
+                    {cpts[active] && (
+                        <line x1={cpts[active].x} x2={cpts[active].x} y1={CT} y2={CT + cInnerH} className="stroke-emerald-300" strokeWidth="1.2" strokeDasharray="4 4" />
+                    )}
+
+                    <path d={area} fill="url(#vx-reg)" />
+                    <path d={curve} fill="none" className="stroke-emerald-600" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+
+                    {/* Titik: kecil biasa, besar saat aktif */}
+                    {cpts.map((p, i) => (
+                        <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r={i === active ? 6 : n > 8 ? 2.5 : 3.5}
+                            strokeWidth={i === active ? 3 : 2}
+                            className={i === active ? "stroke-white fill-emerald-700" : "stroke-emerald-500 fill-white"}
+                            style={{ transition: "r .15s ease" }}
+                        />
+                    ))}
+
+                    {/* Label sumbu X */}
+                    {series.map((w, i) => (
+                        <text
+                            key={w.label}
+                            x={cx(i)}
+                            y={CH - 8}
+                            textAnchor="middle"
+                            fontSize="10.5"
+                            fontWeight={i === active ? 700 : 500}
+                            className={i === active ? "fill-emerald-800" : "fill-slate-400"}
+                        >
+                            {w.label}
+                        </text>
+                    ))}
+
+                    {/* Tooltip */}
+                    {hover !== null && cpts[hover] && (
+                        <g transform={`translate(${tipX},${tipY})`} pointerEvents="none">
+                            <rect width={TW} height={TH} rx="10" className="fill-emerald-950" opacity="0.96" />
+                            <text x="12" y="19" fontSize="10" className="fill-emerald-300" fontWeight="600">{series[hover].label}</text>
+                            <text x="12" y="36" fontSize="13" className="fill-white" fontWeight="800">
+                                {series[hover].count.toLocaleString("id-ID")} akun baru
+                            </text>
+                        </g>
+                    )}
+
+                    {/* Area hover per kolom */}
+                    {series.map((w, i) => (
+                        <rect
+                            key={w.label}
+                            x={cx(i) - colW / 2}
+                            y={CT}
+                            width={colW}
+                            height={cInnerH}
+                            fill="transparent"
+                            onMouseEnter={() => setHover(i)}
+                            style={{ cursor: "crosshair" }}
+                        />
+                    ))}
+                </svg>
             </div>
 
             {/* 4. TABEL LOG */}

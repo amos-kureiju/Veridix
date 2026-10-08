@@ -135,6 +135,8 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                     tokens={explanation?.tokens}
                     topHoax={explanation?.top_hoax_words}
                     topFact={explanation?.top_fact_words}
+                    prediction={prediction}
+                    confidenceScore={confidence_score}
                 />
             </div>
 

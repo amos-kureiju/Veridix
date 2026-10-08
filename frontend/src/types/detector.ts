@@ -1,7 +1,7 @@
 export interface LimeToken {
     word: string;
     weight: number;
-    influence: "hoax" | "fact"| string;
+    influence: "hoax" | "fact" | string;
 }
 
 export interface DetectionResult {

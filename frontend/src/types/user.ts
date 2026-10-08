@@ -21,10 +21,13 @@ export interface ChangePasswordPayload {
     confirm_password: string;
 }
 
+// PENGATURAN SISTEM & PARAMETER RISET AI (NLP / XAI)
 export interface UserSettings {
-    auto_ocr_preview: boolean;      // Human-in-the-loop OCR aktif
-    show_lime_chart: boolean;       // Tampilkan bar chart bobot LIME
-    notify_on_feedback: boolean;    // Notifikasi jika sanggahan di-review admin
-    default_export_format: "PDF" | "CSV";
-    language: "id" | "en";
+    auto_ocr_preview: boolean;      // Human-in-the-loop: Editor teks hasil PaddleOCR sebelum inferensi
+    show_lime_chart: boolean;       // Transparansi XAI: Tampilkan grafik batang bobot numerik
+    lime_num_features?: 3 | 5 | 7;  // Parameter LIME: Batas jumlah fitur kata teratas (Top-k kata pendorong)
+    min_text_length?: number;       // Guardrail Teks: Ambang batas minimum karakter (misal: 30 / 50 karakter)
+    notify_on_feedback: boolean;    // Notifikasi sistem saat koreksi feedback ditinjau admin
+    default_export_format: "PDF" | "CSV"; // Preferensi format dokumen laporan audit
+    language: "id" | "en";          // Bahasa antarmuka sistem
 }

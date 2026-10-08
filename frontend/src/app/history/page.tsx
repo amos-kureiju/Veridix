@@ -138,199 +138,199 @@ export default function HistoryPage() {
                 </button>
             </div>
 
-                {/* JIKA USER BERSTATUS TAMU (GUEST BANNER PROTEKSI) */}
-                {isGuest && (
-                    <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
-                                <Lock className="w-4 h-4" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-amber-900">Mode Tamu Aktif</p>
-                                <p className="text-[11px] text-amber-700 mt-0.5">
-                                    Riwayat di bawah adalah data pratinjau demo. Masuk atau daftar akun agar setiap deteksi Anda tersimpan otomatis.
-                                </p>
-                            </div>
+            {/* JIKA USER BERSTATUS TAMU (GUEST BANNER PROTEKSI) */}
+            {isGuest && (
+                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
+                            <Lock className="w-4 h-4" />
                         </div>
-                        <Link
-                            href="/auth/login"
-                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl transition shadow-xs shrink-0"
+                        <div>
+                            <p className="text-xs font-bold text-amber-900">Mode Tamu Aktif</p>
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                                Riwayat di bawah adalah data pratinjau demo. Masuk atau daftar akun agar setiap deteksi Anda tersimpan otomatis.
+                            </p>
+                        </div>
+                    </div>
+                    <Link
+                        href="/auth/login"
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl transition shadow-xs shrink-0"
+                    >
+                        Masuk Akun
+                    </Link>
+                </div>
+            )}
+
+            {/* BARIS FILTER & PENCARIAN */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+
+                    {/* Input Pencarian */}
+                    <div className="relative md:col-span-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Cari kata kunci..."
+                            className="w-full bg-[#f8fafc] border border-slate-200 pl-8 pr-3 py-2 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                        />
+                    </div>
+
+                    {/* Filter Vonis */}
+                    <div>
+                        <select
+                            value={selectedVerdict}
+                            onChange={(e) => setSelectedVerdict(e.target.value)}
+                            className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
                         >
-                            Masuk Akun
-                        </Link>
+                            <option value="ALL">Semua Vonis</option>
+                            <option value="HOAKS">Vonis: HOAKS</option>
+                            <option value="FAKTA">Vonis: FAKTA</option>
+                            <option value="PERLU KONFIRMASI">Vonis: PERLU KONFIRMASI</option>
+                        </select>
                     </div>
-                )}
 
-                {/* BARIS FILTER & PENCARIAN */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-
-                        {/* Input Pencarian */}
-                        <div className="relative md:col-span-1">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Cari kata kunci..."
-                                className="w-full bg-[#f8fafc] border border-slate-200 pl-8 pr-3 py-2 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                            />
-                        </div>
-
-                        {/* Filter Vonis */}
-                        <div>
-                            <select
-                                value={selectedVerdict}
-                                onChange={(e) => setSelectedVerdict(e.target.value)}
-                                className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
-                            >
-                                <option value="ALL">Semua Vonis</option>
-                                <option value="HOAKS">Vonis: HOAKS</option>
-                                <option value="FAKTA">Vonis: FAKTA</option>
-                                <option value="PERLU KONFIRMASI">Vonis: PERLU KONFIRMASI</option>
-                            </select>
-                        </div>
-
-                        {/* Filter Sub-Topik */}
-                        <div>
-                            <select
-                                value={selectedTopic}
-                                onChange={(e) => setSelectedTopic(e.target.value)}
-                                className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
-                            >
-                                <option value="ALL">Semua Sub-Topik</option>
-                                <option value="KPU">KPU & Pemilu</option>
-                                <option value="DPR">DPR & Parlemen</option>
-                                <option value="Kebijakan">Kebijakan & Bansos</option>
-                                <option value="Pilpres">Pilpres / Pemilu</option>
-                            </select>
-                        </div>
-
-                        {/* Filter Waktu */}
-                        <div>
-                            <select
-                                value={selectedTime}
-                                onChange={(e) => setSelectedTime(e.target.value)}
-                                className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
-                            >
-                                <option value="ALL">Semua Waktu</option>
-                                <option value="TODAY">Hari Ini</option>
-                                <option value="7DAYS">7 Hari Terakhir</option>
-                                <option value="30DAYS">30 Hari Terakhir</option>
-                            </select>
-                        </div>
-
+                    {/* Filter Sub-Topik */}
+                    <div>
+                        <select
+                            value={selectedTopic}
+                            onChange={(e) => setSelectedTopic(e.target.value)}
+                            className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
+                        >
+                            <option value="ALL">Semua Sub-Topik</option>
+                            <option value="KPU">KPU & Pemilu</option>
+                            <option value="DPR">DPR & Parlemen</option>
+                            <option value="Kebijakan">Kebijakan & Bansos</option>
+                            <option value="Pilpres">Pilpres / Pemilu</option>
+                        </select>
                     </div>
+
+                    {/* Filter Waktu */}
+                    <div>
+                        <select
+                            value={selectedTime}
+                            onChange={(e) => setSelectedTime(e.target.value)}
+                            className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
+                        >
+                            <option value="ALL">Semua Waktu</option>
+                            <option value="TODAY">Hari Ini</option>
+                            <option value="7DAYS">7 Hari Terakhir</option>
+                            <option value="30DAYS">30 Hari Terakhir</option>
+                        </select>
+                    </div>
+
                 </div>
+            </div>
 
-                {/* TABEL DATA RIWAYAT */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr className="border-b border-slate-100 bg-[#f8fafc]/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                                    <th className="py-3 px-4">Cuplikan Berita</th>
-                                    <th className="py-3 px-4">Sub-Topik</th>
-                                    <th className="py-3 px-4">Vonis Model</th>
-                                    <th className="py-3 px-4">Keyakinan</th>
-                                    <th className="py-3 px-4">Waktu</th>
-                                    <th className="py-3 px-4 text-right">Aksi</th>
+            {/* TABEL DATA RIWAYAT */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr className="border-b border-slate-100 bg-[#f8fafc]/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                                <th className="py-3 px-4">Cuplikan Berita</th>
+                                <th className="py-3 px-4">Sub-Topik</th>
+                                <th className="py-3 px-4">Vonis Model</th>
+                                <th className="py-3 px-4">Keyakinan</th>
+                                <th className="py-3 px-4">Waktu</th>
+                                <th className="py-3 px-4 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-12 text-slate-400">
+                                        Tidak ada riwayat deteksi yang sesuai dengan filter.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="text-center py-12 text-slate-400">
-                                            Tidak ada riwayat deteksi yang sesuai dengan filter.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredData.map((item) => {
-                                        const isHoax = item.prediction === "HOAKS";
-                                        const isFact = item.prediction === "FAKTA";
+                            ) : (
+                                filteredData.map((item) => {
+                                    const isHoax = item.prediction === "HOAKS";
+                                    const isFact = item.prediction === "FAKTA";
 
-                                        return (
-                                            <tr key={item.id} className="hover:bg-slate-50/60 transition group">
+                                    return (
+                                        <tr key={item.id} className="hover:bg-slate-50/60 transition group">
 
-                                                {/* Cuplikan Teks */}
-                                                <td className="py-3.5 px-4 font-medium text-slate-800 max-w-xs md:max-w-md truncate">
-                                                    {item.text_snippet}
-                                                </td>
+                                            {/* Cuplikan Teks */}
+                                            <td className="py-3.5 px-4 font-medium text-slate-800 max-w-xs md:max-w-md truncate">
+                                                {item.text_snippet}
+                                            </td>
 
-                                                {/* Sub-Topik */}
-                                                <td className="py-3.5 px-4">
-                                                    <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-medium border border-slate-200/60">
-                                                        {item.political_topic}
-                                                    </span>
-                                                </td>
+                                            {/* Sub-Topik */}
+                                            <td className="py-3.5 px-4">
+                                                <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-medium border border-slate-200/60">
+                                                    {item.political_topic}
+                                                </span>
+                                            </td>
 
-                                                {/* Vonis */}
-                                                <td className="py-3.5 px-4">
-                                                    <span
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isHoax
-                                                                ? "bg-rose-50 text-rose-600 border border-rose-200/60"
-                                                                : isFact
-                                                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
-                                                                    : "bg-amber-50 text-amber-600 border border-amber-200/60"
-                                                            }`}
+                                            {/* Vonis */}
+                                            <td className="py-3.5 px-4">
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isHoax
+                                                        ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                                                        : isFact
+                                                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
+                                                            : "bg-amber-50 text-amber-600 border border-amber-200/60"
+                                                        }`}
+                                                >
+                                                    {isHoax && <XCircle className="w-3.5 h-3.5" />}
+                                                    {isFact && <CheckCircle className="w-3.5 h-3.5" />}
+                                                    {!isHoax && !isFact && <AlertTriangle className="w-3.5 h-3.5" />}
+                                                    {item.prediction}
+                                                </span>
+                                            </td>
+
+                                            {/* Keyakinan */}
+                                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
+                                                {(item.confidence_score * 100).toFixed(1)}%
+                                            </td>
+
+                                            {/* Waktu */}
+                                            <td className="py-3.5 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                                                {new Date(item.created_at).toLocaleDateString("id-ID", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                })}
+                                            </td>
+
+                                            {/* Aksi */}
+                                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDetailItem(item)}
+                                                        className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                                                        title="Lihat Detail Hasil"
                                                     >
-                                                        {isHoax && <XCircle className="w-3.5 h-3.5" />}
-                                                        {isFact && <CheckCircle className="w-3.5 h-3.5" />}
-                                                        {!isHoax && !isFact && <AlertTriangle className="w-3.5 h-3.5" />}
-                                                        {item.prediction}
-                                                    </span>
-                                                </td>
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeleteId(item.id)}
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                                        title="Hapus Riwayat"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
 
-                                                {/* Keyakinan */}
-                                                <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
-                                                    {(item.confidence_score * 100).toFixed(1)}%
-                                                </td>
-
-                                                {/* Waktu */}
-                                                <td className="py-3.5 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                                                    {new Date(item.created_at).toLocaleDateString("id-ID", {
-                                                        day: "numeric",
-                                                        month: "short",
-                                                        year: "numeric",
-                                                    })}
-                                                </td>
-
-                                                {/* Aksi */}
-                                                <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setDetailItem(item)}
-                                                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
-                                                            title="Lihat Detail Hasil"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setDeleteId(item.id)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                                                            title="Hapus Riwayat"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Footer Tabel */}
-                    <div className="py-3 px-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Menampilkan {filteredData.length} entri riwayat</span>
-                        <span>INSPECT-AI History Audit</span>
-                    </div>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
+
+                {/* Footer Tabel */}
+                <div className="py-3 px-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Menampilkan {filteredData.length} entri riwayat</span>
+                    <span>INSPECT-AI History Audit</span>
+                </div>
+            </div>
 
             {/* ========================================================= */}
             {/* MODAL LIHAT DETAIL RIWAYAT LENGKAP                        */}

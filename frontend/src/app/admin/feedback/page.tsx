@@ -1,8 +1,18 @@
-export default function Page() {
+"use client";
+
+import RetrainTable from "@/components/admin/RetrainTable";
+
+export default function AdminFeedbackPage() {
     return (
-        <div className="p-8 text-slate-300 bg-slate-950 min-h-screen">
-            <h1 className="text-xl font-bold">Halaman Dalam Pengembangan</h1>
-            <p className="text-sm text-slate-500 mt-2">Modul ini akan segera dihubungkan ke sistem backend.</p>
+        <div className="space-y-6 pb-6">
+            <div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">Kelola Masukan & Human Feedback</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                    Kurasi sanggahan masyarakat terhadap vonis IndoBERT untuk memperkaya dataset retraining (Active Learning).
+                </p>
+            </div>
+
+            <RetrainTable />
         </div>
     );
 }

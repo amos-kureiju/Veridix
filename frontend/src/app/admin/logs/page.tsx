@@ -1,8 +1,21 @@
-export default function Page() {
+"use client";
+
+import { useAdminDashboard } from "@/hooks/useAdminDashboard";
+import GlobalLogsTable from "@/components/admin/GlobalLogsTable";
+
+export default function AdminLogsPage() {
+    const { recentLogs, loading } = useAdminDashboard();
+
     return (
-        <div className="p-8 text-slate-300 bg-slate-950 min-h-screen">
-            <h1 className="text-xl font-bold">Halaman Dalam Pengembangan</h1>
-            <p className="text-sm text-slate-500 mt-2">Modul ini akan segera dihubungkan ke sistem backend.</p>
+        <div className="space-y-6 pb-6">
+            <div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">Audit Log Deteksi Global</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                    Seluruh rekaman inferensi teks dan gambar politik dari sesi pengguna terdaftar dan tamu.
+                </p>
+            </div>
+
+            <GlobalLogsTable logs={recentLogs} />
         </div>
     );
 }

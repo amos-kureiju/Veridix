@@ -1,92 +1,108 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Highlighter, History, ScanText } from "lucide-react";
+import { ArrowLeft, Cpu, Eye, ScanLine } from "lucide-react";
 
-export const metadata = { title: "VERIDIX · Deteksi Hoaks Politik" };
-
-const features = [
-    { icon: ScanText, title: "Teks dan screenshot", desc: "Tempel berita atau unggah gambar, teks dibaca otomatis." },
-    { icon: Highlighter, title: "Penjelasan LIME", desc: "Lihat kata yang mendorong hasil hoaks atau fakta." },
-    { icon: History, title: "Riwayat dan laporan", desc: "Simpan hasil, bagikan tautan, unduh PDF." },
+const FEATURES = [
+    { icon: Cpu, label: "IndoBERT Fine-Tuned" },
+    { icon: Eye, label: "Transparansi LIME XAI" },
+    { icon: ScanLine, label: "Ekstraksi Teks PaddleOCR" },
 ];
-
-function Logo({ onLight = false }: { onLight?: boolean }) {
-    return (
-        <span className="flex items-center gap-3">
-            <span className={`grid h-11 w-11 place-items-center rounded-2xl p-1.5 ring-1 ${onLight ? "bg-[#0b2520] ring-emerald-900/40" : "bg-white/10 ring-white/20"}`}>
-                <Image src="/logo.png" alt="Logo VERIDIX" width={44} height={44} priority className="h-full w-full object-contain" />
-            </span>
-            <span className="leading-tight">
-                <span className={`block text-lg font-bold tracking-wide ${onLight ? "text-slate-900" : "text-white"}`}>VERIDIX</span>
-                <span className={`block text-xs ${onLight ? "text-slate-500" : "text-emerald-200/70"}`}>Deteksi hoaks politik</span>
-            </span>
-        </span>
-    );
-}
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex min-h-dvh bg-[#f4f7f6]">
-            {/* Panel merek: hanya tampil di layar lebar */}
-            <aside className="relative hidden w-[46%] overflow-hidden bg-[#0b2520] text-emerald-50 lg:flex xl:w-1/2">
-                <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl" />
-                <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-teal-400/10 blur-3xl" />
-                <div aria-hidden className="absolute inset-0 opacity-[0.07] [background-image:radial-gradient(#fff_1px,transparent_1px)] [background-size:22px_22px]" />
+        <div className="grid min-h-screen grid-cols-1 bg-slate-50 lg:grid-cols-2">
 
-                <div className="relative z-10 flex w-full flex-col justify-between p-10 xl:p-14">
-                    <Logo />
+            {/* ============ PANEL KIRI: BRANDING (hanya layar lg+) ============ */}
+            <aside className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0b2520] via-[#0f4a3c] to-[#1f7a63] p-12 text-white lg:sticky lg:top-0 lg:flex lg:h-screen xl:p-16">
 
-                    <div className="max-w-md">
-                        <h2 className="text-3xl font-semibold leading-tight text-white xl:text-4xl">
-                            Periksa berita politik sebelum Anda membagikannya.
-                        </h2>
-                        <p className="mt-3 text-sm leading-relaxed text-emerald-100/70">
-                            Deteksi hoaks berbasis IndoBERT dengan penjelasan kata pemicu, riwayat pribadi, dan laporan yang bisa dibagikan.
-                        </p>
+                {/* Dekorasi: grid halus + lingkaran transparan */}
+                <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        backgroundImage:
+                            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+                        backgroundSize: "36px 36px",
+                    }}
+                />
+                <div className="pointer-events-none absolute -left-32 top-1/3 h-[420px] w-[420px] rounded-full bg-white/[0.04]" />
+                <div className="pointer-events-none absolute -bottom-40 -right-24 h-[460px] w-[460px] rounded-full bg-emerald-300/10" />
 
-                        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-                            <div className="mb-3 flex items-center justify-between">
-                                <span className="text-xs font-medium text-emerald-200/70">Contoh hasil analisis</span>
-                                <span className="rounded-full bg-rose-400/15 px-2.5 py-1 text-xs font-bold text-rose-300 ring-1 ring-rose-300/30">HOAKS · 93.4%</span>
-                            </div>
-                            <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
-                                {["viral", "bocor", "terbongkar"].map((w) => <span key={w} className="rounded-md bg-rose-400/20 px-2 py-1 text-rose-200">{w}</span>)}
-                                {["resmi", "konferensi"].map((w) => <span key={w} className="rounded-md bg-emerald-400/20 px-2 py-1 text-emerald-200">{w}</span>)}
-                            </div>
-                            <div className="space-y-2 text-xs">
-                                <div className="flex items-center gap-3"><span className="w-10">Hoaks</span><div className="h-1.5 flex-1 rounded-full bg-white/10"><div className="h-1.5 w-[93%] rounded-full bg-rose-400" /></div><span className="w-10 text-right">93.4%</span></div>
-                                <div className="flex items-center gap-3"><span className="w-10">Fakta</span><div className="h-1.5 flex-1 rounded-full bg-white/10"><div className="h-1.5 w-[7%] rounded-full bg-emerald-400" /></div><span className="w-10 text-right">6.6%</span></div>
-                            </div>
-                        </div>
+                {/* Brand: logo + nama */}
+                <div className="relative flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0b2520] p-2.5 shadow-lg ring-1 ring-white/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/logo.png" alt="VERIDIX Logo" className="h-full w-full object-contain" />
                     </div>
+                    <div className="leading-tight">
+                        <span className="block text-2xl font-extrabold tracking-wide">VERIDIX</span>
+                        <span className="mt-0.5 block text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                            Deteksi Hoaks Politik
+                        </span>
+                    </div>
+                </div>
 
-                    <ul className="space-y-3">
-                        {features.map(({ icon: Icon, title, desc }) => (
-                            <li key={title} className="flex items-start gap-3">
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20"><Icon size={17} /></span>
-                                <span className="text-sm"><b className="font-medium text-white">{title}</b><span className="block text-xs text-emerald-100/60">{desc}</span></span>
+                {/* Headline */}
+                <div className="relative">
+                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-300">
+                        Platform Cek Fakta Berbasis AI
+                    </p>
+                    <h2 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight xl:text-5xl 2xl:text-6xl">
+                        Verifikasi Berita
+                        <span className="block text-emerald-300">Lebih Cerdas.</span>
+                    </h2>
+                    <p className="mt-6 max-w-md text-[15px] leading-relaxed text-emerald-100/75">
+                        Sistem deteksi disinformasi politik yang menggabungkan IndoBERT, penjelasan LIME, dan OCR gambar dalam satu platform terpadu.
+                    </p>
+
+                    <ul className="mt-10 space-y-4">
+                        {FEATURES.map(({ icon: Icon, label }) => (
+                            <li key={label} className="flex items-center gap-4">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-emerald-300 backdrop-blur">
+                                    <Icon size={18} />
+                                </span>
+                                <span className="text-[15px] font-semibold text-emerald-50">{label}</span>
                             </li>
                         ))}
                     </ul>
                 </div>
+
+                {/* Status */}
+                <div className="relative">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-medium backdrop-blur">
+                        <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                        </span>
+                        Sistem aktif &amp; siap inferensi
+                    </span>
+                </div>
             </aside>
 
-            {/* Area formulir */}
-            <main className="flex min-w-0 flex-1 flex-col">
-                <header className="flex items-center justify-between px-5 py-4 sm:px-8">
-                    <Link href="/" className="lg:hidden"><Logo onLight /></Link>
-                    <Link href="/" className="ml-auto text-sm font-medium text-slate-500 transition hover:text-emerald-700">
-                        Lanjut sebagai tamu →
+            {/* ============ PANEL KANAN: LOGO + FORM ============ */}
+            <main className="flex min-h-screen flex-col px-6 py-6 sm:px-10">
+                <div className="flex justify-end">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                        <ArrowLeft size={14} /> Beranda
                     </Link>
-                </header>
-                <div className="flex flex-1 items-center justify-center px-5 pb-8 sm:px-8">
-                    <div className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-emerald-900/5 sm:p-8">
-                        {children}
-                    </div>
                 </div>
-                <footer className="px-5 pb-5 text-center text-xs text-slate-400">
-                    © VERIDIX · Hasil berbasis pola bahasa, bukan pengganti verifikasi faktual.
-                </footer>
+
+                <div className="flex flex-1 flex-col items-center justify-center py-8">
+                    {/* Badge logo besar */}
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border-[3px] border-emerald-500 bg-[#0b2520] p-4 shadow-xl shadow-emerald-900/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/logo.png" alt="VERIDIX Logo" className="h-full w-full object-contain" />
+                    </div>
+                    {/* Nama — tampil di mobile saat panel kiri disembunyikan */}
+                    <p className="mt-3 text-lg font-extrabold tracking-[0.25em] text-slate-900 lg:hidden">VERIDIX</p>
+
+                    <div className="mt-8 w-full max-w-md">{children}</div>
+                </div>
+
+                <p className="pt-2 text-center text-xs text-slate-400">
+                    © 2026 VERIDIX · Hasil AI bukan pengganti verifikasi faktual.
+                </p>
             </main>
         </div>
     );

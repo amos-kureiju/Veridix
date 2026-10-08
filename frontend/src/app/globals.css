@@ -12,24 +12,33 @@ body {
     min-height: 100vh;
 }
 
+/* Tempel di globals.css (ganti definisi .auth-* lama) */
+
 @layer components {
+
+    /* Label dengan jarak bawah (dipakai di semua form auth) */
     .auth-label {
-        @apply mb-1.5 block text-sm font-medium text-slate-700;
+        @apply mb-2 block text-[11px] font-bold uppercase tracking-widest text-slate-700;
+    }
+
+    /* Label tanpa margin — untuk baris label + tautan (mis. "Lupa kata sandi?") */
+    .auth-label-plain {
+        @apply text-[11px] font-bold uppercase tracking-widest text-slate-700;
     }
 
     .auth-icon {
-        @apply pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400;
+        @apply pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400;
     }
 
     .auth-input {
-        @apply w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10;
+        @apply w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-12 pr-4 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10;
     }
 
     .auth-btn {
-        @apply inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f3b30] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-[#145042] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-600/30 disabled:cursor-not-allowed disabled:opacity-60;
+        @apply flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f7a63] px-4 py-3.5 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-emerald-700/25 transition hover:bg-[#186652] hover:shadow-emerald-700/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
     }
 
     .auth-btn-ghost {
-        @apply inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50;
+        @apply flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50;
     }
 }

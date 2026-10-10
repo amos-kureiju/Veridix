@@ -288,27 +288,6 @@ curl -X POST http://localhost:8000/api/v1/detect/text \
   -d '{"text": "GEMPAR!! KPU resmi membatalkan hasil pemilu, segera sebarkan!"}'
 ```
 
-### Contoh Response
-
-```json
-{
-  "status": "success",
-  "data": {
-    "is_political": true,
-    "prediction": "HOAX",
-    "confidence_score": 0.934,
-    "inference_time_seconds": 1.42,
-    "entities_detected": ["KPU"],
-    "explanation": {
-      "base_score": 0.51,
-      "tokens": [
-        {"word": "segera sebarkan", "weight": 0.62, "influence": "HOAX"},
-        {"word": "KPU", "weight": -0.15, "influence": "FACT"}
-      ]
-    }
-  }
-}
-```
 ---
 
 ## 🧪 Testing

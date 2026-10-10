@@ -1,13 +1,13 @@
 """
-text_pipeline.py — Versi tp-1.5 (Protokol Reviewer Resmi)
-Pembaruan:
-  - T1: PIPELINE_VERSION = "tp-1.5"
-  - T2: DATELINE stripper (membuang TEMPO.CO, CNN Indonesia agar tidak jadi shortcut)
-  - T2: UNBRACKETED_TAG stripper (membuang HASUT:, KLARIFIKASI:)
-  - T2: BOILER stripper (membuang ADVERTISEMENT, baca juga:)
-  - T3: Pembersihan clean() bertahap tanpa merusak baris baru (\n)
-  - T4: strip_leading_title() dengan pencarian jendela geser (pos = b.find)
-  - T5: Pemisahan dup_title_strict (duplikasi harafiah) dan dup_title_para (parafrasa)
+text_pipeline.py — Versi tp-1.5
+Perubahan dari tp-1.4:
+  1. clean(): baris baru dipertahankan sampai akhir (norm_ws hanya di akhir).
+  2. MAFINFO_META / STANDALONE_DIVIDER presisi (narasi hoaks tidak terpotong).
+  3. NARASI_LABEL wajib berpenanda ':' / '-' ("Klaim Presiden ..." tidak dirusak).
+  4. UNBRACKETED_TAG ("HASUT: ...", "KLARIFIKASI: ..."), DATELINE ("TEMPO.CO, Jakarta -"),
+     BOILER ("ADVERTISEMENT", label "Lihat Juga :") dibuang untuk SEMUA kelas.
+  5. strip_leading_title(): cari judul di dekat awal isi (bukan hanya prefiks persis).
+  6. C1 dipisah: dup_title_strict (artefak pipeline, harafiah) vs dup_title_para (parafrasa judul-lead).
 """
 
 import html
@@ -15,59 +15,67 @@ import re
 
 PIPELINE_VERSION = "tp-1.5"
 
-# ── 1. REGEX PRESISI PROTOKOL REVIEWER ──────────────────────────────────────
+# ── 1. REGEX ────────────────────────────────────────────────────────────────
+
+# Blok metadata Mafindo: === KATEGORI: KONTEN YANG MENYESATKAN ===
+MAFINFO_META = re.compile(
+    r"={3,}\s*(?:KATEGORI|KONTEN|STATUS|LABEL)\b[^=]{0,120}={3,}\s*",
+    re.IGNORECASE,
+)
+
+# Sisa deretan === di mana pun posisinya
+STANDALONE_DIVIDER = re.compile(r"={3,}")
+
+# Bagian penjelasan pemeriksa fakta di akhir teks
+DEBUNK_CUT = re.compile(
+    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
+    r"HOAKS ATAU FAKTA\?|KESIMPULAN|ANALISIS)\s*:.*",
+    re.IGNORECASE | re.S,
+)
+
+# Stempel debunker di awal teks
+DEBUNKER_HEADER = re.compile(
+    r"^\s*hasil\s+(?:periksa|cek)\s+fakta\s+[^\.\n]+(?:\([^\)]+\))?[\.\:\,\-]?\s*"
+    r"(?:(?:informasi|konten|klaim|kabar|video|narasi)\s+tersebut\s+"
+    r"(?:hoaks|hoax|palsu|tidak\s+benar|keliru|disinformasi)[\.\:\,\-]?)?\s*",
+    re.I,
+)
 
 # Label wajib berpenanda ":" / "-" agar "Klaim Presiden ..." tidak dirusak
 NARASI_LABEL = re.compile(
     r"^\s*(?:narasi(?:\s+(?:pada\s+)?(?:postingan|unggahan|di\s+(?:facebook|whatsapp)))?"
     r"|klaim|informasi\s+yang\s+beredar)\b\s*[:\-–—]\s*",
-    re.IGNORECASE | re.MULTILINE
+    re.I | re.M,
 )
 
+# Awalan framing judul (dipakai hanya untuk PERBANDINGAN judul vs isi, tidak mengubah judul)
 FRAMING_PREFIX = re.compile(
     r"^\s*(?:(?:berita|artikel)\s+\S+(?:\s+\S+){0,2}?\s+tentang|breaking\s+news|video|foto|gambar|"
-    r"tangkapan\s+layar|pesan\s+berantai|berita|artikel|informasi|gawat)\b\s*!*\s*[:\-–—\"'\u201c\u201d]?\s*",
-    re.IGNORECASE
+    r"tangkapan\s+layar|pesan\s+berantai|berita|artikel|informasi|gawat)\b\s*!*\s*"
+    r"[:\-–—\"'\u201c\u201d]?\s*",
+    re.I,
 )
 
 # Tag tanpa kurung: "HASUT: ...", "KLARIFIKASI: ..."
 UNBRACKETED_TAG = re.compile(
     r"^\s*(?:HASUT|DISINFORMASI|MISINFORMASI|HOAKS|HOAX|SALAH|FALSE|KLARIFIKASI)\s*:\s*",
-    re.IGNORECASE
+    re.I,
 )
 
-# Tanda tangan sumber di awal isi (jalan pintas sumber = label yang wajib dibuang)
+# Tanda tangan sumber di awal isi (jalan pintas sumber = label)
 DATELINE = re.compile(
     r"^\s*(?:[A-Za-z .]{2,30},\s*)?(?i:TEMPO\.CO|CNN\s+Indonesia|KOMPAS\.com)"
     r"(?:\s*,\s*[A-Za-z .]{2,30})?\s*(?:--|[-–—])\s*"
 )
 
+# Sisa antarmuka portal. ADVERTISEMENT peka huruf besar agar kata biasa tidak ikut terhapus.
 BOILER = re.compile(
-    r"\b(?:ADVERTISEMENT|SCROLL TO CONTINUE WITH CONTENT)\b|\b(?:lihat|baca)\s+juga\s*:",
-    re.IGNORECASE
+    r"\b(?:ADVERTISEMENT|SCROLL TO CONTINUE WITH CONTENT)\b|(?i:\b(?:lihat|baca)\s+juga\s*:)"
 )
 
-# Hapus blok metadata Mafindo (=== KATEGORI ... ===)
-MAFINFO_META = re.compile(
-    r"={3,}\s*(?:KATEGORI|KONTEN|STATUS|LABEL)\b[^=]{0,120}={3,}\s*",
-    re.IGNORECASE
-)
-
-STANDALONE_DIVIDER = re.compile(r"={3,}")
-
-DEBUNK_CUT = re.compile(
-    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
-    r"HOAKS ATAU FAKTA\?|KESIMPULAN|ANALISIS)\s*:.*",
-    re.IGNORECASE | re.S
-)
-
-DEBUNKER_HEADER = re.compile(
-    r"^\s*hasil\s+(?:periksa|cek)\s+fakta\s+[^\.\n]+(?:\([^\)]+\))?[\.\:\,\-]?\s*"
-    r"(?:(?:informasi|konten|klaim|kabar|video|narasi)\s+tersebut\s+(?:hoaks|hoax|palsu|tidak\s+benar|keliru|disinformasi)[\.\:\,\-]?)?\s*",
-    re.I
-)
-
+# Footnote, kurung siku, dan URL
 FOOTNOTE = re.compile(r"\(sumber:.*?\)|\[.*?\]|https?://\S+", re.IGNORECASE)
+
 LEADING_TAG = re.compile(r"^\s*(?:[\[\(\{][^\]\)\}]{1,25}[\]\)\}]\s*:?\s*)+")
 HTML_TAG = re.compile(r"<[^>]+>")
 
@@ -77,7 +85,7 @@ def norm_ws(t: str) -> str:
 
 
 def clean(text: str) -> str:
-    """Urutan clean() sesuai T3 protokol reviewer."""
+    """Pembersihan. Baris baru dipertahankan selama regex bekerja, dipadatkan di akhir."""
     if text is None:
         return ""
     t = html.unescape(str(text))
@@ -86,14 +94,14 @@ def clean(text: str) -> str:
 
     t = HTML_TAG.sub(" ", t)
     t = LEADING_TAG.sub("", t)
-    t = UNBRACKETED_TAG.sub("", t)      # T3 baru
-    t = DATELINE.sub("", t)             # T3 baru (hapus TEMPO.CO, dsb.)
+    t = UNBRACKETED_TAG.sub("", t)
+    t = DATELINE.sub("", t)
     t = DEBUNKER_HEADER.sub("", t)
     t = DEBUNK_CUT.sub("", t)
     t = MAFINFO_META.sub(" ", t)
     t = STANDALONE_DIVIDER.sub(" ", t)
     t = NARASI_LABEL.sub("", t)
-    t = BOILER.sub(" ", t)              # T3 baru
+    t = BOILER.sub(" ", t)
     t = FOOTNOTE.sub("", t)
     return norm_ws(t)
 
@@ -101,7 +109,7 @@ def clean(text: str) -> str:
 clean_pipeline = clean
 
 
-# ── 2. PEMBENTUKAN TEKS & SLIDING TITLE STRIPPER ─────────────────────────────
+# ── 2. PEMBENTUKAN TEKS & PENCEGAH JUDUL GANDA ──────────────────────────────
 def _alnum(s: str) -> str:
     return "".join(c for c in s.lower() if c.isalnum())
 
@@ -117,14 +125,13 @@ def _drop_alnum_prefix(s: str, n: int) -> str:
 
 
 def strip_leading_title(title: str, body: str, max_repeat: int = 3, max_prefix: int = 30) -> str:
-    """T4: Cari judul di dekat awal isi menggunakan jendela geser."""
+    """Buang pengulangan HARAFIAH judul di dekat awal isi (toleran awalan <= max_prefix karakter alnum)."""
     body = NARASI_LABEL.sub("", body.strip())
     t = _alnum(FRAMING_PREFIX.sub("", title.strip()))
     if len(t) < 8:
         t = _alnum(title)
     if not t:
         return body
-
     for _ in range(max_repeat):
         b = _alnum(body)
         if not b or b == t:
@@ -143,6 +150,7 @@ def ensure_end(text: str) -> str:
 
 
 def build_text(title: str, body: str) -> str:
+    """Teks final dari judul dan isi, tanpa judul ganda harafiah."""
     title = clean(str(title)).strip()
     body = clean(str(body)).strip()
 
@@ -156,6 +164,7 @@ def build_text(title: str, body: str) -> str:
 
 
 def cap_sentences(text: str, max_words: int) -> str:
+    """Batas panjang; potong di batas kalimat."""
     w = text.split()
     if len(w) <= max_words:
         return text
@@ -165,12 +174,12 @@ def cap_sentences(text: str, max_words: int) -> str:
 
 
 def has_leading_tag(t) -> bool:
-    return bool(LEADING_TAG.match(html.unescape(str(t)))) or bool(UNBRACKETED_TAG.match(html.unescape(str(t))))
+    return bool(LEADING_TAG.match(html.unescape(str(t))))
 
 
-# ── 3. T5: PEMISAHAN C1 HARAFIAT VS PARAFRASA ────────────────────────────────
+# ── 3. DETEKTOR AUDIT (C1) ──────────────────────────────────────────────────
 def dup_title_strict(t: str) -> bool:
-    """Artefak pipeline: kalimat pertama diulang harafiah di awal sisa teks."""
+    """Artefak pipeline: kalimat pertama diulang HARAFIAH di awal sisa teks."""
     parts = re.split(r"(?<=[.!?])\s+", str(t).strip(), maxsplit=1)
     if len(parts) < 2:
         return False
@@ -179,7 +188,7 @@ def dup_title_strict(t: str) -> bool:
 
 
 def dup_title_para(t: str) -> bool:
-    """Overlap token >= 0.70 (menangkap parafrasa wajar jurnalisme)."""
+    """Kemiripan token kalimat pertama vs awal sisa teks >= 0,70 (bisa parafrasa jurnalistik wajar)."""
     t = str(t).strip()
     parts = re.split(r"(?<=[.!?])\s+", t, maxsplit=1)
     if len(parts) < 2:
@@ -193,4 +202,4 @@ def dup_title_para(t: str) -> bool:
     return overlap >= 0.70
 
 
-dup_title = dup_title_para
+dup_title = dup_title_para      # alias agar kode lama tetap jalan

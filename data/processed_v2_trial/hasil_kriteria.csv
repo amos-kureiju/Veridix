@@ -1,0 +1,9 @@
+kriteria,nilai,ambang,lulus
+C1 judul ganda harafiah [train],0.11627906976744186,5.0,True
+C1 judul ganda harafiah [val],0.0,5.0,True
+C1 judul ganda harafiah [dev_test],0.0,5.0,True
+C2 KS panjang kata,0.051537070524412254,0.1,True
+C3 berakhir tanda baca,0.0,5.0,True
+C4 akurasi fitur panjang (dev_test),0.6938775510204082,0.6,False
+C5 grup melintasi split,0.0,0.0,True
+C6 selisih proporsi sub-topik,0.9041591320072317,2.0,True

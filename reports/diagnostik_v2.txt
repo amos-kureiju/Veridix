@@ -1,92 +1,92 @@
-train=3,985 dev_test=568 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
+train=4,073 dev_test=581 | kolom: ['id', 'text', 'title', 'body', 'label', 'sub_topic', 'source', 'group_id', 'date']
 
 [1] Akurasi probe linier per bagian teks:
                  bagian  akurasi_%
-           teks lengkap      92.43
-            hanya JUDUL      86.80
-hanya ISI (tanpa judul)      91.90
-            8 kata awal      85.92
-          8 kata tengah      75.18
-           8 kata akhir      76.94
- isi, tanpa 8 kata awal      87.50
+           teks lengkap      92.60
+            hanya JUDUL      88.64
+hanya ISI (tanpa judul)      93.46
+            8 kata awal      86.23
+          8 kata tengah      76.08
+           8 kata akhir      79.17
+ isi, tanpa 8 kata awal      88.81
 
 [2a] Kata-vonis per label (train, % teks):
-               fakta_%  hoaks_%  selisih
-hoax              0.05     1.71     1.66
-klarifikasi       0.35     1.81     1.46
-palsu             0.10     1.20     1.10
-tidak benar       0.05     0.70     0.65
-disinformasi      0.00     0.25     0.25
-hoaks             0.35     0.55     0.20
-bohong            0.05     0.25     0.20
-kominfo           0.10     0.25     0.15
-penipuan          0.15     0.30     0.15
-periksa fakta     0.00     0.00     0.00
+              fakta_%  hoaks_%  selisih
+hoax             0.05     2.11     2.06
+klarifikasi      0.39     1.67     1.28
+palsu            0.00     1.13     1.13
+tidak benar      0.05     0.79     0.74
+bohong           0.00     0.34     0.34
+faktanya         0.10     0.29     0.19
+hoaks            0.34     0.49     0.15
+kominfo          0.10     0.25     0.15
+disinformasi     0.05     0.10     0.05
+penipuan         0.10     0.15     0.05
 
 [2b] Token paling timpang di 8 kata awal (min 20 kemunculan):
   condong HOAKS:
-    token  hoaks_%  fakta_%  log_odds
-  artikel      3.6      0.1      4.26
-   gambar      2.9      0.1      4.06
-tangkapan      2.7      0.1      3.99
- whatsapp      4.0      0.1      3.69
- berjudul      1.5      0.1      3.40
-    layar      2.7      0.1      3.30
-    video      9.6      0.4      3.17
-     bpjs      1.1      0.1      3.09
-     akun      4.5      0.3      2.89
-     foto      5.7      0.4      2.79
-    surat      4.3      0.3      2.66
- facebook      1.3      0.1      2.57
+      token  hoaks_%  fakta_%  log_odds
+   whatsapp      3.6      0.0      4.30
+    artikel      3.0      0.0      4.13
+     gambar      2.3      0.0      3.83
+  tangkapan      2.2      0.0      3.81
+   berjudul      1.4      0.0      3.37
+      video      9.5      0.3      3.32
+   ternyata      1.3      0.0      3.26
+     corona      1.1      0.0      3.14
+      layar      2.3      0.1      3.14
+   lowongan      1.1      0.0      3.09
+menggunakan      1.1      0.0      3.09
+    tentang      1.0      0.0      3.04
   condong FAKTA:
-    token  hoaks_%  fakta_%  log_odds
-      ruu      0.1      2.7     -3.97
-    bahas      0.1      1.5     -3.37
- pengamat      0.1      1.5     -3.37
-   kritik      0.1      1.4     -3.33
-      pkb      0.1      1.4     -3.33
-      ppp      0.1      1.4     -3.33
-     yudo      0.1      1.4     -3.30
-  politik      0.4     10.1     -3.22
-reshuffle      0.1      1.2     -3.13
-    pakar      0.1      1.2     -3.13
-  dinilai      0.1      1.1     -3.04
-   bentuk      0.1      1.1     -3.04
+   token  hoaks_%  fakta_%  log_odds
+     ruu      0.0      1.9     -3.66
+   bahas      0.0      1.6     -3.50
+ politik      0.3      8.9     -3.41
+     pkb      0.0      1.5     -3.40
+   rkuhp      0.0      1.2     -3.18
+    yudo      0.0      1.1     -3.14
+ dinilai      0.0      1.1     -3.14
+   bakal      0.1      3.1     -3.05
+  lantik      0.0      1.0     -3.05
+  ungkap      0.1      2.1     -3.05
+     ppp      0.1      1.2     -2.49
+pengamat      0.1      1.0     -2.35
 
 [3] Leave-one-source-out: latih tanpa sumber S, ukur recall kelas S pada teks S (dev_test + train sumber itu):
   sumber_ditahan  label    n  recall_%
-cnnindonesia.com      0  596     83.05
-hoax_archive_15k      1  666     73.42
-   komdigi.go.id      1   44     79.55
-      kompas.com      0  378     74.60
-        tempo.co      0 1303     20.64
- turnbackhoax.id      1 1566     35.70
+cnnindonesia.com      0  601     85.52
+hoax_archive_15k      1  651     75.58
+   komdigi.go.id      1   42     78.57
+      kompas.com      0  381     73.75
+        tempo.co      0 1345     22.30
+ turnbackhoax.id      1 1634     32.99
     Catatan: kelas sumber yang ditahan masih punya sumber lain di data latih; ini probe, bukan bukti generalisasi sejati.
 
 [4] Akurasi pohon per SATU fitur permukaan (dev_test) dan rata-rata per label (train):
              fitur  akurasi_%  rata2_fakta  rata2_hoaks
-       pct_kapital       63.6       10.189       18.937
-n_titik_tanya_seru       62.7        3.332        4.162
-           n_kutip       62.1        0.501        0.714
-            n_koma       61.6        2.166        1.409
- karakter_per_kata       60.2        7.140        6.955
-            n_kata       57.4       38.775       38.379
-        n_karakter       53.7      278.351      267.857
-           n_angka       50.0        3.442        4.281
-    Semua fitur bersama (pohon kedalaman 4): 71.0%
+n_titik_tanya_seru       65.7        3.418        4.188
+            n_koma       62.8        2.186        1.461
+ karakter_per_kata       61.4        7.158        6.951
+       pct_kapital       60.8       10.083       18.382
+           n_kutip       59.9        0.537        0.678
+            n_kata       55.4       39.694       38.763
+        n_karakter       53.0      285.880      269.982
+           n_angka       51.8        3.615        4.446
+    Semua fitur bersama (pohon kedalaman 4): 75.0%
 
 [5] Contoh acak (baca dan nilai wajar-tidaknya pembentukan teks):
 --- label 0 ---
-  [kompas.com] Ketidakpastian Politik Trump Bikin Dollar AS Melemah. Nilai tukar dollar AS melemah pada Senin (31/7/2017), bahkan hingga hampir menyentuh level terendah dalam dua tahun terhadap euro. Pelemahan ini s
-  [tempo.co] Survei Kepuasan Pemerintahan Presiden Jokowi, Poltracking: Bidang Pendidikan dan Kesehatan Terbaik. 27 November 2022 lalu, dan sampel dalam survei ini adalah 1220 responden, dengan margin of error ± 2
-  [tempo.co] Top Nasional: Moeldoko Jawab Polemik Wadas dan Ganjar Minta Maaf. kejar oleh masyarakat yang menginginkan tanahnya dilakukan pengukuran. Makanya kami amankan ke sini. Hari ini akan kita kembalikan ke 
-  [tempo.co] Prabowo Gandeng Muhaimin, Pakar Politik Anggap Strategi Gerindra Ambil 13,5 Juta Pemilih PKB. cawapres, namun kami tetap buka komunikasi dengan parpol lain," kata Jazilul di Jakarta, Senin, 20 Juni 20
-  [tempo.co] Kondisi Terkini Ade Armando, Luka Serius dan Muntah Darah. kacir akibat serangan itu. Polisi sempat menembakkan beberapa kali gas air mata untuk membubarkan massa.Polisi memastikan akan mengusut aksi 
-  [tempo.co] Megawati Contohkan Makanan Tanpa Minyak Goreng: Pepes hingga Masakan Sunda. ibu itu apakah hanya menggoreng. Sampai begitu rebutannya," kata Megawati. Sikap Megawati itu mendapat kecaman dari berbagai
+  [tempo.co] Jokowi Ajak Masyarakat Hadapi 2022 dengan Semangat Baru. commerce, misalnya, mencapai nilai 24,8 miliar dolar AS tahun ini," ujarnya di akun media sosial instagram @jokowi.
+  [kompas.com] Jokowi dan Purnawirawan TNI Bahas Kondisi Politik dan Keamanan. Presiden Joko Widodo dan para purnawirawan TNI membahas kondisi bangsa terkini saat bertemu di Istana Merdeka Jakarta, Jumat (31/5/2019)
+  [tempo.co] Haedar Nashir Minta Menteri Tak Manfaatkan Jabatan untuk Pemilu 2024. masing," ucap dia.
+  [tempo.co] Kapolri Mutasi 215 Pati Polisi: Penggantian Wakalemdiklat hingga Kapolda Sulbar. Kapolri Jenderal Listyo Sigit Prabowo memutasi dan merotasi 215 perwira polisi dalam rangka naik jabatan dan pensiun, s
+  [cnnindonesia.com] Ketua Komisi X Sebut Penyebaran Radikalisme di Kampus Nyata. berbasis teman sebaya. Menurutnya, setiap mahasiswa bisa saling mengawasi dan mengingatkan jika melihat perubahan perilaku temannya.Huda me
+  [tempo.co] 4 Petinggi ACT Dijerat Pasal Berlapis. perusahaan baru sebagai cangkang dari perusahaan ACT, ini didalami,” kata Whisnu di Bareskrim Polri, Kamis 14 Juli 2022.Penyidik mengendus yayasan ini menggunaka
 --- label 1 ---
-  [hoax_archive_15k] Gambar tangkapan layar artikel berjudul “Pernah Diberhentikan Tidak Hormat, Prabowo Lantas kenapa harus dianugrahi kehormatan diberi naik pangkat jendral!! lucu.”. Pernah Diberhentikan Tidak Hormat, P
-  [turnbackhoax.id] Wacana Revisi Undang-Undang Kewarganegaraan. UU Dwi Kewarganegaraan yang akan dipercepat disahkan justru akan memudahkan China kuasai Indonesia dan pribumi makin terjajah. Dengan Dwi Warga negara hany
-  [turnbackhoax.id] Skema Kewaspadaan Umat : Ahok Diangkat Menjadi Wakil Presiden Lalu Menjadi Presiden. 1. Narasi postingan : Skema kewaspadaan umat. Jangan bodoh hidup di dunia. Mereka berstrategi, mengapa kita tidak? 
-  [hoax_archive_15k] CNBC Indonesia Tayangkan Berita “Presiden Cina : Tidak Ada Satu Negara Pun yang Bisa Kalahkan Israel”. Presiden Cina : Tidak Ada Satu Negara Pun Yang Bisa Kalahkan Israel.
-  [turnbackhoax.id] Yusril Buat Pernyataan “Jokowi Jangan Jadi Presiden Kalau Begini Caranya” Pasca Menjadi Kuasa Hukum Jokowi – Ma’ruf. 1. Haduhh ni orang belum pernah ngerasain setruk kali yee , unggah akun Facebook Da
-  [turnbackhoax.id] Awan Berbentuk Angka 2 di Depok Jelang Pilkada 2020. lanjutkan.
+  [turnbackhoax.id] Mantan Komisioner KPU Wahyu Setiawan Adalah Keturunan PKI. Copas Irianti Djuremi Reinke Tak usah heran, terkejut, atau heboh kalau Wahyu Setiawan adalah anak dari SLAMET, sebab memang kakeknya adalah 
+  [turnbackhoax.id] Pembicaraan Aa Gym dengan Panglima TNI, Jendral Gatot Nurmantyo. Obrolan Aa Gym Dengan Panglima TNI Gatot Nurmantyo Sesaat Sebelum ILC : Jenderal : Ustadz, saya bangga menjadi muslim, melihat aksi dem
+  [turnbackhoax.id] Masjid di Jerman Diteror Surat Kebencian Anti Islam pada 6 November 2020. Jerman, Muslim Obsession Sebuah masjid di kota Hufingen, Jerman barat daya pada Jumat (6/11/2020) menerima surat kebencian ant
+  [turnbackhoax.id] TERIAK JOKOWI DUA PERIODE, LELAKI INI DIHAJAR WARGA, BONYOK DEHHH…. CEBONG GAK TAU SIKON Sudah tau rakyat kesulitan antri buat beli gas Eeeeeee, si cebong malah promosi teriak2 Jokowi dua periode Dan 
+  [turnbackhoax.id] Tentara Australia Menyerah kepada Pasukan Indonesia. TEPAT MALAM INI!!TENTARA AUSTRALIA TIBA TIBA LAKUKAN INI DI HADAPAN TNI..!
+  [hoax_archive_15k] “Aliran Komunis & Gerakan PKI Bangkit Lewat PDIP”. Lebih jauh, Prijanto mengatakan, istilah petugas partai yang disampaikan Ketua Umum PDIP Megawati Soekarnoputri kepada Jokowi juga dinilai modus komu

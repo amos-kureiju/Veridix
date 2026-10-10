@@ -14,3 +14,9 @@
   - Deviasi diterima dan dipertahankan tanpa melakukan rekayasa/manipulasi tanda baca sintetis pada data.
   - Perbedaan ini dicatat secara transparan sebagai karakteristik intrinsik korpus terbuka (jurnalisme berita taat PUEBI vs narasi media sosial).
   - Ketahanan model terhadap tanda baca akan diuji secara independen pada tahap uji diagnostik kontrafaktual (`dev_test.csv`) dan evaluasi teks gambar PaddleOCR.
+
+  ### Keputusan Strata Penyeimbangan (Pre-registered Decision Rule)
+Pemilihan strata penyeimbangan Coarsened Exact Matching (CEM) ditentukan berdasarkan pohon keputusan apriori berikut:
+1. **Preset B (sub_topic + len_bin + year_bin):** Dipilih jika menghasilkan ukuran data latih (train) ≥ 1.500 pasang seimbang, untuk mengontrol confound zaman secara simultan.
+2. **Preset C (sub_topic + len_bin + year_bin dengan LEN_MATCH_TRUNC = True):** Dipilih jika Preset B menghasilkan < 1.500 pasang, dengan memotong panjang fakta mengikuti sebaran hoaks pada sub-topik yang sama.
+3. **Preset A (sub_topic + len_bin):** Dipilih hanya jika Preset C tetap menghasilkan < 1.500 pasang, dan konsekuensi ketimpangan representasi tahun (confound zaman 2022) dicatat secara terbuka sebagai keterbatasan korpus observasional di Bab 5.

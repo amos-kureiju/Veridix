@@ -152,6 +152,26 @@ log("1e_judul_duplikat", raw)
 
 # ── 3. BENTUK TEKS ───────────────────────────────────────────────────────────
 raw["title_c"] = raw.title.map(tp.clean)
+# ── NORMALISASI DESKRIPTOR & TANDA KUTIP PEMBUNGKUS (ATURAN APRIORI REVIEWER) ──
+UNWRAP = True
+DESC = re.compile(
+    r'^\W*(?:(?:video|foto|gambar|screenshot|tangkapan\s+layar|tangkap\s+layar|sampul|pesan\s+berantai'
+    r'|artikel(?:\s+(?!berjudul)\S+){0,3}?\s+berjudul|berita(?:\s+\S+){0,2}?\s+tentang)\b'
+    r'|artikel(?:\s+\S+){0,3}?\s+(?=[“"]))\W*', re.I
+)
+
+def norm_title(t):
+    c = tp.clean(t); s = c
+    for _ in range(4):
+        n = DESC.sub("", s, count=1).strip()
+        if not n or n == s: break
+        s = n
+    if UNWRAP and not re.search(r'[“”"]', s.strip('“”" ')):
+        s = s.strip('“”" .')
+    return s or c
+
+# Terapkan normalisasi judul secara simetris untuk semua kelas sebelum dibentuk
+raw["title"] = raw.title.map(norm_title)
 raw["body_c"]  = [tp.strip_leading_title(t, tp.clean(b)) for t, b in zip(raw.title_c, raw.body)]
 raw["text"]    = [tp.build_text(t, b) for t, b in zip(raw.title, raw.body)]
 raw["n_words_raw"] = raw.text.str.split().str.len()

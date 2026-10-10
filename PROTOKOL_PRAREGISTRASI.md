@@ -20,3 +20,12 @@ Pemilihan strata penyeimbangan Coarsened Exact Matching (CEM) ditentukan berdasa
 1. **Preset B (sub_topic + len_bin + year_bin):** Dipilih jika menghasilkan ukuran data latih (train) ≥ 1.500 pasang seimbang, untuk mengontrol confound zaman secara simultan.
 2. **Preset C (sub_topic + len_bin + year_bin dengan LEN_MATCH_TRUNC = True):** Dipilih jika Preset B menghasilkan < 1.500 pasang, dengan memotong panjang fakta mengikuti sebaran hoaks pada sub-topik yang sama.
 3. **Preset A (sub_topic + len_bin):** Dipilih hanya jika Preset C tetap menghasilkan < 1.500 pasang, dan konsekuensi ketimpangan representasi tahun (confound zaman 2022) dicatat secara terbuka sebagai keterbatasan korpus observasional di Bab 5.
+
+### Keputusan Desain Pra-Pembekuan: Normalisasi Deskriptor Judul & Tanda Kutip (UNWRAP)
+* **Tanggal Pencatatan**: 10 Oktober 2026
+* **Temuan Empiris**:
+  - Prefiks deskriptif editorial Mafindo (`video`, `foto`, `gambar`, `tangkapan layar`, dsb.) ditemukan asimetris: 17,4% pada hoaks vs 0,3% pada fakta.
+  - Tanda kutip pembungkus judul (`“...”`) ditemukan asimetris ekstrem: 17,8% pada hoaks (47,1% pada hoax_archive) vs 0,5% pada fakta (selisih 17,4 poin persentase).
+* **Aturan Apriori**: Karena selisih proporsi tanda kutip > 10 poin, parameter `UNWRAP = True` dan pembersihan bertingkat `DESC` diaktifkan secara simetris untuk seluruh kelas.
+* **Dasar Justifikasi**: Teks masukan nyata dari PaddleOCR (poster/meme/tangkapan layar) di dunia nyata memuat isi klaim murni, bukan deskripsi metadata editor pemeriksa fakta.
+* **Prosedur**: Dijalankan tepat satu kali di folder trial, lalu hasilnya langsung dibekukan.

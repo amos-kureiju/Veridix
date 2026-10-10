@@ -39,7 +39,7 @@
   "python": "3.13.5",
   "pandas": "3.0.6",
   "numpy": "2.3.5",
-  "created": "2026-10-10T20:01:57",
+  "created": "2026-10-10T23:12:58",
   "raw_dir": "data/raw",
   "all_criteria_passed": false
 }

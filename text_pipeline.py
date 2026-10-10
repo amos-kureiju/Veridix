@@ -1,40 +1,66 @@
 """
-text_pipeline.py
-Satu-satunya tempat aturan pembentukan teks (Single Source of Truth).
-Dipakai oleh notebook dataset (01b), training (03), dan backend inferensi.
+text_pipeline.py — Versi tp-1.4 (Final, Steril, & Rapi)
+Perbaikan:
+  1. Baris baru (\n) dipertahankan saat clean(), norm_ws() dipanggil di akhir.
+  2. MAFINFO_META dan STANDALONE_DIVIDER presisi (narasi hoaks tidak terpotong).
+  3. NARASI_LABEL dikunci di awal baris (tidak memotong kata 'klaim' di tengah kalimat).
+  4. strip_leading_title() menangani awalan framing (Video/Foto/Tangkapan Layar).
+  5. build_text() kebal terhadap duplikasi judul identik.
 """
+
 import html
 import re
 
-PIPELINE_VERSION = "tp-1.2"   # Naik ke 1.2: pembersih pembatas garis === dan metadata KATEGORI
+PIPELINE_VERSION = "tp-1.4"
 
-# ---- pembersihan -----------------------------------------------------------
-TAG = re.compile(
-    r"[\[\(\{]\s*(SALAH|HOAKS|HOAX|DISINFORMASI|MANIPULASI|MISLEADING|FITNAH|KLARIFIKASI|BENAR|FALSE)\s*[\]\)\}]\s*:?",
-    re.I,
+# ── 1. REGEX PRESISI ────────────────────────────────────────────────────────
+
+# Hapus blok metadata Mafindo (contoh: === KATEGORI: KONTEN YANG MENYESATKAN ===)
+MAFINFO_META = re.compile(
+    r"={3,}\s*(?:KATEGORI|KONTEN|STATUS|LABEL)\b[^=]{0,120}={3,}\s*",
+    re.IGNORECASE
 )
 
-# Pemotong pembatas garis Mafindo/TurnBackHoax (misal: ==========================KATEGORI: ...)
-DIVIDER_CUT = re.compile(r"\s*={3,}.*", re.S)
+# Hapus sisa deretan === mandiri di mana pun posisinya
+STANDALONE_DIVIDER = re.compile(r"={3,}")
 
-# Penanda potongan bagian akhir bantahan/vonis jurnalis
+# Potong bagian penjelasan jurnalis di akhir teks
 DEBUNK_CUT = re.compile(
-    r"\b(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|FAKTA SEBENARNYA|HASIL CEK FAKTA|"
-    r"BERDASARKAN PENELUSURAN|SETELAH DITELUSURI|HASIL VERIFIKASI|KESIMPULAN|"
-    r"KATEGORI\s*:|INFORMASI MENYESATKAN|KONTEN SUDAH DIMANIPULASI|MENYESATKAN\.\s*FAKTA)\b.*",
-    re.I | re.S,
+    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
+    r"HOAKS ATAU FAKTA\?|KESIMPULAN|ANALISIS)\s*:.*",
+    re.IGNORECASE | re.S
 )
 
-# Pembersih kalimat pengantar debunker di awal teks
+# Pembersih stempel debunker di awal kalimat
 DEBUNKER_HEADER = re.compile(
     r"^\s*hasil\s+(?:periksa|cek)\s+fakta\s+[^\.\n]+(?:\([^\)]+\))?[\.\:\,\-]?\s*"
     r"(?:(?:informasi|konten|klaim|kabar|video|narasi)\s+tersebut\s+(?:hoaks|hoax|palsu|tidak\s+benar|keliru|disinformasi)[\.\:\,\-]?)?\s*",
     re.I
 )
 
-FOOTNOTE = re.compile(r"\bsumber\s*:.*$", re.I | re.S)
+# Kunci NARASI_LABEL hanya di awal baris (tidak memotong kata 'klaim' di tengah kalimat)
+NARASI_LABEL = re.compile(
+    r"^\s*(?:narasi\s+(?:postingan|pada\s+postingan|unggahan|di\s+facebook|di\s+whatsapp)|"
+    r"narasi|klaim|informasi\s+yang\s+beredar)\s*[:\-–—]?\s*",
+    re.IGNORECASE | re.MULTILINE
+)
+
+# Penanda awalan framing judul hoaks (Video, Foto, Gambar, Tangkapan Layar, Gawat)
+FRAMING_PREFIX = re.compile(
+    r"^\s*(?:video|foto|gambar|tangkapan\s+layar|pesan\s+berantai|berita|artikel|informasi|gawat\s*!*)\s*[:\-–—\"\'\u201c\u201d]?\s*",
+    re.IGNORECASE
+)
+
+# Hapus footnote dan URL
+FOOTNOTE = re.compile(r"\(sumber:.*?\)|\[.*?\]|https?://\S+", re.IGNORECASE)
+
+# Tag status awal
+TAG = re.compile(
+    r"\[(HOAKS|SALAH|DISINFORMASI|MANIPULASI|FALSE|BENAR|EDUKASI|HASUT)\]",
+    re.IGNORECASE
+)
+
 LEADING_TAG = re.compile(r"^\s*(?:[\[\(\{][^\]\)\}]{1,25}[\]\)\}]\s*:?\s*)+")
-URL = re.compile(r"https?://\S+|www\.\S+")
 HTML_TAG = re.compile(r"<[^>]+>")
 
 
@@ -42,24 +68,45 @@ def norm_ws(t: str) -> str:
     return re.sub(r"\s+", " ", str(t)).strip()
 
 
-def clean(t) -> str:
-    """Pembersihan minimal yang sama untuk semua kelas. Tidak membuang tanda baca esensial."""
-    if t is None:
+def clean(text: str) -> str:
+    """
+    Pipeline pembersihan bedah presisi:
+    Baris baru (\n) DIPERTAHANKAN selama regex bekerja, baru dipadatkan di akhir.
+    """
+    if text is None:
         return ""
-    t = html.unescape(str(t))
+    t = html.unescape(str(text))
     if t.strip().lower() in ("nan", "none"):
         return ""
-    t = URL.sub(" ", t)
+
     t = HTML_TAG.sub(" ", t)
-    t = LEADING_TAG.sub("", norm_ws(t))
+    t = LEADING_TAG.sub("", t)          # Jangan norm_ws di sini agar \n tidak hilang!
     t = DEBUNKER_HEADER.sub("", t)
-    t = DIVIDER_CUT.sub("", t)       # Memotong garis pembatas === Mafindo
-    t = TAG.sub(" ", t)
+
+    # 1. Potong bagian penjelasan jurnalis di akhir
     t = DEBUNK_CUT.sub("", t)
+
+    # 2. Hapus blok metadata Mafindo (=== KATEGORI ... ===)
+    t = MAFINFO_META.sub(" ", t)
+
+    # 3. Hapus garis pembatas ===
+    t = STANDALONE_DIVIDER.sub(" ", t)
+
+    # 4. Hapus label NARASI / Narasi postingan:
+    t = NARASI_LABEL.sub("", t)
+
+    # 5. Hapus footnote, URL, dan tag status
     t = FOOTNOTE.sub("", t)
+    t = TAG.sub("", t)
+
+    # 6. Normalisasi akhir
     return norm_ws(t)
 
 
+clean_pipeline = clean
+
+
+# ── 2. PEMBENTUKAN TEKS & PENCEGAH JUDUL GANDA ──────────────────────────────
 def _alnum(s: str) -> str:
     return "".join(c for c in s.lower() if c.isalnum())
 
@@ -75,13 +122,34 @@ def _drop_alnum_prefix(s: str, n: int) -> str:
 
 
 def strip_leading_title(title: str, body: str, max_repeat: int = 3) -> str:
-    """Buang pengulangan judul di awal body."""
-    t = _alnum(title)
-    if not t:
-        return body
+    """
+    Buang pengulangan judul di awal body.
+    Tahan terhadap awalan framing (Video/Foto/Tangkapan Layar) dan label narasi.
+    """
+    body = NARASI_LABEL.sub("", body.strip())
+    
+    # Bersihkan awalan Video/Foto/Gambar dari judul sebelum dibandingkan
+    t_clean = FRAMING_PREFIX.sub("", title.strip())
+    t = _alnum(t_clean)
+    if not t or len(t) < 8:
+        t = _alnum(title)
+        if not t:
+            return body
+
     for _ in range(max_repeat):
-        if _alnum(body).startswith(t):
+        b_alnum = _alnum(body)
+        b_clean_alnum = _alnum(FRAMING_PREFIX.sub("", body.strip()))
+        
+        # Jika body sama persis dengan judul (kasus fallback), kosongkan body
+        if b_alnum == t or b_clean_alnum == t:
+            return ""
+        if b_alnum.startswith(t):
             body = _drop_alnum_prefix(body, len(t)).lstrip(" .:-–—,")
+            body = NARASI_LABEL.sub("", body.strip())
+        elif b_clean_alnum.startswith(t):
+            body = FRAMING_PREFIX.sub("", body.strip())
+            body = _drop_alnum_prefix(body, len(t)).lstrip(" .:-–—,")
+            body = NARASI_LABEL.sub("", body.strip())
         else:
             break
     return body
@@ -92,9 +160,18 @@ def ensure_end(text: str) -> str:
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
-def build_text(title, body) -> str:
-    """Judul tepat SATU kali, lalu isi. Sama untuk fakta maupun hoaks."""
-    title, body = clean(title), clean(body)
+def build_text(title: str, body: str) -> str:
+    """
+    Bangun teks final dari judul dan isi.
+    Mencegah jalan pintas judul ganda pada portal berita & fallback hoaks.
+    """
+    title = clean(str(title)).strip()
+    body = clean(str(body)).strip()
+
+    # Jika body identik dengan title (kasus fallback), jangan digandakan!
+    if _alnum(title) and _alnum(body) and _alnum(title) == _alnum(body):
+        return ensure_end(title)
+
     body = strip_leading_title(title, body)
     title = title.rstrip(" .:-–—")
     out = f"{title}. {body}" if (title and body) else (title or body)
@@ -102,7 +179,7 @@ def build_text(title, body) -> str:
 
 
 def cap_sentences(text: str, max_words: int) -> str:
-    """Batas panjang yang sama untuk semua kelas; potong di batas kalimat bila ada."""
+    """Batas panjang yang sama untuk semua kelas; potong di batas kalimat."""
     w = text.split()
     if len(w) <= max_words:
         return text

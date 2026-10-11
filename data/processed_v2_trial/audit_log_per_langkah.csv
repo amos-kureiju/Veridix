@@ -25,38 +25,38 @@ step,source,label,n,note
 2_teks_terbentuk,kompas.com,0,4682,
 2_teks_terbentuk,tempo.co,0,6590,
 2_teks_terbentuk,turnbackhoax.id,1,7164,
-2b_min_kata,cnnindonesia.com,0,9628,>= 10 kata
-2b_min_kata,hoax_archive_15k,1,5369,>= 10 kata
-2b_min_kata,kompas.com,0,4678,>= 10 kata
-2b_min_kata,tempo.co,0,6590,>= 10 kata
-2b_min_kata,turnbackhoax.id,1,6154,>= 10 kata
+2b_min_kata,cnnindonesia.com,0,9628,>=10 kata
+2b_min_kata,hoax_archive_15k,1,5369,>=10 kata
+2b_min_kata,kompas.com,0,4678,>=10 kata
+2b_min_kata,tempo.co,0,6590,>=10 kata
+2b_min_kata,turnbackhoax.id,1,6119,>=10 kata
 3_filter_politik,cnnindonesia.com,0,9439,
 3_filter_politik,hoax_archive_15k,1,2270,
 3_filter_politik,kompas.com,0,4278,
 3_filter_politik,tempo.co,0,6407,
-3_filter_politik,turnbackhoax.id,1,2041,
+3_filter_politik,turnbackhoax.id,1,1990,
 4_batas_panjang_sama,cnnindonesia.com,0,9439,maks 60 kata
 4_batas_panjang_sama,hoax_archive_15k,1,2270,maks 60 kata
 4_batas_panjang_sama,kompas.com,0,4278,maks 60 kata
 4_batas_panjang_sama,tempo.co,0,6407,maks 60 kata
-4_batas_panjang_sama,turnbackhoax.id,1,2041,maks 60 kata
+4_batas_panjang_sama,turnbackhoax.id,1,1990,maks 60 kata
 4b_duplikat_persis,cnnindonesia.com,0,9439,dibuang 1
 4b_duplikat_persis,hoax_archive_15k,1,2269,dibuang 1
 4b_duplikat_persis,kompas.com,0,4278,dibuang 1
 4b_duplikat_persis,tempo.co,0,6407,dibuang 1
-4b_duplikat_persis,turnbackhoax.id,1,2041,dibuang 1
+4b_duplikat_persis,turnbackhoax.id,1,1990,dibuang 1
 4c_dedup_near,cnnindonesia.com,0,9438,
 4c_dedup_near,hoax_archive_15k,1,2252,
 4c_dedup_near,kompas.com,0,4262,
-4c_dedup_near,tempo.co,0,6400,
-4c_dedup_near,turnbackhoax.id,1,2030,
-5b_dalam_cakupan_2017_2023,cnnindonesia.com,0,9438,dibuang 940 di luar cakupan tahun
-5b_dalam_cakupan_2017_2023,hoax_archive_15k,1,1415,dibuang 940 di luar cakupan tahun
-5b_dalam_cakupan_2017_2023,kompas.com,0,4262,dibuang 940 di luar cakupan tahun
-5b_dalam_cakupan_2017_2023,tempo.co,0,6400,dibuang 940 di luar cakupan tahun
-5b_dalam_cakupan_2017_2023,turnbackhoax.id,1,1927,dibuang 940 di luar cakupan tahun
-6_seimbang,cnnindonesia.com,0,389,strata = sub_topicxlen_binxyear_bin
-6_seimbang,hoax_archive_15k,1,280,strata = sub_topicxlen_binxyear_bin
-6_seimbang,kompas.com,0,641,strata = sub_topicxlen_binxyear_bin
-6_seimbang,tempo.co,0,180,strata = sub_topicxlen_binxyear_bin
-6_seimbang,turnbackhoax.id,1,930,strata = sub_topicxlen_binxyear_bin
+4c_dedup_near,tempo.co,0,6399,
+4c_dedup_near,turnbackhoax.id,1,1979,
+5b_dalam_cakupan_2017_2023,cnnindonesia.com,0,9438,dibuang 928 di luar cakupan tahun
+5b_dalam_cakupan_2017_2023,hoax_archive_15k,1,1415,dibuang 928 di luar cakupan tahun
+5b_dalam_cakupan_2017_2023,kompas.com,0,4262,dibuang 928 di luar cakupan tahun
+5b_dalam_cakupan_2017_2023,tempo.co,0,6399,dibuang 928 di luar cakupan tahun
+5b_dalam_cakupan_2017_2023,turnbackhoax.id,1,1888,dibuang 928 di luar cakupan tahun
+6_seimbang,cnnindonesia.com,0,384,strata = sub_topicxlen_binxyear_bin
+6_seimbang,hoax_archive_15k,1,284,strata = sub_topicxlen_binxyear_bin
+6_seimbang,kompas.com,0,615,strata = sub_topicxlen_binxyear_bin
+6_seimbang,tempo.co,0,185,strata = sub_topicxlen_binxyear_bin
+6_seimbang,turnbackhoax.id,1,900,strata = sub_topicxlen_binxyear_bin

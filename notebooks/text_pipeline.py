@@ -13,7 +13,7 @@ Perubahan dari tp-1.4:
 import html
 import re
 
-PIPELINE_VERSION = "tp-1.5"
+PIPELINE_VERSION = "tp-1.6"
 
 # ── 1. REGEX ────────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ STANDALONE_DIVIDER = re.compile(r"={3,}")
 
 # Bagian penjelasan pemeriksa fakta di akhir teks
 DEBUNK_CUT = re.compile(
-    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
+    r"\n?\s*(?:namun\s+|tetapi\s+)?(PENJELASAN(?:\s*(?:&|dan|/)\s*FAKTA|\s+LENGKAP)?|FAKTANYA|HASIL PERIKSA FAKTA|KLARIFIKASI|"
     r"HOAKS ATAU FAKTA\?|KESIMPULAN|ANALISIS)\s*:.*",
     re.IGNORECASE | re.S,
 )
@@ -78,6 +78,25 @@ FOOTNOTE = re.compile(r"\(sumber:.*?\)|\[.*?\]|https?://\S+", re.IGNORECASE)
 
 LEADING_TAG = re.compile(r"^\s*(?:[\[\(\{][^\]\)\}]{1,25}[\]\)\}]\s*:?\s*)+")
 HTML_TAG = re.compile(r"<[^>]+>")
+
+# ── 4. NORMALISASI JUDUL (tp-1.6): deskriptor editorial pemeriksa fakta + tanda kutip pembungkus ──
+DESC = re.compile(
+    r'^\W*(?:(?:video|foto|gambar|screenshot|tangkapan\s+layar|tangkap\s+layar|sampul|pesan\s+berantai'
+    r'|artikel(?:\s+(?!berjudul)\S+){0,3}?\s+berjudul|berita(?:\s+\S+){0,2}?\s+tentang)\b'
+    r'|artikel(?:\s+\S+){0,3}?\s+(?=[\u201c"]))\W*', re.I)
+
+
+def norm_title(t: str, unwrap: bool = True) -> str:
+    c = clean(t)
+    s = c
+    for _ in range(4):
+        n = DESC.sub("", s, count=1).strip()
+        if not n or n == s:
+            break
+        s = n
+    if unwrap and not re.search(r'[\u201c\u201d"]', s.strip('\u201c\u201d" ')):
+        s = s.strip('\u201c\u201d" .')
+    return s or c
 
 
 def norm_ws(t: str) -> str:

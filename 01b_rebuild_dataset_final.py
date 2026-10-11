@@ -24,7 +24,7 @@ from sklearn.metrics import accuracy_score
 
 sys.path.insert(0, os.getcwd())
 import text_pipeline as tp
-assert tp.PIPELINE_VERSION == "tp-1.5", "text_pipeline.py belum versi tp-1.5"
+assert tp.PIPELINE_VERSION == "tp-1.6", "text_pipeline.py belum versi tp-1.6"
 
 SEED = 42
 RAW_DIR = os.environ.get("RAW_DIR") or ("../data/raw" if os.path.exists("../data/raw") else "data/raw")
@@ -151,35 +151,17 @@ raw = raw[~dup].drop(columns=["_bl"]).sort_index().reset_index(drop=True)
 log("1e_judul_duplikat", raw)
 
 # ── 3. BENTUK TEKS ───────────────────────────────────────────────────────────
-raw["title_c"] = raw.title.map(tp.clean)
-# ── NORMALISASI DESKRIPTOR & TANDA KUTIP PEMBUNGKUS (ATURAN APRIORI REVIEWER) ──
-UNWRAP = True
-DESC = re.compile(
-    r'^\W*(?:(?:video|foto|gambar|screenshot|tangkapan\s+layar|tangkap\s+layar|sampul|pesan\s+berantai'
-    r'|artikel(?:\s+(?!berjudul)\S+){0,3}?\s+berjudul|berita(?:\s+\S+){0,2}?\s+tentang)\b'
-    r'|artikel(?:\s+\S+){0,3}?\s+(?=[“"]))\W*', re.I
-)
-
-def norm_title(t):
-    c = tp.clean(t); s = c
-    for _ in range(4):
-        n = DESC.sub("", s, count=1).strip()
-        if not n or n == s: break
-        s = n
-    if UNWRAP and not re.search(r'[“”"]', s.strip('“”" ')):
-        s = s.strip('“”" .')
-    return s or c
-
-# Terapkan normalisasi judul secara simetris untuk semua kelas sebelum dibentuk
-raw["title"] = raw.title.map(norm_title)
+raw["title"]   = raw.title.map(tp.norm_title)
+raw["title_c"] = raw.title.map(tp.clean)        # <-- pastikan map(tp.clean), bukan copy()
 raw["body_c"]  = [tp.strip_leading_title(t, tp.clean(b)) for t, b in zip(raw.title_c, raw.body)]
 raw["text"]    = [tp.build_text(t, b) for t, b in zip(raw.title, raw.body)]
-raw["n_words_raw"] = raw.text.str.split().str.len()
+raw["n_words_raw"] = raw.text.str.split().str.len()   # <── TAMBAHKAN BARIS INI
+print("title_c berbeda dari title:", int((raw.title_c != raw.title).sum()), "dari", len(raw))
 
 df = raw[raw.text.str.len() > 0].copy()
 log("2_teks_terbentuk", df)
-df = df[df.n_words_raw >= CFG["MIN_WORDS"]].copy()
-log("2b_min_kata", df, f">= {CFG['MIN_WORDS']} kata")
+df = df[df.n_words_raw >= CFG['MIN_WORDS']].copy()
+log("2b_min_kata", df, f">={CFG['MIN_WORDS']} kata")
 
 # ── 4. SUB-TOPIK POLITIK ─────────────────────────────────────────────────────
 SUB_TOPIC_RULES = {

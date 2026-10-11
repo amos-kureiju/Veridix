@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/logo.png" alt="Veridix Logo" width="180" height="180" />
+<img src="frontend/public/logo.png" alt="Veridix Logo" width="160" />
 
 # 🛡️ Veridix — Deteksi Hoaks Politik Indonesia
 
@@ -14,20 +14,37 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.4-EE4C2C.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+</div>
+
+---
+
+## 📖 Daftar Isi
+
+- [Latar Belakang](#-latar-belakang)
+- [Fitur Utama](#-fitur-utama)
+- [Teknologi yang Digunakan](#-teknologi-yang-digunakan)
+- [Struktur Proyek](#-struktur-proyek)
+- [Instalasi & Setup](#-instalasi--setup)
+- [Cara Menjalankan](#-cara-menjalankan)
+- [Training Model](#-training-model)
+- [API Endpoints](#-api-endpoints)
+- [Testing](#-testing)
+- [Kontribusi](#-kontribusi)
+- [Lisensi](#-lisensi)
+
 ---
 
 ## 🎯 Latar Belakang
 
 Penyebaran **hoaks politik** di Indonesia meningkat signifikan setiap siklus pemilu. Model klasifikasi teks konvensional hanya memberi label *hoaks/fakta* tanpa penjelasan — menyulitkan masyarakat memverifikasi hasilnya.
 
-Proyek ini menghadirkan solusi **end-to-end**:
+**Veridix** hadir sebagai solusi **end-to-end**:
 
 1. **Deteksi otomatis** berita politik menggunakan **IndoBERT** yang di-*fine-tune* dengan **Focal Loss** untuk menangani *class imbalance*.
 2. **Explainable AI (XAI)** dengan **LIME** — menyoroti kata-kata yang paling memengaruhi keputusan model.
-3. **Guardrail domain politik** — menolak input non-politik (mis. resep masakan).
-4. **Ekstraksi entitas politik** (lightweight NER) — mengenali tokoh & lembaga (KPU, DPR, MK, dll).
-5. **Deteksi clickbait** — heuristik untuk judul sensasional (CAPSLOCK, tanda seru ganda).
-6. **Human-in-the-loop** — pengguna dapat melaporkan kesalahan prediksi; admin memverifikasi & memasukkan ke *retraining pool*.
+3. **Guardrail domain politik** — menolak input non-politik menggunakan kamus leksikal entitas politik (KPU, DPR, MK, dll).
+4. **Deteksi clickbait** — heuristik untuk judul sensasional (CAPSLOCK, tanda seru ganda).
+5. **Human-in-the-loop** — pengguna dapat melaporkan kesalahan prediksi; admin memverifikasi & memasukkan ke *retraining pool*.
 
 ---
 
@@ -35,7 +52,7 @@ Proyek ini menghadirkan solusi **end-to-end**:
 
 ### 👥 Untuk Masyarakat / Jurnalis (User)
 
-- 🔍 **Analisis teks & gambar** — input teks berita atau upload screenshot (OCR).
+- 🔍 **Analisis teks berita** — input teks langsung, minimal 30 karakter.
 - 🎨 **Visualisasi XAI** — highlight kata pemicu hoaks dengan intensitas warna.
 - 📊 **Skor kepercayaan** — persentase probabilitas hoaks (0–100%).
 - 📄 **Unduh laporan PDF** — bukti verifikasi formal untuk klarifikasi publik.
@@ -48,12 +65,13 @@ Proyek ini menghadirkan solusi **end-to-end**:
 - ✅ **Review feedback pengguna** — verifikasi laporan koreksi.
 - 🔄 **Retraining pool** — kelola data baru untuk mengatasi *temporal shift*.
 - ⚙️ **Kontrol threshold** — atur ambang sensitivitas deteksi (0–100%).
-- 
+
 ---
 
 ## 🧰 Teknologi yang Digunakan
 
 ### Backend & ML
+
 | Teknologi | Versi | Fungsi |
 |---|---|---|
 | **Python** | 3.10+ | Bahasa utama |
@@ -62,12 +80,11 @@ Proyek ini menghadirkan solusi **end-to-end**:
 | **PyTorch** | 2.4 | Deep learning framework |
 | **Transformers** | 4.44 | IndoBERT (HuggingFace) |
 | **LIME** | 0.2 | Explainable AI |
-| **PaddleOCR** | 1.7 | Optical Character Recognition |
 | **SQLAlchemy** | 2.0 | ORM database |
 | **Pydantic** | 2.9 | Data validation |
-| **GoogleColab**|**DataCenter** | Nvidia |
 
 ### Frontend
+
 | Teknologi | Versi | Fungsi |
 |---|---|---|
 | **Next.js** | 15 | React framework (App Router) |
@@ -77,8 +94,11 @@ Proyek ini menghadirkan solusi **end-to-end**:
 | **Recharts** | 2.x | Data visualization |
 
 ### DevOps & Tools
+
 | Teknologi | Fungsi |
 |---|---|
+| **Google Colab** | Eksperimen training gratis dengan GPU T4 |
+| **NVIDIA Data Center** | Training skala besar (opsional) |
 | **Docker** | Containerization |
 | **GitHub Actions** | CI/CD pipeline |
 | **Pytest** | Unit & integration testing |
@@ -89,7 +109,7 @@ Proyek ini menghadirkan solusi **end-to-end**:
 ## 📁 Struktur Proyek
 
 ```
-hoax-detection-ta/
+veridix/
 │
 ├── data/                       # Dataset (raw, processed, uploads)
 ├── notebooks/                  # Eksperimen riset (Bab 4 skripsi)
@@ -111,16 +131,12 @@ hoax-detection-ta/
 ├── src/                        # SOURCE CODE BACKEND
 │   ├── core/                   # Config & logging
 │   ├── database/               # ORM models & session
-│   ├── ml/                     # IndoBERT, Focal Loss, LIME, OCR, Trainer
-│   ├── utils/                  # Helper (text cleaner, PDF gen, guardrail)
-│   ├── services/               # Business logic layer
+│   ├── ml/                     # IndoBERT, Focal Loss, LIME, Trainer
+│   ├── utils/                  # Helper (preprocessor, guardrail, PDF)
 │   ├── api/                    # FastAPI routes & schemas
 │   └── main.py                 # Entrypoint FastAPI
 │
-├── ui/                         # Streamlit (fallback demo sidang)
-│   └── app.py
-│
-├── frontend-hoax-detector/     # Next.js App Router
+├── frontend/                   # Next.js App Router
 │   └── src/
 │       ├── app/                # Pages (user + admin)
 │       ├── components/         # Atomic design components
@@ -129,19 +145,13 @@ hoax-detection-ta/
 │       └── types/              # TypeScript interfaces
 │
 ├── tests/                      # Unit & integration tests
-├── docs/                       # Dokumentasi tambahan
-├── logs/                       # Runtime logs
 │
 ├── .env.example                # Template konfigurasi
-├── .editorconfig               # Standar lintas editor
 ├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
-├── Makefile
-├── pyproject.toml
+├── LICENSE
+├── README.md
 ├── requirements.txt            # Dependency utama
-├── requirements-train.txt      # Dependency khusus training
-└── README.md
+└── requirements-train.txt      # Dependency khusus training
 ```
 
 ---
@@ -158,10 +168,10 @@ hoax-detection-ta/
 ### 1. Clone Repositori
 
 ```bash
-git clone https://github.com/username/hoax-detection-ta.git
-cd hoax-detection-ta
+git clone https://github.com/username/veridix.git
+cd veridix
 ```
- 
+
 ### 2. Setup Backend (Python)
 
 ```bash
@@ -190,7 +200,7 @@ Edit `.env` sesuai kebutuhan (path model, threshold, DB URL).
 ### 4. Setup Frontend (Next.js)
 
 ```bash
-cd frontend-hoax-detector
+cd frontend
 npm install
 cd ..
 ```
@@ -209,32 +219,20 @@ Buka: http://localhost:8000/docs
 
 **Terminal 2 — Frontend Next.js:**
 ```bash
-cd frontend-hoax-detector
+cd frontend
 npm run dev
 ```
 Buka: http://localhost:3000
 
-**Terminal 3 — Streamlit (Fallback Demo):**
-```bash
-streamlit run ui/app.py
-```
-Buka: http://localhost:8501
-
-### Mode Production (Docker)
-
-```bash
-docker compose up --build
-```
-
 ---
 
-## 🎓 Training Model NvidiaDataCenter | GoogleColab
+## 🎓 Training Model
 
-### Di Laptop Lokal
+### Di Laptop Lokal / Google Colab
 
 ```bash
 # Siapkan data di data/processed/ (train.csv, val.csv, test.csv)
-python -m src.ml.trainer --config default --epochs 5 --batch-size 8 --device cpu
+python -m src.ml.train_model --config default --epochs 5 --batch-size 8 --device cpu
 ```
 
 ### Di Server GPU (SSH)
@@ -263,7 +261,7 @@ tail -f saved_models/indobert_focal_loss/logs/train_*.log
 ### Early Stopping
 
 - Patience: **3 epoch**
-- Metric terbaik disimpan ke `saved_models/indobert_focal_loss/best_model.pt`
+- Model terbaik disimpan ke `saved_models/indobert_focal_loss/best_model.pt`
 
 ---
 
@@ -276,7 +274,6 @@ tail -f saved_models/indobert_focal_loss/logs/train_*.log
 | `GET` | `/` | Info API |
 | `GET` | `/health` | Health check |
 | `POST` | `/api/v1/detect/text` | Deteksi teks berita |
-| `POST` | `/api/v1/detect/image` | Deteksi dari gambar (OCR) |
 | `POST` | `/api/v1/feedback` | Kirim feedback koreksi |
 
 ### Admin
@@ -303,11 +300,12 @@ curl -X POST http://localhost:8000/api/v1/detect/text \
 pytest tests/ -v
 
 # Test spesifik
-pytest tests/test_predictor.py -v
+pytest tests/test_inference.py -v
 
 # Coverage
 pytest --cov=src tests/
 ```
+
 ---
 
 ## 🤝 Kontribusi
@@ -332,9 +330,19 @@ Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` tooling & setup
 
 ---
-<p align="center">
-  Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
-</p>
-<p align="center">
-  ❤️GodsPlan
-</p>
+
+## 📄 Lisensi
+
+Proyek ini dilisensikan di bawah **MIT License** — lihat file [LICENSE](LICENSE) untuk detail.
+
+---
+
+<div align="center">
+
+**Veridix © 2026**
+
+Dibuat dengan ❤️ untuk memerangi hoaks politik Indonesia
+
+_God's Plan_ ✨
+
+</div>

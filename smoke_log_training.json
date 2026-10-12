@@ -1,0 +1,56 @@
+{
+  "config": {
+    "MODEL_NAME": "indobenchmark/indobert-base-p1",
+    "MAX_LEN": 128,
+    "BATCH": 32,
+    "EPOCHS": 1,
+    "LR": 2e-05,
+    "WD": 0.01,
+    "WARMUP": 0.1,
+    "DROPOUT": 0.3,
+    "FREEZE_LAYERS": 8,
+    "SEEDS": [
+      42
+    ],
+    "LOSSES": [
+      "ce"
+    ],
+    "FOCAL_GAMMA": 2.0
+  },
+  "pipeline": "tp-1.6",
+  "data_hash": {
+    "train.csv": "0ffd632a0836c8156e02ac41d6bd15ec4a91c0f29bb11c9fe1f3722c54f9dd32",
+    "val.csv": "3dc085b19a4435fbada2504ce57e6ecefb5eac70cfd21a402602d15e31a35810",
+    "dev_test.csv": "27e819c80af64b9c6fe11bfb5e1318f2b9023152c7be86e6df07651f1c363480",
+    "eval_benar.csv": "8a93064cbb033761f5974e780525b41ddeddd8a224bd9795b80cf1a613a9f900",
+    "eval_kompas_cekfakta.csv": "090011a361d88b3535079446b7070c293d26f9f6a6ac74be9cd17b374b863927",
+    "text_pipeline.py": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581"
+  },
+  "runs": [
+    {
+      "loss": "ce",
+      "seed": 42,
+      "best_epoch": 1,
+      "val_acc": 0.9364406779661016,
+      "val_f1": 0.936302294197031,
+      "dev_acc": 0.9110169491525424,
+      "dev_f1": 0.9110025679242911,
+      "eval_benar_share_hoaks": 0.6689814814814815,
+      "eval_kompas_share_hoaks": 0.35
+    }
+  ],
+  "history": {
+    "ce_42": [
+      {
+        "epoch": 1,
+        "train_loss": 0.3536604397858565,
+        "val_acc": 0.9364406779661016,
+        "val_f1": 0.936302294197031
+      }
+    ]
+  },
+  "terpilih": "ce",
+  "torch": "2.11.0+cpu",
+  "transformers": "5.18.0",
+  "device": "cpu"
+}

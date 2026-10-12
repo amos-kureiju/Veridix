@@ -1,0 +1,43 @@
+{
+  "permutasi": {
+    "mean": 49.42796610169491,
+    "sd": 3.742931190698685,
+    "max": 55.932203389830505
+  },
+  "baseline_val": {
+    "acc": 0.940677966101695,
+    "f1": 0.9391304347826087
+  },
+  "baseline_dev_test": {
+    "acc": 0.9152542372881356,
+    "f1": 0.9107142857142857
+  },
+  "ablasi_teks penuh": 0.940677966101695,
+  "ablasi_judul saja": 0.8813559322033898,
+  "ablasi_isi saja": "TIDAK VALID (body tidak dipotong, terkonfus panjang); pakai ablasi_isi_saja_50_kata",
+  "ablasi_8 kata pertama": 0.8347457627118644,
+  "eval_benar": {
+    "n": 432,
+    "share_hoaks": 0.8379629629629629
+  },
+  "eval_kompas": {
+    "n": 20,
+    "share_hoaks": 0.85
+  },
+  "pipeline": "tp-1.6",
+  "catatan_tambahan": {
+    "ablasi_isi_saja_50_kata": 0.936,
+    "pohon_panjang_body_saja": 0.941,
+    "pasangan_dev_ke_train_cos07": 3,
+    "oof_fakta_diksi_sanggahan_diprediksi_hoaks": [
+      1,
+      12
+    ],
+    "oof_fakta_lain_diprediksi_hoaks": 0.163,
+    "oof_hoaks_diprediksi_hoaks": 0.903,
+    "eval_benar_klarifikasi_vs_lain": [
+      0.862,
+      0.83
+    ]
+  }
+}

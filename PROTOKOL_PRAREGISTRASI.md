@@ -29,3 +29,25 @@ Pemilihan strata penyeimbangan Coarsened Exact Matching (CEM) ditentukan berdasa
 * **Aturan Apriori**: Karena selisih proporsi tanda kutip > 10 poin, parameter `UNWRAP = True` dan pembersihan bertingkat `DESC` diaktifkan secara simetris untuk seluruh kelas.
 * **Dasar Justifikasi**: Teks masukan nyata dari PaddleOCR (poster/meme/tangkapan layar) di dunia nyata memuat isi klaim murni, bukan deskripsi metadata editor pemeriksa fakta.
 * **Prosedur**: Dijalankan tepat satu kali di folder trial, lalu hasilnya langsung dibekukan.
+
+### Keputusan Apriori Pelatihan, Seleksi Model, dan Evaluasi Lockbox (Colab 02)
+* **Tanggal Pencatatan**: 13 Oktober 2026 (Ditetapkan sebelum run training penuh dilakukan)
+* **Lingkungan Komputasi Terverifikasi**:
+  - Akselerator: NVIDIA Tesla T4 GPU (Device: `cuda`)
+  - Framework: PyTorch `2.11.0+cu130`, Transformers `5.18.0`, CUDA Build `13.0`
+  - Pipeline Teks: `text_pipeline.py` versi `tp-1.6` (terverifikasi hash sha256)
+* **Aturan Pemilihan Konfigurasi (Model Selection Rule)**:
+  1. Pemilihan konfigurasi (`ce` vs `focal`) dilakukan murni berdasarkan rerata Macro-F1 pada set validasi (`val.csv`) lintas 3 seed (`42`, `123`, `999`).
+  2. **Aturan Parsimoni (Prinsip Sederhana)**: Jika selisih rerata Macro-F1 val antara `ce` dan `focal` $< 0,01$ ($< 1$ poin persentase), maka Cross-Entropy (`ce`) secara apriori ditetapkan sebagai konfigurasi terpilih.
+  3. Subset `dev_test.csv` (uji kontrafaktual) hanya dilaporkan untuk diagnosis ketahanan, dan **dilarang digunakan** dalam pemilihan konfigurasi model.
+* **Kriteria Signifikansi Statistik (McNemar Test)**:
+  - Perbandingan performa berpasangan antara IndoBERT dan baseline TF-IDF + Logistic Regression dievaluasi menggunakan Exact Binomial McNemar Test.
+  - Perbedaan performa hanya dianggap bermakna secara praktis dan statistik jika:
+    1. Nilai signifikansi $p < 0,05$, **DAN**
+    2. Selisih performa $> 4$ poin persentase pada set uji ($n \approx 236$). Selisih di bawah ambang ini dicatat sebagai variasi kebetulan acak pada sampel terbatas.
+* **Protokol Evaluasi Kumpulan Terkunci (Lockbox Evaluation Rule)**:
+  1. **Evaluasi Tunggal per Seed**: Evaluasi lockbox hanya dijalankan tepat **satu kali per seed** terhadap 3 model checkpoint dari konfigurasi terpilih (`ckpt_{terpilih}_{seed}.pt`).
+  2. **Pelaporan Metrik**: Hasil lockbox dilaporkan sebagai **rerata $\pm$ standar deviasi (mean $\pm$ std)** lintas 3 seed.
+  3. **Larangan Cherry-Picking & Ensemble**: Dilarang keras memilih satu seed terbaik setelah melihat hasil (*no post-hoc cherry-picking*) dan dilarang menggabungkan model (*no ensembling*).
+  4. **Eksekusi Lokal Terisolasi**: Evaluasi dijalankan di lingkungan laptop lokal menggunakan fungsi pembantu `load_ckpt()`, tanpa pernah mengunggah data lockbox ke lingkungan cloud (Google Colab).
+  5. **Verifikasi Integritas Bobot**: Seluruh checkpoint wajib diverifikasi menggunakan pencocokan nilai SHA-256 hash (hasil output sel Colab dicocokkan dengan `Get-FileHash` di laptop) sebelum evaluasi lockbox dimulai guna menjamin keaslian bobot model.

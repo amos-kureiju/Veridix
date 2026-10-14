@@ -1,41 +1,76 @@
-"""
-inspect_tokens.py
-Inspeksi manual token mencurigakan (kategori, berjudul, judul, tangkapan layar, artikel)
-pada naskah hoaks train.csv.
-"""
+# memuat checkpoint ckpt_ce_{seed}.pt di laptop dan memprediksi teks
+import os, sys
+import numpy as np
+import torch, torch.nn as nn
+from transformers import AutoTokenizer, AutoModel
 
-import os
-import re
-import pandas as pd
+MODEL_NAME = "indobenchmark/indobert-base-p1"
+MAX_LEN, DROPOUT, FREEZE_LAYERS, BATCH = 128, 0.3, 8, 32
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-p = "data/processed_v2/train.csv" if os.path.exists("data/processed_v2/train.csv") else "../data/processed_v2/train.csv"
-assert os.path.exists(p), f"Berkas {p} tidak ditemukan!"
 
-df = pd.read_csv(p)
-hoax = df[df["label"] == 1]
+class Clf(nn.Module):  # identik dengan colab_02_indobert.py
 
-keywords = ["kategori", "berjudul", "judul", "tangkapan layar", "artikel"]
+  def __init__(self):
+    super().__init__()
+    self.bert = AutoModel.from_pretrained(MODEL_NAME)
+    for p in self.bert.embeddings.parameters():
+      p.requires_grad = False
+    for i in range(FREEZE_LAYERS):
+      for p in self.bert.encoder.layer[i].parameters():
+        p.requires_grad = False
+    self.drop = nn.Dropout(DROPOUT)
+    self.head = nn.Linear(self.bert.config.hidden_size, 2)
 
-print("=" * 85)
-print("INSPEKSI MANUAL TOKEN MENCURIGAKAN PADA DATA HOAKS (TRAIN.CSV)")
-print(f"Total Sampel Hoaks yang Diperiksa: {len(hoax):,} baris")
-print("=" * 85)
+  def forward(self, ids, am):
+    return self.head(
+        self.drop(
+            self.bert(
+                input_ids=ids, attention_mask=am
+            ).last_hidden_state[:, 0, :]
+        )
+    )
 
-for kw in keywords:
-    rx = re.compile(r"\b" + re.escape(kw) + r"\b", re.I)
-    sub = hoax[hoax["text"].astype(str).str.contains(rx, na=False)]
-    total_muncul = len(sub)
-    pct = (total_muncul / len(hoax)) * 100
-    
-    print(f"\n>>> KATA KUNCI: '{kw.upper()}' (Muncul di {total_muncul} hoaks / {pct:.1f}%):")
-    if total_muncul == 0:
-        print("    [Tidak ditemukan sampel]")
-        continue
-        
-    for i, (_, row) in enumerate(sub.head(3).iterrows()):
-        teks = str(row["text"]).strip()
-        print(f"  [{i+1}] ({row.get('source', 'sumber?')}) : {teks[:180]}...")
 
-print("\n" + "=" * 85)
-print("INSPEKSI SELESAI")
-print("=" * 85)
+_TOK = None
+
+
+def get_tokenizer():
+  global _TOK
+  if _TOK is None:
+    _TOK = AutoTokenizer.from_pretrained(MODEL_NAME)
+  return _TOK
+
+
+def load_ckpt(path):
+  """Bagian beku (embedding + layer 0-7) dimuat dari model pralatih; bagian terlatih dari file .pt."""
+  m = Clf().to(DEVICE)
+  sd = torch.load(path, map_location=DEVICE)
+  missing, unexpected = m.load_state_dict(sd, strict=False)
+  assert not unexpected, f"kunci tak dikenal: {unexpected[:3]}"
+  m.eval()
+  return m
+
+
+def base_model_revision(m):
+  """Revisi (commit) model pralatih yang dimuat; catat di protokol untuk reproduksibilitas."""
+  return getattr(m.bert.config, "_commit_hash", None)
+
+
+@torch.no_grad()
+def predict_texts(model, texts, batch=BATCH):
+  tok = get_tokenizer()
+  texts = [str(t) for t in texts]
+  preds, probs = [], []
+  for i in range(0, len(texts), batch):
+    e = tok(
+        texts[i : i + batch],
+        max_length=MAX_LEN,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
+    lg = model(e["input_ids"].to(DEVICE), e["attention_mask"].to(DEVICE))
+    preds.append(lg.argmax(1).cpu().numpy())
+    probs.append(torch.softmax(lg, 1)[:, 1].cpu().numpy())
+  return np.concatenate(preds), np.concatenate(probs)

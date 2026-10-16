@@ -1,84 +1,93 @@
-"""input_validation.py - validasi & normalisasi masukan, TANPA ketergantungan torch.
+"""
+src/utils/input_validation.py — sanitasi dan validasi masukan teks SEBELUM masuk model.
+Prinsip: menolak dengan alasan yang jelas, bukan memaksakan vonis.
 
-Semua ambang di sini adalah NILAI AWAL SEMENTARA. Tetapkan/ubah hanya berdasarkan
-set kalibrasi atau val (bukan set uji/lockbox), lalu catat di protokol.
+Ambang bertanda SEMENTARA (MIN_STOPWORD_RATIO) wajib dikalibrasi dengan kalibrasi_gerbang_domain.py
+pada data latih/val (bukan lockbox), lalu dicatat di protokol.
 """
 import re
 import unicodedata
-from typing import Dict, Tuple
+from typing import Any, Dict
 
-# ── Satu-satunya sumber konstanta (pakai juga di ekstraktor & skrip evaluasi) ──
-MAX_CHARS = 5000            # batas atas masukan (cegah beban CPU/regex)
-MIN_WORDS = 5               # TETAPKAN dari panjang minimum data latih, lalu kunci
-MIN_ALPHA_RATIO = 0.5       # huruf / karakter non-spasi
-INDO_STOPWORD_MIN_RATIO = 0.05  # heuristik bahasa; kalibrasi false-reject di val
+MIN_WORDS = 10                  # sama dengan CFG["MIN_WORDS"] saat korpus dibangun
+MAX_CHARS = 20000               # batas pengaman; teks panjang tidak ditolak, hanya 60 kata pertama yang dinilai
+MIN_LETTER_RATIO = 0.40
+MIN_STOPWORD_RATIO = 0.04       # SEMENTARA: kalibrasi dulu (teks Inggris ~0,00; teks Indonesia biasanya >0,10)
 
-# Homoglif Sirilik/Yunani yang umum meniru huruf Latin
-_HOMOGLYPHS = str.maketrans({
-    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
-    "і": "i", "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H",
-    "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X", "ο": "o",
-})
-_NON_LATIN_LETTER = re.compile(r"[\u0370-\u03FF\u0400-\u04FF]")
-_TOKEN = re.compile(r"\w+", re.UNICODE)
-
-_INDO_STOPWORDS = {
-    "yang", "dan", "di", "ke", "dari", "untuk", "dengan", "ini", "itu", "pada",
-    "adalah", "akan", "tidak", "dalam", "oleh", "bahwa", "atau", "sudah", "telah",
-    "juga", "karena", "ada", "bisa", "saya", "kami", "mereka", "dia", "sebagai",
-    "para", "tersebut", "secara", "lebih", "saat", "jika", "agar", "namun",
-    "serta", "hingga", "yaitu", "kepada", "bagi", "sebuah", "setelah",
+ID_STOPWORDS = {
+    "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu", "dengan", "dalam", "bisa", "akan",
+    "juga", "ada", "mereka", "sudah", "oleh", "saat", "bahwa", "tidak", "tersebut", "kita", "para", "karena",
+    "bagi", "sampai",
 }
 
+# Huruf Sirilik/Yunani yang mirip huruf Latin (ditulis sebagai kode titik agar aman dari masalah penyandian berkas).
+_HOMOGLYPHS = {
+    0x0430: "a", 0x0435: "e", 0x043E: "o", 0x0440: "p", 0x0441: "c", 0x0443: "y", 0x0445: "x", 0x0456: "i",
+    0x0410: "A", 0x0412: "B", 0x0415: "E", 0x041A: "K", 0x041C: "M", 0x041D: "H", 0x041E: "O", 0x0420: "P",
+    0x0421: "C", 0x0422: "T", 0x0425: "X", 0x0406: "I",
+    0x03BF: "o", 0x0391: "A", 0x0392: "B", 0x0395: "E", 0x039A: "K", 0x039C: "M", 0x039D: "N", 0x039F: "O",
+    0x03A1: "P", 0x03A4: "T", 0x03A7: "X", 0x0399: "I", 0x03A5: "Y",
+}
+_KEEP_WS = ("\n", "\t", "\r")
 
-def normalize_input(text: str) -> Tuple[str, Dict[str, int]]:
-    """NFKC, buang karakter tak terlihat (zero-width/bidi/kontrol), perbaiki homoglif.
 
-    Mengembalikan (teks, info). info dipakai untuk log/peringatan, bukan vonis.
-    """
-    info = {"invisible_removed": 0, "homoglyph_fixed": 0}
-    s = unicodedata.normalize("NFKC", text)
-
+def sanitize_characters(text: str):
+    """NFKC, buang karakter format/kontrol tak terlihat (zero-width, bidi), normalkan homoglif ke Latin."""
+    s = unicodedata.normalize("NFKC", str(text))
+    flags = {"had_invisible": False, "had_homoglyph": False}
     kept = []
     for ch in s:
-        cat = unicodedata.category(ch)
-        if cat == "Cf" or (cat == "Cc" and ch not in "\n\r\t"):
-            info["invisible_removed"] += 1
+        if unicodedata.category(ch) in ("Cf", "Cc") and ch not in _KEEP_WS:
+            flags["had_invisible"] = True
             continue
         kept.append(ch)
-    s = "".join(kept)
-
-    def _fix(m):
-        tok = m.group(0)
-        if _NON_LATIN_LETTER.search(tok) and re.search(r"[A-Za-z]", tok):
-            fixed = tok.translate(_HOMOGLYPHS)
-            if fixed != tok:
-                info["homoglyph_fixed"] += 1
-            return fixed
-        return tok
-
-    s = _TOKEN.sub(_fix, s)
-    return s, info
+    s2 = "".join(kept)
+    s3 = s2.translate(_HOMOGLYPHS)
+    flags["had_homoglyph"] = s3 != s2
+    return s3.strip(), flags
 
 
-def check_basic(text: str) -> Tuple[bool, str]:
-    """Tolak teks kosong / tanpa huruf / hampir seluruhnya simbol atau angka."""
-    stripped = re.sub(r"\s+", "", text or "")
-    if not stripped:
-        return False, "Masukan kosong."
-    letters = sum(ch.isalpha() for ch in stripped)
-    if letters == 0:
-        return False, "Masukan tidak memuat huruf."
-    if letters / len(stripped) < MIN_ALPHA_RATIO:
-        return False, "Masukan didominasi angka atau simbol, bukan teks."
-    return True, ""
+def stopword_ratio(text: str) -> float:
+    words = re.findall(r"[a-z]+", text.lower())
+    return (sum(w in ID_STOPWORDS for w in words) / len(words)) if words else 0.0
 
 
-def looks_indonesian(text: str) -> Tuple[bool, float]:
-    """Heuristik kasar berbasis kata fungsi bahasa Indonesia (BUKAN deteksi bahasa penuh)."""
-    toks = [t.lower() for t in re.findall(r"[A-Za-z]+", text)]
-    if not toks:
-        return False, 0.0
-    hits = sum(t in _INDO_STOPWORDS for t in toks)
-    ratio = hits / len(toks)
-    return (hits >= 1 and ratio >= INDO_STOPWORD_MIN_RATIO), ratio
+def validate_input_text(text: Any) -> Dict[str, Any]:
+    """Kembalikan dict: ok, text (tersanitasi), reason, flags, n_words, stopword_ratio."""
+    out = {"ok": False, "text": "", "reason": "", "flags": {}, "n_words": 0, "stopword_ratio": None}
+    if text is None or not str(text).strip():
+        out["reason"] = "Teks kosong."
+        return out
+
+    s, flags = sanitize_characters(text)
+    out.update(text=s, flags=flags)
+    if not s:
+        out["reason"] = "Teks kosong setelah pembersihan karakter tak terlihat."
+        return out
+    if len(s) > MAX_CHARS:
+        out["reason"] = f"Teks melebihi batas pengaman ({len(s)} > {MAX_CHARS} karakter)."
+        return out
+
+    letters = re.findall(r"[A-Za-z]", s)
+    if not letters:
+        out["reason"] = "Teks tidak memuat huruf."
+        return out
+    ratio = len(letters) / max(len(re.sub(r"\s", "", s)), 1)
+    if ratio < MIN_LETTER_RATIO:
+        out["reason"] = f"Teks didominasi angka atau simbol (rasio huruf {ratio:.2f} < {MIN_LETTER_RATIO})."
+        return out
+
+    n = len(s.split())
+    out["n_words"] = n
+    if n < MIN_WORDS:
+        out["reason"] = f"Teks terlalu pendek ({n} kata < {MIN_WORDS})."
+        return out
+
+    sr = stopword_ratio(s)
+    out["stopword_ratio"] = round(sr, 4)
+    if sr < MIN_STOPWORD_RATIO:
+        out["reason"] = f"Teks tampak bukan bahasa Indonesia (rasio kata fungsi {sr:.2f} < {MIN_STOPWORD_RATIO})."
+        return out
+
+    out["ok"] = True
+    return out

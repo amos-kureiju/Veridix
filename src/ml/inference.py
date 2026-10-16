@@ -1,271 +1,264 @@
-"""inference.py - satu jalur praproses & prediksi untuk aplikasi, evaluasi, dan LIME."""
-import logging
+"""
+src/ml/inference.py — jalur inferensi aplikasi (versi final yang dapat diuji).
+
+Struktur:
+  Penilai            : orkestrasi murni Python (validasi -> domain -> praproses -> suara per seed -> keputusan -> LIME).
+                       Tidak butuh torch, jadi dapat diuji dengan backend tiruan.
+  BackendIndoBERT    : satu model dasar + tiga keadaan terlatih (layer 8-11, pooler, kepala) yang ditukar per seed.
+                       Memuat hanya SATU salinan model dasar (memuat tiga sekaligus pernah menyebabkan 'bad allocation').
+
+Jaminan integritas (gagal keras, bukan diam-diam):
+  * SHA-256 tiap checkpoint harus sama dengan yang dicatat saat pelatihan (EXPECTED_SHA256),
+  * kunci checkpoint harus persis sama dengan parameter yang dilatih,
+  * text_pipeline.py harus sama dengan berkas beku, dan revisi model dasar harus sama,
+  * satu-satunya pengecualian: VERIDIX_ALLOW_UNVERIFIED=1 (untuk uji bobot lain; mencetak peringatan).
+
+Keluaran untuk pengguna TIDAK memuat probabilitas (model cenderung ekstrem walau salah); probabilitas hanya
+tersedia dengan debug=True. Aturan keputusan antar-seed adalah KANDIDAT dan belum dievaluasi: pilih dengan
+analisis_aturan_ensemble.py pada val, tulis di protokol, baru kunci.
+"""
+import hashlib
 import os
-import re
 import sys
+import threading
 import time
-from typing import Any, Dict, List, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from lime.lime_text import LimeTextExplainer
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from transformers import AutoModel, AutoTokenizer
 
-from src.core.config import settings
-from src.utils.input_validation import (
-    MAX_CHARS, MIN_WORDS, check_basic, looks_indonesian, normalize_input,
-)
-from src.utils.political_guardrail import check_political_domain
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-log = logging.getLogger("hoax.inference")
+from src.utils.input_validation import validate_input_text  # noqa: E402
+from src.utils.political_guardrail import check_political_domain  # noqa: E402
+from src.utils.praproses import praproses, MAX_WORDS  # noqa: E402
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if ROOT_DIR not in sys.path:
-  sys.path.insert(0, ROOT_DIR)
-
-try:
-  import text_pipeline as tp
-  assert tp.PIPELINE_VERSION == "tp-1.6", (
-      f"text_pipeline versi {tp.PIPELINE_VERSION}, diharapkan tp-1.6")
-except Exception as e:
-  raise ImportError(f"Gagal memuat text_pipeline.py tp-1.6: {e}")
-
-# ── Konfigurasi keputusan (nilai awal; pilih aturan di set kalibrasi) ────────
-DECISION_RULE = "unanimous"   # "unanimous" | "majority" | "mean"
+MODEL_NAME = "indobenchmark/indobert-base-p1"
 SEEDS = [42, 123, 999]
-LIME_NUM_SAMPLES = 100        # sedikit -> penjelasan bisa tidak stabil; uji stabilitas
-LABEL_HOAX = "BERPOLA HOAKS"
-LABEL_NOT = "TIDAK BERPOLA HOAKS"
-LABEL_AMBIGU = "PERLU VERIFIKASI (AMBIGU)"
-NOTE = ("Hasil menunjukkan kemiripan pola teks dengan korpus hoaks, bukan "
-        "pemeriksaan fakta. Periksa teks yang dinilai dan sumber aslinya.")
+MAX_LEN, BATCH = 128, 32
+
+# Dicatat dari keluaran Anda sendiri (verifikasi_ckpt_lokal.py dan log pembekuan).
+EXPECTED_SHA256 = {
+    42: "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+    123: "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+    999: "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3",
+}
+EXPECTED_PIPELINE_SHA256 = "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581"
+EXPECTED_BASE_REVISION = "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2"
+
+DECISION_RULE = os.environ.get("VERIDIX_DECISION_RULE", "unanimous")   # unanimous | majority
+LIME_NUM_SAMPLES = int(os.environ.get("VERIDIX_LIME_SAMPLES", "200"))
+
+DISCLAIMER = ("Sistem mendeteksi kemiripan pola penulisan klaim yang pernah dilabeli hoaks oleh pemeriksa fakta; "
+              "ia bukan pemverifikasi kebenaran. Hasil pada teks hasil OCR yang berderau kurang andal.")
+LIME_CATATAN = ("Penjelasan LIME bersifat indikatif: ia menunjukkan kata yang memengaruhi keluaran model, "
+                "bukan bukti bahwa kata itu benar atau salah.")
 
 
-class Clf(nn.Module):
-  """Identik dengan colab_02_indobert.py (layer 0-7 beku, 8-11 + head dilatih)."""
-
-  def __init__(self, model_name="indobenchmark/indobert-base-p1",
-               freeze_layers=8, dropout_rate=0.3):
-    super().__init__()
-    self.bert = AutoModel.from_pretrained(model_name)
-    for p in self.bert.embeddings.parameters():
-      p.requires_grad = False
-    for i in range(freeze_layers):
-      for p in self.bert.encoder.layer[i].parameters():
-        p.requires_grad = False
-    self.drop = nn.Dropout(dropout_rate)
-    self.head = nn.Linear(self.bert.config.hidden_size, 2)
-
-  def forward(self, ids, am):
-    cls_token = self.bert(input_ids=ids, attention_mask=am).last_hidden_state[:, 0, :]
-    return self.head(self.drop(cls_token))
+def sha256_file(path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for ch in iter(lambda: f.read(1 << 20), b""):
+            h.update(ch)
+    return h.hexdigest().lower()
 
 
-_CRITICAL_MISSING = re.compile(r"^(head\.|bert\.encoder\.layer\.(8|9|10|11)\.)")
+def putuskan(votes_hoax: int, n: int, rule: str = DECISION_RULE):
+    """Kembalikan (status, label)."""
+    if rule == "unanimous":
+        if votes_hoax == n:
+            return "dinilai", "BERPOLA HOAKS"
+        if votes_hoax == 0:
+            return "dinilai", "TIDAK BERPOLA HOAKS"
+        return "ambigu", "PERLU VERIFIKASI (SEED TIDAK SEPAKAT)"
+    if rule == "majority":
+        return "dinilai", ("BERPOLA HOAKS" if votes_hoax * 2 > n else "TIDAK BERPOLA HOAKS")
+    raise ValueError(f"aturan keputusan tidak dikenal: {rule}")
 
 
-class HoaxPredictor:
+class Penilai:
+    """Orkestrasi murni Python. backend.seed_probs_each(list[str]) -> array (n_teks, n_seed) berisi P(hoaks)."""
 
-  def __init__(self):
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    self.model_name = getattr(settings, "MODEL_NAME_OR_PATH",
-                              "indobenchmark/indobert-base-p1")
-    self.max_len = 128
-    self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-    self.models: List[nn.Module] = []
-    self.loaded_seeds: List[int] = []
-    self._load_ensemble_checkpoints()
-    self.explainer = LimeTextExplainer(
-        class_names=["TIDAK_HOAKS", "HOAKS"], split_expression=r"\W+",
-        random_state=42)
+    def __init__(self, backend, decision_rule: str = DECISION_RULE, sambung_tanda_hubung: bool = False):
+        self.backend = backend
+        self.rule = decision_rule
+        self.sambung = sambung_tanda_hubung
+        self._explainer = None
 
-  # ── Pemuatan model ────────────────────────────────────────────────────────
-  def _resolve_checkpoint_paths(self) -> List[Tuple[int, str]]:
-    dirs = [os.path.join(ROOT_DIR, "saved_models", "indobert_ce_final"),
-            os.path.join(ROOT_DIR, "saved_models"), ROOT_DIR]
-    found = []
-    for sd in SEEDS:
-      for d in dirs:
-        p = os.path.join(d, f"ckpt_ce_{sd}.pt")
-        if os.path.exists(p):
-          found.append((sd, p))
-          break
-    return found
+    # -- hasil penolakan yang seragam -------------------------------------------------
+    def _tolak(self, status, label, reason, t0, **extra):
+        d = {"success": False, "status": status, "label": label, "reason": reason,
+             "disclaimer": DISCLAIMER, "latency_seconds": round(time.time() - t0, 3)}
+        d.update(extra)
+        return d
 
-  def _load_ensemble_checkpoints(self):
-    ckpts = self._resolve_checkpoint_paths()
-    got = [s for s, _ in ckpts]
-    if got != SEEDS:  # jangan diam-diam jalan dengan <3 seed
-      raise FileNotFoundError(f"Seed ditemukan {got}, diharapkan {SEEDS}.")
-    for seed, path in ckpts:
-      m = Clf(model_name=self.model_name).to(self.device)
-      state = torch.load(path, map_location=self.device)
-      missing, unexpected = m.load_state_dict(state, strict=False)
-      bad = [k for k in missing if _CRITICAL_MISSING.match(k)]
-      if bad:  # bobot terlatih tidak termuat -> model acak, harus gagal keras
-        raise RuntimeError(f"Seed {seed}: bobot terlatih hilang: {bad[:3]}")
-      if unexpected:
-        log.warning("Seed %s: kunci tak dikenal %s", seed, unexpected[:3])
-      m.eval()
-      self.models.append(m)
-      self.loaded_seeds.append(seed)
-    log.info("Konsensus %d seed aktif di %s", len(self.models), self.device)
+    def _mean_probs(self, texts) -> np.ndarray:
+        p = self.backend.seed_probs_each(list(texts)).mean(axis=1)
+        return np.column_stack([1.0 - p, p])
 
-  # ── Praproses (SATU jalur) ────────────────────────────────────────────────
-  def clean_ocr_noise(self, text: str) -> str:
-    s = str(text or "")
-    s = re.sub(r"(\w+)-\s*\n\s*(\w+)", r"\1\2", s)          # "pe-\nmerintah"
-    # "me- netapkan" (baris sudah digabung spasi): sambung jika lanjutan huruf kecil.
-    # Pada eksperimen n=472, penyambungan tanda hubung mengembalikan akurasi ke acuan;
-    # tetap verifikasi pada val sebelum dianggap aman untuk teks yang diketik pengguna.
-    s = re.sub(r"(?<=\w)-\s+(?=[a-z])", "", s)
-    s = re.sub(r"[\r\n\t]+", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    def _lime(self, text: str) -> Dict[str, Any]:
+        out = {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN}
+        try:
+            if self._explainer is None:
+                from lime.lime_text import LimeTextExplainer
+                self._explainer = LimeTextExplainer(class_names=["TIDAK_HOAKS", "HOAKS"], split_expression=r"\W+",
+                                                    random_state=42)
+            n_uniq = len(set(text.lower().split()))
+            exp = self._explainer.explain_instance(text, self._mean_probs, labels=(1,), num_features=max(1, min(8, n_uniq)),
+                                                   num_samples=LIME_NUM_SAMPLES)
+            out["tokens"] = [{"word": str(w), "weight": round(float(s), 4),
+                              "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in exp.as_list(label=1)]
+            out["explanation_available"] = True
+        except Exception as e:  # penjelasan gagal tidak boleh menggagalkan vonis
+            out["error"] = f"{type(e).__name__}: {e}"
+        return out
 
-  def preprocess_pipeline(self, text: str) -> str:
-    s = self.clean_ocr_noise(text)
-    s = tp.clean(s)
-    s = tp.norm_title(s, unwrap=True)
-    s = tp.ensure_end(s)
-    return tp.cap_sentences(s, max_words=60)
+    def nilai(self, text: Any, explain: bool = False, debug: bool = False) -> Dict[str, Any]:
+        t0 = time.time()
+        v = validate_input_text(text)
+        if not v["ok"]:
+            return self._tolak("ditolak", "TIDAK DAPAT DINILAI", v["reason"], t0, input_flags=v["flags"])
 
-  # ── Inferensi (SATU fungsi untuk prediksi utama dan LIME) ─────────────────
-  def seed_probs(self, texts: List[str]) -> np.ndarray:
-    """Return array (n_seed, n_teks, 2): P[tidak hoaks, hoaks] per seed."""
-    out = []
-    for m in self.models:
-      chunks = []
-      for i in range(0, len(texts), 32):
-        enc = self.tokenizer([str(t) for t in texts[i:i + 32]],
-                             max_length=self.max_len, padding="max_length",
-                             truncation=True, return_tensors="pt")
-        with torch.no_grad():
-          logits = m(enc["input_ids"].to(self.device),
-                     enc["attention_mask"].to(self.device))
-        chunks.append(F.softmax(logits, dim=1).cpu().numpy())
-      out.append(np.concatenate(chunks, axis=0))
-    return np.stack(out, axis=0)
+        in_domain, topik, terms = check_political_domain(v["text"])     # pada teks PENUH, seperti saat korpus dibangun
+        if not in_domain:
+            return self._tolak("di_luar_domain", "DI LUAR CAKUPAN (BUKAN TOPIK POLITIK)",
+                               "Teks di luar topik politik yang dipakai melatih sistem.", t0,
+                               sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
-  def _predict_proba_batch(self, texts: List[str]) -> np.ndarray:
-    return self.seed_probs(texts).mean(axis=0)
+        x = praproses(v["text"], self.sambung)
+        if not x:
+            return self._tolak("ditolak", "TIDAK DAPAT DINILAI", "Teks kosong setelah pembersihan.", t0,
+                               input_flags=v["flags"])
 
-  # ── Hasil terstruktur ─────────────────────────────────────────────────────
-  def _result(self, status, prediction, t0, text, processed="", warning=None,
-              is_political=None, entities=None, extra=None):
-    r = {
-        "status": status,  # dinilai | ambigu | di_luar_domain | ditolak
-        "success": status in ("dinilai", "ambigu"),
-        "prediction": prediction,
-        "is_political": is_political,
-        "domain_warning": warning,
-        "inference_time_seconds": round(time.time() - t0, 2),
-        "extracted_text": text if isinstance(text, str) else "",
-        "processed_text": processed,
-        "entities_detected": entities or [],
-        "note": NOTE,
-        "consensus_details": None,
-        "explanation_available": False,
-        "explanation": {"hoax_probability": None, "tokens": [],
-                        "top_hoax_words": [], "top_fact_words": []},
-    }
-    if extra:
-      r.update(extra)
-    return r
+        probs = np.asarray(self.backend.seed_probs_each([x])[0], dtype=float)
+        n = len(probs)
+        votes = int((probs >= 0.5).sum())
+        status, label = putuskan(votes, n, self.rule)
 
-  def predict_and_explain(self, text: str, explain: bool = True) -> Dict[str, Any]:
-    t0 = time.time()
-    raw = text if isinstance(text, str) else ""
-
-    def reject(msg, processed="", status="ditolak", **kw):
-      return self._result(status, "TIDAK DAPAT DINILAI", t0, raw, processed,
-                          warning=msg, **kw)
-
-    if len(raw) > MAX_CHARS:
-      return reject(f"Teks terlalu panjang (>{MAX_CHARS} karakter).")
-
-    norm, info = normalize_input(raw)
-    ok, why = check_basic(norm)
-    if not ok:
-      return reject(why, extra={"input_flags": info})
-
-    processed = self.preprocess_pipeline(norm)
-    n_words = len(processed.split())
-    if n_words < MIN_WORDS:
-      return reject(f"Teks terlalu pendek ({n_words} kata; minimal {MIN_WORDS}).",
-                    processed, extra={"input_flags": info})
-
-    indo, ratio = looks_indonesian(processed)
-    if not indo:
-      return reject("Teks tampaknya bukan bahasa Indonesia (heuristik).",
-                    processed, extra={"input_flags": info})
-
-    is_pol, entities = check_political_domain(norm)
-    if not is_pol:
-      return self._result(
-          "di_luar_domain", "DI LUAR DOMAIN", t0, raw, processed,
-          warning="Tidak terdeteksi istilah politik; model hanya dilatih pada "
-                  "korpus politik sehingga vonis tidak diberikan.",
-          is_political=False, entities=entities, extra={"input_flags": info})
-
-    sp = self.seed_probs([processed])[:, 0, :]            # (n_seed, 2)
-    hoax_each = sp[:, 1]
-    votes = (hoax_each >= 0.5).astype(int)
-    mean_hoax = float(hoax_each.mean())
-    n_hoax = int(votes.sum())
-    unanimous = len(set(votes.tolist())) == 1
-
-    if DECISION_RULE == "unanimous":
-      verdict = None if not unanimous else int(votes[0])
-    elif DECISION_RULE == "majority":
-      verdict = int(n_hoax > len(votes) / 2)
-    else:
-      verdict = int(mean_hoax >= 0.5)
-
-    if verdict is None:
-      status, prediction = "ambigu", LABEL_AMBIGU
-    else:
-      status = "dinilai"
-      prediction = LABEL_HOAX if verdict == 1 else LABEL_NOT
-
-    # Probabilitas model ekstrem walau salah: tampilkan kesepakatan, bukan "keyakinan".
-    consensus = {
-        "rule": DECISION_RULE,
-        "loaded_seeds": self.loaded_seeds,
-        "individual_hoax_probs": [round(float(p), 4) for p in hoax_each],
-        "votes_hoax": f"{n_hoax}/{len(votes)}",
-        "is_unanimous": unanimous,
-        "mean_hoax_probability": round(mean_hoax, 4),
-        "variance": round(float(np.var(hoax_each)), 6),
-    }
-    res = self._result(status, prediction, t0, raw, processed,
-                       is_political=True, entities=entities,
-                       extra={"consensus_details": consensus, "input_flags": info})
-    res["explanation"]["hoax_probability"] = round(mean_hoax, 4)
-
-    if explain:
-      try:
-        exp = self.explainer.explain_instance(
-            processed, self._predict_proba_batch,
-            num_features=min(8, n_words), num_samples=LIME_NUM_SAMPLES)
-        lime_list = exp.as_list(label=1)
-        res["explanation"]["tokens"] = [
-            {"word": str(w), "weight": round(float(s), 4),
-             "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"}
-            for w, s in lime_list]
-        res["explanation"]["top_hoax_words"] = [
-            {"word": str(w), "score": round(float(s), 4)}
-            for w, s in lime_list if s > 0][:5]
-        res["explanation"]["top_fact_words"] = [
-            {"word": str(w), "score": round(abs(float(s)), 4)}
-            for w, s in lime_list if s <= 0][:5]
-        res["explanation_available"] = True
-      except Exception:
-        log.exception("LIME gagal untuk teks (panjang %d)", len(processed))
-    res["inference_time_seconds"] = round(time.time() - t0, 2)
-    return res
+        res = {"success": True, "status": status, "label": label, "votes_hoax": f"{votes}/{n}",
+               "decision_rule": self.rule, "sub_topik": topik, "istilah": terms,
+               "teks_dinilai": x, "terpotong": len(v["text"].split()) > MAX_WORDS,
+               "input_flags": v["flags"], "disclaimer": DISCLAIMER}
+        if explain:
+            res["explanation"] = self._lime(x)
+        if debug:
+            res["debug"] = {"prob_hoax_per_seed": [round(float(p), 4) for p in probs]}
+        res["latency_seconds"] = round(time.time() - t0, 3)
+        return res
 
 
-predictor = HoaxPredictor()
+class BackendIndoBERT:
+    """Satu model dasar; keadaan terlatih tiap seed ditukar saat inferensi. Gagal keras bila integritas tidak cocok."""
+
+    def __init__(self, seeds: Optional[List[int]] = None):
+        import torch
+        import torch.nn as nn
+        from transformers import AutoModel, AutoTokenizer
+
+        self.torch = torch
+        self.seeds = list(seeds or SEEDS)
+        self.allow_unverified = os.environ.get("VERIDIX_ALLOW_UNVERIFIED") == "1"
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._lock = threading.Lock()
+        self.audit: Dict[str, Any] = {}
+
+        self._cek_pipeline()
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        self.clf = self._bangun(nn, AutoModel).to(self.device).eval()
+        self._cek_revisi_model_dasar()
+        self.states = {s: self._muat(s) for s in self.seeds}
+
+    # -- integritas -----------------------------------------------------------------
+    def _gagal(self, pesan: str):
+        if self.allow_unverified:
+            print(f"[PERINGATAN] {pesan} (dilewati karena VERIDIX_ALLOW_UNVERIFIED=1)")
+        else:
+            raise RuntimeError(f"INTEGRITAS GAGAL: {pesan}")
+
+    def _cek_pipeline(self):
+        import text_pipeline as tp
+        h = sha256_file(ROOT_DIR / "text_pipeline.py")
+        self.audit["text_pipeline_sha256"] = h
+        if tp.PIPELINE_VERSION != "tp-1.6" or h != EXPECTED_PIPELINE_SHA256:
+            self._gagal(f"text_pipeline.py tidak sama dengan berkas beku (versi={tp.PIPELINE_VERSION}, sha={h[:12]}...)")
+
+    def _cek_revisi_model_dasar(self):
+        rev = getattr(self.clf.bert.config, "_commit_hash", None)
+        self.audit["base_revision"] = rev
+        if rev != EXPECTED_BASE_REVISION:
+            self._gagal(f"revisi model dasar {rev} != {EXPECTED_BASE_REVISION}")
+
+    @staticmethod
+    def _bangun(nn, AutoModel):
+        class Clf(nn.Module):                      # identik dengan colab_02_indobert.py
+            def __init__(self):
+                super().__init__()
+                self.bert = AutoModel.from_pretrained(MODEL_NAME)
+                for p in self.bert.embeddings.parameters():
+                    p.requires_grad = False
+                for i in range(8):
+                    for p in self.bert.encoder.layer[i].parameters():
+                        p.requires_grad = False
+                self.drop = nn.Dropout(0.3)
+                self.head = nn.Linear(self.bert.config.hidden_size, 2)
+
+            def forward(self, ids, am):
+                return self.head(self.drop(self.bert(input_ids=ids, attention_mask=am).last_hidden_state[:, 0, :]))
+        return Clf()
+
+    def _muat(self, seed: int):
+        nama = f"ckpt_ce_{seed}.pt"
+        path = next((d / nama for d in (ROOT_DIR / "saved_models" / "indobert_ce_final", ROOT_DIR / "saved_models", ROOT_DIR)
+                     if (d / nama).exists()), None)
+        if path is None:
+            raise FileNotFoundError(f"FATAL: {nama} tidak ditemukan. Ketiga seed wajib ada.")
+        h = sha256_file(path)
+        self.audit[f"sha256_seed_{seed}"] = h
+        if h != EXPECTED_SHA256[seed]:
+            self._gagal(f"hash {nama} tidak cocok ({h[:12]}... != {EXPECTED_SHA256[seed][:12]}...)")
+        sd = self.torch.load(path, map_location="cpu", weights_only=True)
+        harapan = {n for n, p in self.clf.named_parameters() if p.requires_grad}
+        if set(sd.keys()) != harapan:
+            raise ValueError(f"FATAL: kunci {nama} tidak sama dengan parameter yang dilatih "
+                             f"(kurang={len(harapan - set(sd))}, lebih={len(set(sd) - harapan)})")
+        return sd
+
+    # -- inferensi ------------------------------------------------------------------
+    def seed_probs_each(self, texts: List[str]) -> np.ndarray:
+        torch = self.torch
+        texts = [str(t) for t in texts]
+        enc = self.tokenizer(texts, max_length=MAX_LEN, padding="max_length", truncation=True, return_tensors="pt")
+        out = np.zeros((len(texts), len(self.seeds)), dtype=np.float64)
+        with self._lock, torch.no_grad():
+            for j, s in enumerate(self.seeds):
+                self.clf.load_state_dict(self.states[s], strict=False)   # menimpa SEMUA kunci terlatih
+                for i in range(0, len(texts), BATCH):
+                    ids = enc["input_ids"][i:i + BATCH].to(self.device)
+                    am = enc["attention_mask"][i:i + BATCH].to(self.device)
+                    p = torch.softmax(self.clf(ids, am), dim=1)[:, 1].cpu().numpy()
+                    out[i:i + len(p), j] = p
+        return out
+
+
+_PRED = None
+_PRED_LOCK = threading.Lock()
+
+
+def get_predictor() -> Penilai:
+    global _PRED
+    with _PRED_LOCK:
+        if _PRED is None:
+            _PRED = Penilai(BackendIndoBERT(), decision_rule=DECISION_RULE)
+    return _PRED
+
+
+class _LazyPredictor:
+    """Kompatibel dengan pemanggil lama (predictor.predict_and_explain), tetapi model baru dimuat saat pertama dipakai."""
+
+    def predict_and_explain(self, text, explain: bool = True, debug: bool = False):
+        return get_predictor().nilai(text, explain=explain, debug=debug)
+
+
+predictor = _LazyPredictor()  

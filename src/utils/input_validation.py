@@ -12,7 +12,8 @@ from typing import Any, Dict
 MIN_WORDS = 10                  # sama dengan CFG["MIN_WORDS"] saat korpus dibangun
 MAX_CHARS = 20000               # batas pengaman; teks panjang tidak ditolak, hanya 60 kata pertama yang dinilai
 MIN_LETTER_RATIO = 0.40
-MIN_STOPWORD_RATIO = 0.04       # SEMENTARA: kalibrasi dulu (teks Inggris ~0,00; teks Indonesia biasanya >0,10)
+MIN_STOPWORD_RATIO = 0.02       # dikalibrasi dari kalibrasi_gerbang_domain.py pada data beku (ringkasan: menolak ~0,6% fakta dan ~2,8% hoaks;
+                                # teks Inggris tetap ditolak karena rasionya 0,00). Verifikasi ulang dengan keluaran mentah dan catat di protokol.
 
 ID_STOPWORDS = {
     "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu", "dengan", "dalam", "bisa", "akan",

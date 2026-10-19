@@ -91,4 +91,4 @@ def validate_input_text(text: Any) -> Dict[str, Any]:
         return out
 
     out["ok"] = True
-    return out
+    return out  

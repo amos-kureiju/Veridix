@@ -5,14 +5,14 @@ TC03,Satu kata,ditolak,TIDAK DAPAT DINILAI,True,,Teks terlalu pendek (1 kata < 1
 TC04,Angka saja,ditolak,TIDAK DAPAT DINILAI,True,,Teks tidak memuat huruf.,,0.0
 TC05,Pendek (< 10 kata),ditolak,TIDAK DAPAT DINILAI,True,,Teks terlalu pendek (8 kata < 10).,,0.0
 TC06,Non-politik (resep),di_luar_domain,DI LUAR CAKUPAN (BUKAN TOPIK POLITIK),True,,Teks di luar topik politik yang dipakai melatih sistem.,,0.0
-TC07,Bahasa Inggris (>= 10 kata),ditolak,TIDAK DAPAT DINILAI,True,,Teks tampak bukan bahasa Indonesia (rasio kata fungsi 0.00 < 0.04).,,0.0
+TC07,Bahasa Inggris (>= 10 kata),ditolak,TIDAK DAPAT DINILAI,True,,Teks tampak bukan bahasa Indonesia (rasio kata fungsi 0.00 < 0.02).,,0.0
 TC08,'pan' huruf kecil (wajan),di_luar_domain,DI LUAR CAKUPAN (BUKAN TOPIK POLITIK),True,,Teks di luar topik politik yang dipakai melatih sistem.,,0.0
-TC09,'PAN' huruf besar (partai),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.473
-TC10,Homoglif Sirilik,dinilai,BERPOLA HOAKS,True,,,3/3,0.44
-TC11,Zero-width tersembunyi,ambigu,PERLU VERIFIKASI (SEED TIDAK SEPAKAT),True,,,2/3,0.47
-TC12,Teks sangat panjang,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.513
-TC13,URL dan emoji,dinilai,BERPOLA HOAKS,True,,,3/3,0.47
-TC14,Teks berderau ala OCR,dinilai,BERPOLA HOAKS,True,,,3/3,0.437
+TC09,'PAN' huruf besar (partai),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.31
+TC10,Homoglif Sirilik,dinilai,BERPOLA HOAKS,True,,,3/3,0.315
+TC11,Zero-width tersembunyi,ambigu,PERLU VERIFIKASI (SEED TIDAK SEPAKAT),True,,,2/3,0.296
+TC12,Teks sangat panjang,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.403
+TC13,URL dan emoji,dinilai,BERPOLA HOAKS,True,,,3/3,0.303
+TC14,Teks berderau ala OCR,dinilai,BERPOLA HOAKS,True,,,3/3,0.291
 TC15,Masukan bukan string (angka),ditolak,TIDAK DAPAT DINILAI,True,,Teks tidak memuat huruf.,,0.0
 TC16,Masukan None,ditolak,TIDAK DAPAT DINILAI,True,,Teks kosong.,,0.0
-TC17,Politik normal (12 kata),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.423
+TC17,Politik normal (12 kata),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.279

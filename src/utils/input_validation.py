@@ -16,9 +16,13 @@ MIN_STOPWORD_RATIO = 0.02       # dikalibrasi dari kalibrasi_gerbang_domain.py p
                                 # teks Inggris tetap ditolak karena rasionya 0,00). Verifikasi ulang dengan keluaran mentah dan catat di protokol.
 
 ID_STOPWORDS = {
-    "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu", "dengan", "dalam", "bisa", "akan",
-    "juga", "ada", "mereka", "sudah", "oleh", "saat", "bahwa", "tidak", "tersebut", "kita", "para", "karena",
-    "bagi", "sampai",
+    # Kata perangkai & kata ganti baku bahasa Indonesia
+    "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu", 
+    "dengan", "dalam", "bisa", "akan", "juga", "ada", "mereka", "sudah", "oleh", 
+    "saat", "bahwa", "tidak", "tersebut", "kita", "para", "karena", "bagi", "sampai",
+    # Tambahan kata tugas/preposisi umum (mencegah penolakan keliru)
+    "telah", "secara", "kepada", "atau", "sebagai", "tentang", "tanpa", "guna", 
+    "lewat", "antara", "namun", "tetapi", "serta", "sejak", "hingga"
 }
 
 # Huruf Sirilik/Yunani yang mirip huruf Latin (ditulis sebagai kode titik agar aman dari masalah penyandian berkas).

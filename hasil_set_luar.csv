@@ -1,5 +1,5 @@
 id,text,label,gaya,status,votes_hoax,pred
-1,Presiden Joko Widodo didampingi jajaran menteri meresmikan pembukaan jalan tol Trans Jawa guna meningkatkan efisiensi mobilitas logistik daerah.,0,formal,ditolak,,
-2,Kementerian Keuangan memastikan alokasi anggaran perlindungan sosial dan bantuan pangan telah disalurkan secara transparan kepada pemerintah daerah penerima manfaat.,0,formal,dinilai,0/3,0.0
-3,Beredar kabar viral hoaks bahwa jutaan lembar surat suara pemilu pilpres di Tanjung Priok telah dicoblos nomor tertentu sebelum hari pemilihan.,1,medsos,dinilai,3/3,1.0
-4,Informasi palsu beredar luas menyebutkan KPU RI diam-diam membagikan bansos dana tunai lewat tautan pendaftaran online tanpa mekanisme resmi.,1,medsos,ditolak,,
+1,Presiden Joko Widodo didampingi jajaran menteri meresmikan pembukaan jalan tol Trans Jawa guna meningkatkan efisiensi mobilitas logistik daerah.,0,formal,dinilai,0/3,0
+2,Kementerian Keuangan memastikan alokasi anggaran perlindungan sosial dan bantuan pangan telah disalurkan secara transparan kepada pemerintah daerah penerima manfaat.,0,formal,dinilai,0/3,0
+3,Beredar kabar viral hoaks bahwa jutaan lembar surat suara pemilu pilpres di Tanjung Priok telah dicoblos nomor tertentu sebelum hari pemilihan.,1,medsos,dinilai,3/3,1
+4,Informasi palsu beredar luas menyebutkan KPU RI diam-diam membagikan bansos dana tunai lewat tautan pendaftaran online tanpa mekanisme resmi.,1,medsos,dinilai,3/3,1

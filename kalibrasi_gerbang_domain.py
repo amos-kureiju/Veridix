@@ -50,3 +50,12 @@ for x in (0.02, 0.04, 0.06, 0.08, 0.10):
 print("\nSUB-TOPIK teks yang lolos (porsi per label):")
 print(pd.crosstab(d[d.lolos].topik, d[d.lolos].label, normalize="columns").round(3).to_string())
 print("\nPilih MIN_STOPWORD_RATIO yang menolak ~0% teks korpus pada KEDUA label, lalu catat di protokol.")
+
+# --- PEMERIKSAAN TEPAT: guardrail pada teks PENUH (judul + isi, sebelum dipotong), seperti saat korpus dibangun ---
+if {"title", "body"} <= set(d.columns):
+    full = d.title.fillna("").astype(str) + ". " + d.body.fillna("").astype(str)
+    d["lolos_penuh"] = [check_political_domain(t)[0] for t in full]
+    print("\nGUARDRAIL PADA TEKS PENUH (judul + isi tanpa pemotongan 60 kata), porsi lolos per label:")
+    print((d.groupby("label").lolos_penuh.mean() * 100).round(1).to_string())
+    print("Harapan ~100% pada KEDUA label: semua baris korpus dulu lolos filter pada teks penuh. Bila ya, penolakan 'umum' "
+          "pada teks terpotong murni akibat kata kunci yang berada setelah kata ke-60, bukan cacat guardrail.")

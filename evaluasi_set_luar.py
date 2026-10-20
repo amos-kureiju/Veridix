@@ -1,14 +1,6 @@
-r"""
-evaluasi_set_luar.py — menilai SET UJI BARU lewat jalur APLIKASI yang sama (validasi, domain, praproses, 3 seed):
-pasangan kontrafaktual, transkripsi set 2x2, atau teks hasil OCR. Tidak menyentuh lockbox.
-
-CSV wajib: id, text, label (0 = fakta, 1 = hoaks). Kolom lain (mis. gaya, sel, sumber, split) boleh dipakai untuk rincian.
-    .\.venv\Scripts\python.exe evaluasi_set_luar.py set.csv --by gaya
-    .\.venv\Scripts\python.exe evaluasi_set_luar.py set.csv --by gaya,sumber --out hasil_set.csv
-    python evaluasi_set_luar.py set.csv --stub      (alur tanpa model, untuk uji skrip)
-Tetapkan kriteria SEBELUM menjalankan, dan jalankan SEKALI per set uji.
-Yang dilaporkan: cakupan (dinilai / ditolak / luar cakupan / ambigu), akurasi pada yang dinilai dengan interval Wilson,
-recall hoaks, spesifisitas fakta, serta "akurasi ketat" (non-dinilai dihitung salah) agar penolakan tidak menyembunyikan kegagalan.
+"""
+evaluasi_set_luar.py — Menilai set uji baru lewat jalur aplikasi resmi (3 seed, gerbang, praproses).
+Mendukung mode --stub untuk pengujian alur tanpa beban model.
 """
 import os
 import sys
@@ -16,29 +8,28 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.getcwd())
-from src.ml.inference import Penilai  # noqa: E402
+from src.ml.inference import Penilai
 
 args = sys.argv[1:]
 STUB = "--stub" in args
 by = []
 out_path = "hasil_set_luar.csv"
 if "--by" in args:
-    by = args[args.index("--by") + 1].split(","); 
+    by = args[args.index("--by") + 1].split(",")
 if "--out" in args:
     out_path = args[args.index("--out") + 1]
 pos = [a for i, a in enumerate(args) if not a.startswith("--") and (i == 0 or args[i - 1] not in ("--by", "--out"))]
 if not pos:
-    sys.exit("Beri jalur CSV.")
+    sys.exit("Beri jalur berkas CSV masukan.")
 df = pd.read_csv(pos[0])
 for k in ("id", "text", "label"):
-    assert k in df.columns, f"kolom wajib tidak ada: {k}"
+    assert k in df.columns, f"Kolom wajib tidak ada: {k}"
 for k in by:
-    assert k in df.columns, f"kolom --by tidak ada: {k}"
+    assert k in df.columns, f"Kolom --by tidak ada: {k}"
 
 
 class _Stub:
     seeds = [42, 123, 999]
-
     def seed_probs_each(self, texts):
         return np.array([[0.95, 0.9, 0.99] if ("viral" in t.lower() or "hoaks" in t.lower()) else [0.05, 0.1, 0.02] for t in texts])
 
@@ -68,7 +59,7 @@ res = df.merge(pd.DataFrame(rows), on="id", how="left")
 res.to_csv(out_path, index=False)
 
 grp = by + ["label"]
-print("=" * 100); print(f"Set: {pos[0]} | n={len(res)} | rincian menurut: {grp}"); print("=" * 100)
+print("=" * 100); print(f"Set: {pos[0]} | n={len(res)} | Rincian menurut: {grp}"); print("=" * 100)
 for key, g in res.groupby(grp):
     n = len(g); d = g[g.status == "dinilai"]; nd = len(d)
     benar = int((d.pred == d.label).sum())

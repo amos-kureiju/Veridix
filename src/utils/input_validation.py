@@ -1,31 +1,25 @@
 """
-src/utils/input_validation.py — sanitasi dan validasi masukan teks SEBELUM masuk model.
-Prinsip: menolak dengan alasan yang jelas, bukan memaksakan vonis.
-
-Ambang bertanda SEMENTARA (MIN_STOPWORD_RATIO) wajib dikalibrasi dengan kalibrasi_gerbang_domain.py
-pada data latih/val (bukan lockbox), lalu dicatat di protokol.
+src/utils/input_validation.py — Sanitasi dan validasi masukan teks SEBELUM masuk model.
+Prinsip: Menolak dengan alasan yang jelas, bukan memaksakan vonis.
 """
 import re
 import unicodedata
 from typing import Any, Dict
 
-MIN_WORDS = 10                  # sama dengan CFG["MIN_WORDS"] saat korpus dibangun
-MAX_CHARS = 20000               # batas pengaman; teks panjang tidak ditolak, hanya 60 kata pertama yang dinilai
+MIN_WORDS = 10                  # Selaras dengan batas data latih CFG['MIN_WORDS']
+MAX_CHARS = 20000               # Batas pengaman teks panjang
 MIN_LETTER_RATIO = 0.40
-MIN_STOPWORD_RATIO = 0.02       # dikalibrasi dari kalibrasi_gerbang_domain.py pada data beku (ringkasan: menolak ~0,6% fakta dan ~2,8% hoaks;
-                                # teks Inggris tetap ditolak karena rasionya 0,00). Verifikasi ulang dengan keluaran mentah dan catat di protokol.
+MIN_STOPWORD_RATIO = 0.02       # Ambang batas kata fungsi bahasa Indonesia hasil kalibrasi
 
 ID_STOPWORDS = {
-    # Kata perangkai & kata ganti baku bahasa Indonesia
-    "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu", 
-    "dengan", "dalam", "bisa", "akan", "juga", "ada", "mereka", "sudah", "oleh", 
+    # Kata perangkai, kata ganti, dan preposisi baku bahasa Indonesia
+    "yang", "di", "dan", "dari", "ini", "untuk", "pada", "adalah", "ke", "itu",
+    "dengan", "dalam", "bisa", "akan", "juga", "ada", "mereka", "sudah", "oleh",
     "saat", "bahwa", "tidak", "tersebut", "kita", "para", "karena", "bagi", "sampai",
-    # Tambahan kata tugas/preposisi umum (mencegah penolakan keliru)
-    "telah", "secara", "kepada", "atau", "sebagai", "tentang", "tanpa", "guna", 
+    "telah", "secara", "kepada", "atau", "sebagai", "tentang", "tanpa", "guna",
     "lewat", "antara", "namun", "tetapi", "serta", "sejak", "hingga"
 }
 
-# Huruf Sirilik/Yunani yang mirip huruf Latin (ditulis sebagai kode titik agar aman dari masalah penyandian berkas).
 _HOMOGLYPHS = {
     0x0430: "a", 0x0435: "e", 0x043E: "o", 0x0440: "p", 0x0441: "c", 0x0443: "y", 0x0445: "x", 0x0456: "i",
     0x0410: "A", 0x0412: "B", 0x0415: "E", 0x041A: "K", 0x041C: "M", 0x041D: "H", 0x041E: "O", 0x0420: "P",
@@ -37,7 +31,7 @@ _KEEP_WS = ("\n", "\t", "\r")
 
 
 def sanitize_characters(text: str):
-    """NFKC, buang karakter format/kontrol tak terlihat (zero-width, bidi), normalkan homoglif ke Latin."""
+    """NFKC, buang karakter format/kontrol tak terlihat, normalkan homoglif ke Latin."""
     s = unicodedata.normalize("NFKC", str(text))
     flags = {"had_invisible": False, "had_homoglyph": False}
     kept = []
@@ -58,7 +52,6 @@ def stopword_ratio(text: str) -> float:
 
 
 def validate_input_text(text: Any) -> Dict[str, Any]:
-    """Kembalikan dict: ok, text (tersanitasi), reason, flags, n_words, stopword_ratio."""
     out = {"ok": False, "text": "", "reason": "", "flags": {}, "n_words": 0, "stopword_ratio": None}
     if text is None or not str(text).strip():
         out["reason"] = "Teks kosong."
@@ -85,14 +78,14 @@ def validate_input_text(text: Any) -> Dict[str, Any]:
     n = len(s.split())
     out["n_words"] = n
     if n < MIN_WORDS:
-        out["reason"] = f"Teks terlalu pendek ({n} kata < {MIN_WORDS})."
+        out["reason"] = f"Teks terlalu sedikit kata untuk dinilai ({n} kata < {MIN_WORDS})."
         return out
 
     sr = stopword_ratio(s)
     out["stopword_ratio"] = round(sr, 4)
-    if sr < MIN_STOPWORD_RATIO:
-        out["reason"] = f"Teks tampak bukan bahasa Indonesia (rasio kata fungsi {sr:.2f} < {MIN_STOPWORD_RATIO})."
+    if sr < MIN_STOPWORD_RATIO and n >= 15:
+        out["reason"] = f"Teks terlalu sedikit kata fungsi bahasa Indonesia ({sr:.2f} < {MIN_STOPWORD_RATIO})."
         return out
 
     out["ok"] = True
-    return out  
+    return out

@@ -64,6 +64,7 @@ __pycache__/
 # Model AI (Opsional: karena ukurannya 470MB, biasanya tidak di-push ke GitHub, cukup disimpan di Google Drive / Local)
 saved_models/*.pt
 
+*.tsbuildinfo
 # SQLite Databases
 *.db
 *.sqlite3

@@ -12,11 +12,11 @@ def get_admin_dashboard_stats(db: Session = Depends(get_db)):
     Menampilkan metrik statistik deteksi riil dari database lokal.
     """
     total_detections = db.query(PredictionLog).count()
-    total_hoaxes = db.query(PredictionLog).filter(PredictionLog.prediction == "HOAX").count()
-    total_facts = db.query(PredictionLog).filter(PredictionLog.prediction == "FACT").count()
+    total_hoaxes = db.query(PredictionLog).filter(PredictionLog.verdict == "HOAKS").count()
+    total_facts = db.query(PredictionLog).filter(PredictionLog.verdict == "FAKTA").count()
     total_feedbacks = db.query(UserFeedback).count()
     
-    avg_latency = db.query(func.avg(PredictionLog.inference_time)).scalar() or 0.0
+    avg_latency = db.query(func.avg(PredictionLog.inference_time_ms)).scalar() or 0.0
 
     return {
         "status": "success",

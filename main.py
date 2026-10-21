@@ -4,8 +4,9 @@ from src.core.config import settings
 from src.database.session import engine, Base
 from src.api.routes import detection_routes
 
-# Buat tabel database secara otomatis jika belum ada
-Base.metadata.create_all(bind=engine)
+import src.database.models  # Memastikan model terdaftar pada metadata
+Base.metadata.create_all(bind=engine) # Buat tabel database secara otomatis jika belum ada
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

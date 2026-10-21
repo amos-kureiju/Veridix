@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Text, Boolean, Integer, Numeric, 
-    ForeignKey, DateTime, Enum as SQLEnum, UniqueConstraint
+    ForeignKey, DateTime, Enum as SQLEnum, UniqueConstraint, JSON, Uuid
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+# PostgreSQL types replaced with standard SQLAlchemy types for SQLite & Supabase compatibility
 from sqlalchemy.orm import relationship, declarative_base
 
-Base = declarative_base()
+from src.database.session import Base
 
 # =========================================================================
 # 1. TABEL USERS (Autentikasi Akun & Peran)
@@ -15,7 +15,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
@@ -42,8 +42,8 @@ class User(Base):
 class PredictionLog(Base):
     __tablename__ = "prediction_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     input_type = Column(
         SQLEnum("TEXT", "IMAGE", name="input_type_enum"), 
         default="TEXT", 
@@ -59,7 +59,7 @@ class PredictionLog(Base):
     )
     confidence_score = Column(Numeric(5, 4), nullable=False)
     inference_time_ms = Column(Integer, nullable=False)
-    lime_explanation = Column(JSONB, nullable=True)
+    lime_explanation = Column(JSON, nullable=True)
     narrative_text = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True)
 
@@ -74,9 +74,9 @@ class PredictionLog(Base):
 class UserFeedback(Base):
     __tablename__ = "user_feedbacks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    detection_id = Column(UUID(as_uuid=True), ForeignKey("prediction_logs.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    detection_id = Column(Uuid, ForeignKey("prediction_logs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     is_agreed = Column(Boolean, nullable=False)
     claimed_label = Column(
         SQLEnum("HOAKS", "FAKTA", "PERLU KONFIRMASI", name="verdict_enum"), 
@@ -89,7 +89,7 @@ class UserFeedback(Base):
         nullable=False, 
         index=True
     )
-    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_by = Column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     admin_notes = Column(Text, nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
@@ -114,7 +114,7 @@ class AdminSetting(Base):
     setting_key = Column(String(100), unique=True, nullable=False)
     setting_value = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by = Column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
@@ -126,5 +126,5 @@ class ThresholdHistory(Base):
     new_threshold = Column(Numeric(4, 2), nullable=False)
     reason = Column(Text, nullable=True)
     # SET NULL: Agar catatan eksperimen historis tetap abadi walau admin terkait dihapus
-    modified_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    modified_by = Column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)

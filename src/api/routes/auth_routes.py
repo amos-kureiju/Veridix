@@ -7,7 +7,8 @@ from src.database.models import User
 from src.core.security import hash_password, verify_password, create_access_token
 from src.core.auth_deps import get_current_user
 
-router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+# Prefix diset "/auth" (akan digabung dengan settings.API_V1_STR di main.py)
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Skema Validasi Input
 class RegisterRequest(BaseModel):
@@ -19,17 +20,16 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-# 1. ENDPOINT REGISTRASI USER BARU (Masyarakat Umum)
+
+# 1. REGISTRASI PENGGUNA
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
-    # Validasi panjang kata sandi
     if len(req.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kata sandi minimal 8 karakter."
         )
 
-    # Cek apakah email sudah pernah terdaftar
     existing_user = db.query(User).filter(User.email == req.email.lower().strip()).first()
     if existing_user:
         raise HTTPException(
@@ -37,7 +37,6 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
             detail="Alamat email sudah terdaftar. Silakan masuk atau gunakan email lain."
         )
 
-    # Simpan user baru (Role default: USER)
     new_user = User(
         full_name=req.name.strip(),
         email=req.email.lower().strip(),
@@ -54,13 +53,12 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
         "message": "Akun berhasil dibuat. Silakan login."
     }
 
-# 2. ENDPOINT LOGIN (User & Admin)
+
+# 2. LOGIN PENGGUNA & ADMIN
 @router.post("/login")
 def login_user(req: LoginRequest, db: Session = Depends(get_db)):
-    # Cari akun berdasarkan email
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
     
-    # Standar keamanan OWASP: jangan bocorkan apakah yang salah email atau password
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -73,7 +71,6 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
             detail="Akun Anda telah dinonaktifkan oleh Administrator."
         )
 
-    # Terbitkan token JWT berisi ID user
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
 
     return {
@@ -91,7 +88,8 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         }
     }
 
-# 3. ENDPOINT AMBIL DATA SESI LOGIN AKTIF (/me)
+
+# 3. PROFILE DATA AKTIF (/me)
 @router.get("/me")
 def get_my_profile(current_user: User = Depends(get_current_user)):
     return {

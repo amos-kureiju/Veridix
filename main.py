@@ -6,9 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.core.config import settings
 from src.database.session import engine, SessionLocal
 from src.database.models import Base, User
-from src.core.security import get_password_hash
+from src.core.security import hash_password
 
-# Import semua modul rute
+# Import modul rute
 from src.api.routes import detection_routes, auth_routes, feedback_routes, admin_routes
 
 logging.basicConfig(level=logging.INFO)
@@ -16,34 +16,36 @@ logger = logging.getLogger("VERIDIX-API")
 
 
 def seed_default_accounts():
-    """Memastikan akun Admin dan User demo selalu tersedia di database Supabase."""
+    """Memastikan akun Admin dan User demo selalu tersedia saat inisialisasi awal."""
     db = SessionLocal()
     try:
-        # 1. Pastikan Akun Admin Demo Ada
-        admin = db.query(User).filter(User.email == "admin@veridix.id").first()
+        # 1. Pastikan Akun Admin Demo Ada (Gunakan Gmail)
+        admin_email = "admin@gmail.com"  # atau ganti dengan email admin Anda
+        admin = db.query(User).filter(User.email == admin_email).first()
         if not admin:
             admin = User(
-                email="admin@veridix.id",
-                password_hash=get_password_hash("admin123"),
+                email=admin_email,
+                password_hash=hash_password("admin123"),
                 full_name="Administrator Veridix",
                 role="ADMIN",
                 is_active=True,
             )
             db.add(admin)
-            logger.info("Akun demo ADMIN berhasil di-seed: admin@veridix.id")
+            logger.info(f"Akun demo ADMIN berhasil di-seed: {admin_email}")
 
-        # 2. Pastikan Akun User Demo Ada
-        user = db.query(User).filter(User.email == "amos@veridix.id").first()
+        # 2. Pastikan Akun User Demo Ada (Gunakan Gmail)
+        user_email = "amos@gmail.com"  # atau ganti dengan email user Anda
+        user = db.query(User).filter(User.email == user_email).first()
         if not user:
             user = User(
-                email="amos@veridix.id",
-                password_hash=get_password_hash("password123"),
-                full_name="Amos Kurniawan",
+                email=user_email,
+                password_hash=hash_password("password123"),
+                full_name="User",
                 role="USER",
                 is_active=True,
             )
             db.add(user)
-            logger.info("Akun demo USER berhasil di-seed: amos@veridix.id")
+            logger.info(f"Akun demo USER berhasil di-seed: {user_email}")
 
         db.commit()
     except Exception as e:
@@ -55,23 +57,25 @@ def seed_default_accounts():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Inisialisasi tabel (jika belum ada) dan jalankan seeder
-    logger.info("Menginisialisasi skema database...")
+    logger.info("Memeriksa dan menginisialisasi skema database...")
     Base.metadata.create_all(bind=engine)
-    seed_default_accounts()
+    
+    # Jalankan seeding akun jika diaktifkan (default: True)
+    if getattr(settings, "AUTO_SEED_DEMO", True):
+        seed_default_accounts()
+        
     yield
-    # Shutdown logic (jika diperlukan)
     logger.info("Mematikan server API...")
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url="/docs",  # Swagger UI interaktif
+    docs_url="/docs",
     lifespan=lifespan,
 )
 
-# Set CORS agar Next.js di localhost:3000 bisa memanggil API
+# Konfigurasi CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -80,11 +84,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Daftarkan Seluruh Router
-app.include_router(auth_routes.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
-app.include_router(detection_routes.router, prefix=settings.API_V1_STR, tags=["Detection"])
-app.include_router(feedback_routes.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["Feedbacks"])
-app.include_router(admin_routes.router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin Operations"])
+# PENDAFTARAN ROUTER BERSIH (Tanpa Prefix Ganda)
+# Base prefix didapatkan dari settings.API_V1_STR (misal: /api/v1)
+app.include_router(auth_routes.router, prefix=settings.API_V1_STR)
+app.include_router(detection_routes.router, prefix=settings.API_V1_STR)
+app.include_router(feedback_routes.router, prefix=settings.API_V1_STR)
+app.include_router(admin_routes.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

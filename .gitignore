@@ -64,6 +64,10 @@ __pycache__/
 # Model AI (Opsional: karena ukurannya 470MB, biasanya tidak di-push ke GitHub, cukup disimpan di Google Drive / Local)
 saved_models/*.pt
 
+# SQLite Databases
+*.db
+*.sqlite3
+
 # OS Files
 .DS_Store
 Thumbs.db

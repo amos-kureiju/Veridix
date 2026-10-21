@@ -1,17 +1,26 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
+from uuid import UUID
 
-# --- SCHEMA REQUEST ---
+# --- REQUEST SCHEMAS ---
 class TextDetectionRequest(BaseModel):
-    text: str = Field(..., min_length=20, description="Naskah berita minimal 20 karakter")
+    text: str = Field(..., min_length=30, description="Naskah berita minimal 30 karakter")
 
 class FeedbackCreateRequest(BaseModel):
-    log_id: Any
-    user_claimed_label: str = Field(..., pattern="^(HOAKS|FAKTA|HOAX|FACT)$")
-    clarification_url: Optional[str] = None
+    detection_id: Optional[Any] = None
+    log_id: Optional[Any] = None
+    is_agreed: Optional[bool] = False
+    claimed_label: Optional[str] = None
+    user_claimed_label: Optional[str] = None
+    user_notes: Optional[str] = None
     notes: Optional[str] = None
+    clarification_url: Optional[str] = None
 
-# --- SCHEMA RESPONSE ---
+class FeedbackReviewRequest(BaseModel):
+    admin_notes: Optional[str] = Field(None, max_length=1000)
+    review_status: str = Field(..., pattern="^(REVIEWED|DISMISSED)$")
+
+# --- RESPONSE SCHEMAS ---
 class LimeToken(BaseModel):
     word: str
     weight: float
@@ -31,7 +40,10 @@ class DetectionData(BaseModel):
     is_political: bool = True
     political_topic: Optional[str] = "POLITIK"
     prediction: str  # "HOAKS", "FAKTA", "PERLU KONFIRMASI"
+    process_status: Optional[str] = "DINILAI"
+    pattern_label: Optional[str] = None
     confidence_score: float
+    agreement_ratio: Optional[float] = None
     inference_time_seconds: float
     extracted_text: str
     entities_detected: List[str] = []

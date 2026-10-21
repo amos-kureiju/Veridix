@@ -1,19 +1,27 @@
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from src.core.config import settings
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
-# Konfigurasi engine (support SQLite & PostgreSQL Supabase)
-connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+load_dotenv()
 
+# Ambil DATABASE_URL dari .env (default ke PostgreSQL lokal jika env tidak terbaca)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://postgres:postgres@127.0.0.1:5432/veridix_db"
+)
+
+# Konfigurasi engine dengan pool pre-ping agar tidak drop koneksi
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
+# Dependency FastAPI untuk Session DB per request
 def get_db():
     db = SessionLocal()
     try:

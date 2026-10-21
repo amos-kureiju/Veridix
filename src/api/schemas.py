@@ -1,36 +1,39 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, HttpUrl
+from typing import List, Optional, Any, Dict
+from uuid import UUID
 
-# --- SCHEMA REQUEST ---
+# --- REQUEST SCHEMAS ---
 class TextDetectionRequest(BaseModel):
-    text: str = Field(..., min_length=20, description="Naskah berita minimal 20 karakter")
+    text: str = Field(..., min_length=30, description="Naskah berita minimal 30 karakter")
 
 class FeedbackCreateRequest(BaseModel):
-    log_id: int
-    user_claimed_label: str = Field(..., pattern="^(HOAX|FACT)$")
+    detection_id: UUID
+    is_agreed: bool
+    claimed_label: Optional[str] = Field(
+        None, 
+        pattern="^(BERPOLA HOAKS|TIDAK BERPOLA HOAKS|PERLU KONFIRMASI)$"
+    )
+    user_notes: Optional[str] = Field(None, max_length=1000)
     clarification_url: Optional[str] = None
-    notes: Optional[str] = None
 
-# --- SCHEMA RESPONSE ---
-class LimeToken(BaseModel):
-    word: str
-    weight: float
-    influence: str  # 'HOAX', 'FACT', atau 'NEUTRAL'
+class FeedbackReviewRequest(BaseModel):
+    admin_notes: Optional[str] = Field(None, max_length=1000)
+    review_status: str = Field(..., pattern="^(REVIEWED|DISMISSED)$")
 
-class ExplanationSchema(BaseModel):
-    tokens: List[LimeToken]
-    top_hoax_words: List[dict]
-    top_fact_words: List[dict]
-
-class DetectionData(BaseModel):
+# --- RESPONSE SCHEMAS ---
+class DetectionResultData(BaseModel):
+    id: UUID
+    process_status: str             # DINILAI, AMBIGU, DI_LUAR_DOMAIN
+    pattern_label: Optional[str]    # BERPOLA HOAKS, TIDAK BERPOLA HOAKS, atau None jika ditolak
+    agreement_ratio: Optional[float]
+    latency_seconds: float
     is_political: bool
-    prediction: str
-    confidence_score: float
-    inference_time_seconds: float
-    extracted_text: str
-    entities_detected: List[str]
-    explanation: ExplanationSchema
+    political_topic: Optional[str]
+    detected_entities: List[str] = []
+    explanation: Optional[Dict[str, Any]] = None
+    narrative_text: Optional[str] = None
 
 class DetectionResponse(BaseModel):
     status: str
-    data: DetectionData
+    message: str
+    data: DetectionResultData

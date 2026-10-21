@@ -10,7 +10,7 @@ from src.core.security import hash_password
 import src.database.models  # Memastikan semua model terdaftar pada metadata Base
 
 # Import semua modul rute
-from src.api.routes import detection_routes, auth_routes, feedback_routes, admin_routes
+from src.api.routes import detection_routes, auth_routes, user_routes, feedback_routes, admin_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VERIDIX-API")
@@ -83,6 +83,7 @@ app.add_middleware(
 
 # Daftarkan Seluruh Router
 app.include_router(auth_routes.router, prefix=settings.API_V1_STR)
+app.include_router(user_routes.router, prefix=settings.API_V1_STR)
 app.include_router(detection_routes.router, prefix=settings.API_V1_STR)
 app.include_router(feedback_routes.router, prefix=settings.API_V1_STR)
 app.include_router(admin_routes.router, prefix=settings.API_V1_STR)

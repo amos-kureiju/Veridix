@@ -28,6 +28,10 @@ class User(Base):
     feedbacks = relationship("UserFeedback", back_populates="user", foreign_keys="UserFeedback.user_id")
     reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
 
+    @property
+    def feedbacks_given(self):
+        return self.feedbacks or []
+
 
 # =========================================================================
 # 2. TABEL PASSWORD RESET TOKENS

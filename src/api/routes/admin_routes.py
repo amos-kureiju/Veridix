@@ -7,8 +7,10 @@ from src.database.session import get_db
 from src.database.models import PredictionLog, UserFeedback, AdminSetting, ThresholdHistory, User
 from src.core.auth_deps import require_admin
 from src.api.schemas import ThresholdUpdateRequest
+from src.ml.inference import predictor
 
 router = APIRouter(prefix="/admin", tags=["Admin Portal"])
+
 
 @router.get("/stats")
 def get_admin_dashboard_stats(
@@ -25,8 +27,9 @@ def get_admin_dashboard_stats(
         PredictionLog.pattern_label.in_(["TIDAK BERPOLA HOAKS", "FACT", "FAKTA"])
     ).count()
 
+    # Perbaikan: Hitung ambigu dari process_status
     total_ambiguous = db.query(PredictionLog).filter(
-        PredictionLog.pattern_label == "PERLU KONFIRMASI"
+        PredictionLog.process_status == "AMBIGU"
     ).count()
 
     total_text_inputs = db.query(PredictionLog).filter(PredictionLog.input_type == "TEXT").count()
@@ -57,13 +60,14 @@ def get_admin_dashboard_stats(
         }
     }
 
+
 @router.get("/threshold")
 def get_current_threshold(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    setting = db.query(AdminSetting).filter(AdminSetting.key == "classification_threshold").first()
-    threshold_val = float(setting.value) if setting else 0.5
+    setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
+    threshold_val = float(setting.setting_value) if setting else 0.5
     return {
         "status": "success",
         "data": {
@@ -73,36 +77,43 @@ def get_current_threshold(
         }
     }
 
+
 @router.put("/threshold")
 def update_threshold(
     payload: ThresholdUpdateRequest,
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    setting = db.query(AdminSetting).filter(AdminSetting.key == "classification_threshold").first()
-    old_value = float(setting.value) if setting else 0.5
+    setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
+    old_value = float(setting.setting_value) if setting else 0.5
 
     if not setting:
         setting = AdminSetting(
-            key="classification_threshold",
-            value=str(payload.new_threshold),
+            setting_key="classification_threshold",
+            setting_value=str(payload.new_threshold),
             description="Confidence threshold for classifying news as hoaks",
             updated_by=admin_user.id
         )
         db.add(setting)
     else:
-        setting.value = str(payload.new_threshold)
+        setting.setting_value = str(payload.new_threshold)
         setting.updated_by = admin_user.id
 
+    # 1. Catat ke Tabel Audit History
     history_entry = ThresholdHistory(
-        setting_key="classification_threshold",
-        old_value=old_value,
-        new_value=payload.new_threshold,
+        old_threshold=old_value,
+        new_threshold=payload.new_threshold,
         reason=payload.reason,
-        changed_by=admin_user.id
+        modified_by=admin_user.id
     )
     db.add(history_entry)
     db.commit()
+
+    # 2. Perbaikan: Mutakhirkan Mesin AI Secara Dinamis di Memory
+    if hasattr(predictor, "set_threshold"):
+        predictor.set_threshold(payload.new_threshold)
+    elif hasattr(predictor, "threshold"):
+        predictor.threshold = payload.new_threshold
 
     return {
         "status": "success",
@@ -112,6 +123,7 @@ def update_threshold(
             "changed_by": admin_user.full_name
         }
     }
+
 
 @router.get("/feedbacks")
 def list_feedbacks(

@@ -21,6 +21,7 @@ def submit_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 1. Validasi Keberadaan Deteksi
     detection = db.query(PredictionLog).filter(PredictionLog.id == payload.detection_id).first()
     if not detection:
         raise HTTPException(
@@ -28,17 +29,32 @@ def submit_feedback(
             detail="Data deteksi tidak ditemukan."
         )
 
+    # 2. Perbaikan: Validasi Kepemilikan Riwayat Deteksi
+    if detection.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda hanya dapat memberikan feedback pada riwayat deteksi milik Anda sendiri."
+        )
+
+    # 3. Upsert Feedback
     existing_feedback = db.query(UserFeedback).filter(
         UserFeedback.detection_id == payload.detection_id,
         UserFeedback.user_id == current_user.id
     ).first()
 
     if existing_feedback:
+        # Perbarui input feedback
         existing_feedback.is_agreed = payload.is_agreed
         existing_feedback.claimed_label = payload.claimed_label
         existing_feedback.user_notes = payload.user_notes
         existing_feedback.clarification_url = str(payload.clarification_url) if payload.clarification_url else None
+        
+        # Perbaikan: Bersihkan metadata review admin sebelumnya jika feedback diedit
         existing_feedback.review_status = "PENDING"
+        existing_feedback.reviewed_by = None
+        existing_feedback.reviewed_at = None
+        existing_feedback.admin_notes = None
+        
         feedback_obj = existing_feedback
     else:
         feedback_obj = UserFeedback(
@@ -48,7 +64,10 @@ def submit_feedback(
             claimed_label=payload.claimed_label,
             user_notes=payload.user_notes,
             clarification_url=str(payload.clarification_url) if payload.clarification_url else None,
-            review_status="PENDING"
+            review_status="PENDING",
+            reviewed_by=None,
+            reviewed_at=None,
+            admin_notes=None
         )
         db.add(feedback_obj)
 

@@ -23,7 +23,6 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    # Relasi
     detections = relationship("PredictionLog", back_populates="user", cascade="all, delete-orphan")
     feedbacks_given = relationship(
         "UserFeedback", 
@@ -37,7 +36,7 @@ class User(Base):
         back_populates="reviewer"
     )
     reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
-    threshold_changes = relationship("ThresholdHistory", back_populates="admin_user")
+    threshold_changes = relationship("ThresholdHistory", foreign_keys="ThresholdHistory.modified_by", back_populates="admin_user")
 
     @property
     def feedbacks(self):
@@ -64,21 +63,18 @@ class PredictionLog(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     input_text = Column(Text, nullable=False)
-    input_type = Column(String(20), default="TEXT", nullable=False)  # 'TEXT' | 'IMAGE'
+    input_type = Column(String(20), default="TEXT", nullable=False)
     image_url = Column(Text, nullable=True)
     
-    # Domain & Guardrail
     is_political = Column(Boolean, default=True, nullable=False)
     political_topic = Column(String(100), default="ALL", nullable=True)
     detected_entities = Column(JSONB, nullable=True)
     
-    # Hasil AI
     process_status = Column(String(30), default="DINILAI", nullable=False)
     pattern_label = Column(String(50), nullable=True)
     agreement_ratio = Column(Float, nullable=True)
     latency_seconds = Column(Float, nullable=False)
     
-    # Explainability
     lime_explanation = Column(JSONB, nullable=True)
     narrative_text = Column(Text, nullable=True)
     
@@ -100,7 +96,7 @@ class UserFeedback(Base):
     user_notes = Column(Text, nullable=True)
     clarification_url = Column(Text, nullable=True)
     
-    review_status = Column(String(30), default="PENDING", nullable=False)  # PENDING, REVIEWED, DISMISSED, RETRAINED
+    review_status = Column(String(30), default="PENDING", nullable=False)
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     admin_notes = Column(Text, nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
@@ -118,24 +114,41 @@ class UserFeedback(Base):
 class AdminSetting(Base):
     __tablename__ = "admin_settings"
 
-    key = Column(String(100), primary_key=True, index=True)
-    value = Column(Text, nullable=False)
+    # Sinkron dengan DDL Supabase: memiliki id dan memakai setting_key/setting_value
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    setting_key = Column(String(100), unique=True, nullable=False, index=True)
+    setting_value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     admin = relationship("User")
 
+    # Properti alias untuk kompatibilitas ke belakang
+    @property
+    def key(self):
+        return self.setting_key
+    @key.setter
+    def key(self, val):
+        self.setting_key = val
+
+    @property
+    def value(self):
+        return self.setting_value
+    @value.setter
+    def value(self, val):
+        self.setting_value = val
+
 
 class ThresholdHistory(Base):
-    __tablename__ = "threshold_histories"
+    # Sinkron dengan DDL Supabase: nama tabel 'threshold_history' (singular)
+    __tablename__ = "threshold_history"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    setting_key = Column(String(100), default="classification_threshold", nullable=False)
-    old_value = Column(Float, nullable=True)
-    new_value = Column(Float, nullable=False)
+    old_threshold = Column(Float, nullable=True)
+    new_threshold = Column(Float, nullable=False)
     reason = Column(Text, nullable=True)
-    changed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    modified_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    admin_user = relationship("User", back_populates="threshold_changes")
+    admin_user = relationship("User", foreign_keys=[modified_by], back_populates="threshold_changes")

@@ -5,11 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import settings
 from src.database.session import engine, SessionLocal
-from src.database.models import Base, User
+from src.database.models import Base, User, AdminSetting
 from src.core.security import hash_password
+from src.ml.inference import predictor
 
-# Import modul rute
-from src.api.routes import detection_routes, auth_routes, feedback_routes, admin_routes
+# Import modul rute (termasuk user_routes)
+from src.api.routes import detection_routes, auth_routes, feedback_routes, admin_routes, user_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VERIDIX-API")
@@ -19,8 +20,7 @@ def seed_default_accounts():
     """Memastikan akun Admin dan User demo selalu tersedia saat inisialisasi awal."""
     db = SessionLocal()
     try:
-        # 1. Pastikan Akun Admin Demo Ada (Gmail)
-        admin_email = "admin.veridix@gmail.com"  # Sesuaikan jika perlu
+        admin_email = "admin.veridix@gmail.com"
         admin = db.query(User).filter(User.email == admin_email).first()
         if not admin:
             admin = User(
@@ -33,8 +33,7 @@ def seed_default_accounts():
             db.add(admin)
             logger.info(f"Akun demo ADMIN berhasil di-seed: {admin_email}")
 
-        # 2. Pastikan Akun User Demo Ada (Gmail)
-        user_email = "amoskurniawan@gmail.com"  # Sesuaikan jika perlu
+        user_email = "amoskurniawan@gmail.com"
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             user = User(
@@ -55,14 +54,33 @@ def seed_default_accounts():
         db.close()
 
 
+def sync_initial_threshold():
+    """Sinkronisasi threshold dari database ke in-memory predictor saat startup."""
+    db = SessionLocal()
+    try:
+        setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
+        if setting:
+            val = float(setting.setting_value)
+            if hasattr(predictor, "set_threshold"):
+                predictor.set_threshold(val)
+            elif hasattr(predictor, "threshold"):
+                predictor.threshold = val
+            logger.info(f"Threshold AI berhasil dimuat dari DB: {val}")
+    except Exception as e:
+        logger.warning(f"Gagal memuat threshold awal: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Memeriksa dan menginisialisasi skema database...")
+    logger.info("Memeriksa skema database...")
     Base.metadata.create_all(bind=engine)
     
     if getattr(settings, "AUTO_SEED_DEMO", True):
         seed_default_accounts()
         
+    sync_initial_threshold()
     yield
     logger.info("Mematikan server API...")
 
@@ -74,7 +92,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Konfigurasi CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -83,8 +100,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pendaftaran Router (Tanpa Prefix Ganda)
+# Pendaftaran Seluruh Router
 app.include_router(auth_routes.router, prefix=settings.API_V1_STR)
+app.include_router(user_routes.router, prefix=settings.API_V1_STR)
 app.include_router(detection_routes.router, prefix=settings.API_V1_STR)
 app.include_router(feedback_routes.router, prefix=settings.API_V1_STR)
 app.include_router(admin_routes.router, prefix=settings.API_V1_STR)

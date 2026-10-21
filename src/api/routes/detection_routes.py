@@ -18,6 +18,7 @@ from src.utils.political_guardrail import check_political_domain
 
 router = APIRouter(prefix="/detect", tags=["Detection"])
 
+
 # =====================================================================
 # JALUR A: DETEKSI TEKS & ANALISIS AKHIR
 # =====================================================================
@@ -36,8 +37,8 @@ def detect_text(
             detail="Naskah berita terlalu pendek (minimal 30 karakter)."
         )
 
-    # 2. Guardrail Politik
-    is_political, entities = check_political_domain(raw_text)
+    # 2. Guardrail Politik (Perbaikan: Tangkap 3 Return Values)
+    is_political, guardrail_topic, entities = check_political_domain(raw_text)
     if not is_political:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -53,15 +54,25 @@ def detect_text(
             detail=f"Terjadi kesalahan pada mesin AI: {str(e)}"
         )
 
-    pattern_label = result.get("pattern_label") or result.get("prediction")
-    agreement_ratio = result.get("agreement_ratio") or result.get("confidence_score")
+    # 4. Pemetaan Output Inferensi yang Presisi
+    # Inferensi mengembalikan: status, label, sub_topik
+    process_status = result.get("status") or result.get("process_status", "DINILAI")
+    
+    # Tangani kondisi penolakan / ambigu
+    if process_status in ["DITOLAK", "DI_LUAR_DOMAIN"]:
+        pattern_label = None
+        agreement_ratio = None
+    else:
+        pattern_label = result.get("label") or result.get("pattern_label")
+        # Perbaikan: Hanya ambil agreement_ratio murni, jangan fallback ke confidence_score
+        agreement_ratio = result.get("agreement_ratio")
+
+    political_topic = result.get("sub_topik") or guardrail_topic or "ALL"
     latency_seconds = result.get("latency_seconds") or result.get("inference_time_seconds", 0.0)
-    process_status = result.get("process_status", "DINILAI")
     lime_explanation = result.get("lime_explanation") or result.get("explanation")
     narrative_text = result.get("narrative_text")
-    political_topic = result.get("political_topic", "ALL")
 
-    # 4. Simpan ke Database
+    # 5. Simpan ke Database
     log_entry = PredictionLog(
         user_id=current_user.id,
         input_text=raw_text,
@@ -81,7 +92,7 @@ def detect_text(
     db.commit()
     db.refresh(log_entry)
 
-    # 5. Response
+    # 6. Response
     return DetectionResponse(
         status="success",
         message="Verifikasi berhasil diselesaikan.",
@@ -102,6 +113,7 @@ def detect_text(
             created_at=log_entry.created_at
         )
     )
+
 
 # =====================================================================
 # JALUR B: EKSTRAKSI GAMBAR (PADDLEOCR)
@@ -125,11 +137,14 @@ async def extract_text_from_image_upload(
             detail=ocr_raw.get("message", "Gagal mengekstrak teks dari gambar.")
         )
 
+    # Perbaikan Pemetaan Metadata OCR: baca 'alasan' & 'fitur.conf_rata2'
     dapat_dinilai = ocr_raw.get("dapat_dinilai", True)
+    alasan_penolakan = ocr_raw.get("alasan") or ocr_raw.get("reason")
+
     if not dapat_dinilai:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ocr_raw.get("reason", "Kualitas teks gambar tidak layak untuk dianalisis.")
+            detail=alasan_penolakan or "Kualitas teks gambar tidak layak untuk dianalisis (buram atau teks tidak koheren)."
         )
 
     extracted_text = ocr_raw.get("text", "").strip()
@@ -139,6 +154,14 @@ async def extract_text_from_image_upload(
             detail="Teks yang terdeteksi pada gambar kurang dari 50 karakter."
         )
 
+    # Ekstrak confidence score dari struktur fitur jika ada
+    fitur_dict = ocr_raw.get("fitur", {})
+    confidence_score = (
+        fitur_dict.get("conf_rata2") 
+        if isinstance(fitur_dict, dict) 
+        else ocr_raw.get("confidence")
+    )
+
     cleaned_ocr_text = clean_ocr_artifacts(extracted_text)
 
     return OCRResponse(
@@ -147,9 +170,9 @@ async def extract_text_from_image_upload(
         data=OCRResultData(
             extracted_text=cleaned_ocr_text,
             dapat_dinilai=dapat_dinilai,
-            confidence=ocr_raw.get("confidence"),
+            confidence=confidence_score,
             character_count=len(cleaned_ocr_text),
             image_url=ocr_raw.get("image_url"),
-            reason=None
+            reason=alasan_penolakan
         )
     )

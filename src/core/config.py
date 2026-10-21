@@ -1,5 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import SecretStr
 from typing import List
 
 class Settings(BaseSettings):
@@ -8,6 +9,9 @@ class Settings(BaseSettings):
     
     # Database URL (Default SQLite jika .env kosong, atau Supabase Postgres)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./hoax_inspect.db")
+    JWT_SECRET_KEY: SecretStr
+    AUTO_CREATE_TABLES: bool = False
+    AUTO_SEED_DEMO: bool = False
     
     # Setting Deteksi
     DEFAULT_HOAX_THRESHOLD: float = 0.60
@@ -23,5 +27,6 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()

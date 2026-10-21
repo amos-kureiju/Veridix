@@ -1,11 +1,11 @@
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import bcrypt
 from jose import jwt
+from src.core.config import settings
 
 # Kunci rahasia untuk tanda tangan JWT (bisa dipindah ke file .env)
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "VERIDIX_POLITICAL_AI_SECRET_KEY_2026")
+SECRET_KEY = settings.JWT_SECRET_KEY.get_secret_value()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7  # Token berlaku selama 7 hari
 

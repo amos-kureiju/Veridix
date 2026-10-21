@@ -75,9 +75,10 @@ def sync_initial_threshold():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Memeriksa skema database...")
-    Base.metadata.create_all(bind=engine)
+    if settings.AUTO_CREATE_TABLES:
+        Base.metadata.create_all(bind=engine)
     
-    if getattr(settings, "AUTO_SEED_DEMO", True):
+    if settings.AUTO_SEED_DEMO:
         seed_default_accounts()
         
     sync_initial_threshold()

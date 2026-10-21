@@ -53,18 +53,17 @@ Penyebaran **hoaks politik** di Indonesia meningkat signifikan setiap siklus pem
 ### 👥 Untuk Masyarakat / Jurnalis (User)
 
 - 🔍 **Analisis teks berita** — input teks langsung, minimal 30 karakter.
-- 🎨 **Visualisasi XAI** — highlight kata pemicu hoaks dengan intensitas warna.
-- 📊 **Skor kepercayaan** — persentase probabilitas hoaks (0–100%).
-- 📄 **Unduh laporan PDF** — bukti verifikasi formal untuk klarifikasi publik.
-- 🚩 **Laporkan ketidaksesuaian** — feedback untuk perbaikan model.
+- 🖼️ **Analisis tangkapan layar** — ekstraksi teks gambar otomatis berbasis PaddleOCR.
+- 🎨 **Visualisasi XAI** — highlight kata pemicu hoaks dengan intensitas warna LIME.
+- 📊 **Skor keyakinan** — persentase probabilitas hoaks (0–100%).
+- 🚩 **Laporkan ketidaksesuaian** — feedback koreksi untuk perbaikan model.
 
 ### 🛡️ Untuk Verifikator / Admin
 
-- 📈 **Dashboard analitik** — total cek, rasio hoaks, rata-rata latensi.
-- 📉 **Tren kata kunci 30 hari** — pantau isu politik terkini (Pilpres, MK, KPU, dll).
-- ✅ **Review feedback pengguna** — verifikasi laporan koreksi.
-- 🔄 **Retraining pool** — kelola data baru untuk mengatasi *temporal shift*.
-- ⚙️ **Kontrol threshold** — atur ambang sensitivitas deteksi (0–100%).
+- 📈 **Dashboard analitik riil** — total cek, rasio hoaks harian, dan metrik sistem.
+- 📋 **Riwayat log inferensi** — audit trail seluruh aktivitas deteksi di database.
+- ⚙️ **Kontrol threshold AI** — atur ambang batas sensitivitas klasifikasi hoaks secara dinamis.
+- ✅ **Review feedback pengguna** — verifikasi sanggahan dan laporan masyarakat.
 
 ---
 
@@ -74,14 +73,15 @@ Penyebaran **hoaks politik** di Indonesia meningkat signifikan setiap siklus pem
 
 | Teknologi | Versi | Fungsi |
 |---|---|---|
-| **Python** | 3.10+ | Bahasa utama |
+| **Python** | 3.10+ | Bahasa utama backend |
 | **FastAPI** | 0.115 | REST API framework |
-| **Uvicorn** | 0.30 | ASGI server |
-| **PyTorch** | 2.4 | Deep learning framework |
-| **Transformers** | 4.44 | IndoBERT (HuggingFace) |
-| **LIME** | 0.2 | Explainable AI |
-| **SQLAlchemy** | 2.0 | ORM database |
-| **Pydantic** | 2.9 | Data validation |
+| **Uvicorn** | 0.30+ | ASGI production server |
+| **PyTorch** | 2.4+ | Deep learning framework |
+| **Transformers** | 4.44+ | Model IndoBERT (HuggingFace) |
+| **LIME** | 0.2+ | Explainable AI (Local Interpretable Model-agnostic Explanations) |
+| **SQLAlchemy** | 2.0+ | ORM database (SQLite lokal / PostgreSQL Supabase) |
+| **Pydantic** | 2.9+ | Skema validasi data request/response |
+| **Bcrypt / Jose** | Latest | Enkripsi kata sandi & JWT Bearer token |
 
 ### Frontend
 
@@ -90,19 +90,7 @@ Penyebaran **hoaks politik** di Indonesia meningkat signifikan setiap siklus pem
 | **Next.js** | 15 | React framework (App Router) |
 | **TypeScript** | 5.x | Type safety |
 | **Tailwind CSS** | 3.x | Utility-first styling |
-| **shadcn/ui** | latest | UI components |
-| **Recharts** | 2.x | Data visualization |
-
-### DevOps & Tools
-
-| Teknologi | Fungsi |
-|---|---|
-| **Google Colab** | Eksperimen training gratis dengan GPU T4 |
-| **NVIDIA Data Center** | Training skala besar (opsional) |
-| **Docker** | Containerization |
-| **GitHub Actions** | CI/CD pipeline |
-| **Pytest** | Unit & integration testing |
-| **Ruff + Black** | Linting & formatting |
+| **Lucide Icons** | Latest | Iconography modern |
 
 ---
 
@@ -113,45 +101,31 @@ veridix/
 │
 ├── data/                       # Dataset (raw, processed, uploads)
 ├── notebooks/                  # Eksperimen riset (Bab 4 skripsi)
-│   ├── 01_scraping_eda.ipynb
-│   ├── 02_preprocessing.ipynb
-│   ├── 03_training_bert.ipynb
-│   ├── 04_evaluasi_metrik.ipynb
-│   └── 05_xai_lime_shap.ipynb
-│
 ├── saved_models/               # Checkpoint model (production)
-│   ├── indobert_focal_loss/
-│   └── tokenizer/
-│
-├── scripts/                    # Deployment & ops scripts
-│   ├── run_train_server.sh
-│   ├── setup_server.sh
-│   └── sync_to_server.bat
+├── scripts/                    # Deployment, seeder, & ops scripts
+│   ├── init_admin.py           # Inisialisasi akun Super Admin
+│   └── seed_demo_users.py      # Seeder akun demo
 │
 ├── src/                        # SOURCE CODE BACKEND
-│   ├── core/                   # Config & logging
-│   ├── database/               # ORM models & session
-│   ├── ml/                     # IndoBERT, Focal Loss, LIME, Trainer
-│   ├── utils/                  # Helper (preprocessor, guardrail, PDF)
-│   ├── api/                    # FastAPI routes & schemas
-│   └── main.py                 # Entrypoint FastAPI
+│   ├── core/                   # Config, security (bcrypt/JWT), & auth deps
+│   ├── database/               # ORM models & session database
+│   ├── ml/                     # IndoBERT, Focal Loss, LIME, Inference pipeline
+│   ├── utils/                  # Helper (preprocessor, guardrail, OCR)
+│   └── api/                    # FastAPI routes & schemas
+│       ├── routes/             # detection, auth, user, feedback, admin
+│       ├── dependencies.py     # Dependency injection (get_current_user, get_current_admin)
+│       └── schemas.py          # Skema Pydantic request & response
 │
-├── frontend/                   # Next.js App Router
-│   └── src/
-│       ├── app/                # Pages (user + admin)
-│       ├── components/         # Atomic design components
-│       ├── hooks/              # Custom React hooks
-│       ├── lib/                # Utilities & API client
-│       └── types/              # TypeScript interfaces
-│
+├── main.py                     # Entrypoint aplikasi FastAPI
+├── frontend/                   # Next.js App Router (User & Admin UI)
 ├── tests/                      # Unit & integration tests
+│   └── test_api.py             # Test suite alur API, deteksi, DB, & auth
 │
-├── .env.example                # Template konfigurasi
+├── .env.example                # Template konfigurasi environment
 ├── .gitignore
 ├── LICENSE
 ├── README.md
-├── requirements.txt            # Dependency utama
-└── requirements-train.txt      # Dependency khusus training
+└── requirements.txt            # Dependency backend
 ```
 
 ---
@@ -163,13 +137,12 @@ veridix/
 - **Python** ≥ 3.10
 - **Node.js** ≥ 20 (untuk frontend)
 - **Git**
-- (Opsional) **CUDA GPU** untuk training
 
 ### 1. Clone Repositori
 
 ```bash
-git clone https://github.com/username/veridix.git
-cd veridix
+git clone https://github.com/Septianhutasoit/HoaxLeenss_15.git
+cd HoaxLeenss_15
 ```
 
 ### 2. Setup Backend (Python)
@@ -178,24 +151,33 @@ cd veridix
 # Buat virtual environment
 python -m venv .venv
 
-# Aktifkan
+# Aktifkan virtual environment
 # Windows:
 .venv\Scripts\activate
 # Linux/macOS:
 source .venv/bin/activate
 
-# Install dependencies
+# Install dependencies backend
 pip install -r requirements.txt
 ```
 
-### 3. Konfigurasi Environment
+### 3. Konfigurasi Environment (.env)
+
+Salin file template `.env.example` menjadi `.env`:
 
 ```bash
 copy .env.example .env     # Windows
 cp .env.example .env       # Linux/macOS
 ```
 
-Edit `.env` sesuai kebutuhan (path model, threshold, DB URL).
+Daftar variabel penting pada `.env`:
+
+| Variabel | Deskripsi | Nilai Default |
+|---|---|---|
+| `DATABASE_URL` | String koneksi SQLite lokal atau PostgreSQL Supabase | `sqlite:///./hoax_inspect.db` |
+| `JWT_SECRET_KEY` | Kunci rahasia penandatanganan token JWT | `VERIDIX_POLITICAL_AI_SECRET_KEY_2026` |
+| `DEFAULT_HOAX_THRESHOLD` | Ambang batas sensitivitas klasifikasi hoaks (0.0 - 1.0) | `0.60` |
+| `CORS_ORIGINS` | Daftar domain frontend yang diizinkan mengakses API | `["http://localhost:3000","http://127.0.0.1:3000"]` |
 
 ### 4. Setup Frontend (Next.js)
 
@@ -211,99 +193,87 @@ cd ..
 
 ### Mode Development
 
-**Terminal 1 — Backend API:**
+**Terminal 1 — Backend API (FastAPI):**
 ```bash
-uvicorn src.main:app --reload --port 8000
+uvicorn main:app --reload --port 8000
 ```
-Buka: http://localhost:8000/docs
+> **Akun Demo Bawaan:** Saat backend pertama kali dijalankan, sistem secara otomatis melakukan inisialisasi tabel dan seeding akun demo:
+> - **Administrator:** `admin@veridix.id` | Kata Sandi: `admin123`
+> - **Pengguna Publik:** `amos@veridix.id` | Kata Sandi: `password123`
 
-**Terminal 2 — Frontend Next.js:**
+Swagger UI interaktif: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+**Terminal 2 — Frontend (Next.js):**
 ```bash
 cd frontend
 npm run dev
 ```
-Buka: http://localhost:3000
-
----
-
-## 🎓 Training Model
-
-### Di Laptop Lokal / Google Colab
-
-```bash
-# Siapkan data di data/processed/ (train.csv, val.csv, test.csv)
-python -m src.ml.train_model --config default --epochs 5 --batch-size 8 --device cpu
-```
-
-### Di Server GPU (SSH)
-
-```bash
-# 1. Setup server sekali saja
-bash scripts/setup_server.sh
-
-# 2. Sync dari Windows
-scripts\sync_to_server.bat
-
-# 3. Jalankan training di background (anti broken pipe)
-bash scripts/run_train_server.sh
-
-# 4. Pantau progress
-tail -f saved_models/indobert_focal_loss/logs/train_*.log
-```
-
-### Metrik Evaluasi
-
-- **Macro F1-Score** — metrik utama (mengatasi imbalance)
-- **Precision, Recall** per kelas
-- **Confusion Matrix**
-- **ROC-AUC**
-
-### Early Stopping
-
-- Patience: **3 epoch**
-- Model terbaik disimpan ke `saved_models/indobert_focal_loss/best_model.pt`
+Buka antarmuka aplikasi di browser: [http://localhost:3000](http://localhost:3000)
 
 ---
 
 ## 🌐 API Endpoints
 
-### Public
+Aplikasi backend berjalan pada port `8000`. Dokumentasi interaktif Swagger UI tersedia di [http://localhost:8000/docs](http://localhost:8000/docs).
 
-| Method | Endpoint | Deskripsi |
-|---|---|---|
-| `GET` | `/` | Info API |
-| `GET` | `/health` | Health check |
-| `POST` | `/api/v1/detect/text` | Deteksi teks berita |
-| `POST` | `/api/v1/feedback` | Kirim feedback koreksi |
+### 1. Jalur Deteksi Berita Politik (`/api/v1/detect`)
 
-### Admin
+| Method | Endpoint | Deskripsi | Akses |
+|---|---|---|---|
+| `POST` | `/api/v1/detect/text` | Deteksi teks naskah politik (IndoBERT + XAI LIME) | Publik / Tamu |
+| `POST` | `/api/v1/detect/image` | Ekstraksi & pembersihan teks tangkapan layar (PaddleOCR) | Publik / Tamu |
 
-| Method | Endpoint | Deskripsi |
-|---|---|---|
-| `GET` | `/api/v1/admin/stats` | Statistik dashboard |
-| `GET` | `/api/v1/admin/retrain-pool` | Data antrean retraining |
+### 2. Autentikasi Pengguna (`/api/v1/auth`)
 
-### Contoh Request
+| Method | Endpoint | Deskripsi | Akses |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | Pendaftaran akun masyarakat/jurnalis baru | Publik |
+| `POST` | `/api/v1/auth/login` | Masuk akun & penerbitan Bearer JWT Token | Publik |
+| `GET` | `/api/v1/auth/me` | Mengambil data sesi dan profil pengguna aktif | Bearer Token |
+| `POST` | `/api/v1/auth/direct-reset-password` | Atur ulang kata sandi akun | Publik |
+
+### 3. Profil Pengguna (`/api/v1/user`)
+
+| Method | Endpoint | Deskripsi | Akses |
+|---|---|---|---|
+| `PATCH` | `/api/v1/user/profile` | Perbarui nama dan avatar profil | Bearer Token |
+| `POST` | `/api/v1/user/change-password` | Ganti kata sandi akun | Bearer Token |
+| `DELETE` | `/api/v1/user/delete-account` | Hapus akun secara permanen | Bearer Token |
+
+### 4. Umpan Balik Pengguna (`/api/v1/feedback`)
+
+| Method | Endpoint | Deskripsi | Akses |
+|---|---|---|---|
+| `POST` | `/api/v1/feedback/submit` | Kirim sanggahan/koreksi terhadap hasil deteksi | Publik / User |
+
+### 5. Portal Verifikator / Admin (`/api/v1/admin`)
+
+| Method | Endpoint | Deskripsi | Akses |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/stats` | Statistik monitoring riil (total deteksi, rasio hoaks, user aktif) | Admin |
+| `GET` | `/api/v1/admin/logs/recent` | Riwayat log inferensi riil yang tersimpan di database | Admin |
+| `POST` | `/api/v1/admin/threshold` | Kontrol dinamis ambang batas sensitivitas AI | Admin |
+
+### Contoh Request Deteksi Teks
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/detect/text \
   -H "Content-Type: application/json" \
-  -d '{"text": "GEMPAR!! KPU resmi membatalkan hasil pemilu, segera sebarkan!"}'
+  -d '{"text": "KPU RI secara resmi mengumumkan jadwal pelaksanaan tahapan pemilu serentak dan pilpres tahun depan."}'
 ```
 
 ---
 
 ## 🧪 Testing
 
+Jalankan test suite backend untuk memvalidasi alur deteksi, validasi guardrail politik, persistensi database, dan autentikasi:
+
 ```bash
-# Semua test
+# Jalankan test suite bawaan Python
+python -m unittest tests/test_api.py -v
+
+# Atau menggunakan pytest (bila terinstal)
 pytest tests/ -v
-
-# Test spesifik
-pytest tests/test_inference.py -v
-
-# Coverage
-pytest --cov=src tests/
 ```
 
 ---
@@ -317,17 +287,6 @@ Kontribusi sangat diterima! Ikuti langkah berikut:
 3. **Commit** perubahan: `git commit -m "feat: tambah fitur X"`
 4. **Push** ke branch: `git push origin feat/nama-fitur`
 5. Buat **Pull Request**
-
-### Konvensi Commit
-
-Kami mengikuti [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` fitur baru
-- `fix:` perbaikan bug
-- `docs:` perubahan dokumentasi
-- `refactor:` refactor kode
-- `test:` tambah/ubah test
-- `chore:` tooling & setup
 
 ---
 

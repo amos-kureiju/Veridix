@@ -19,8 +19,8 @@ def seed_default_accounts():
     """Memastikan akun Admin dan User demo selalu tersedia saat inisialisasi awal."""
     db = SessionLocal()
     try:
-        # 1. Pastikan Akun Admin Demo Ada (Gunakan Gmail)
-        admin_email = "admin@gmail.com"  # atau ganti dengan email admin Anda
+        # 1. Pastikan Akun Admin Demo Ada (Gmail)
+        admin_email = "admin.veridix@gmail.com"  # Sesuaikan jika perlu
         admin = db.query(User).filter(User.email == admin_email).first()
         if not admin:
             admin = User(
@@ -33,14 +33,14 @@ def seed_default_accounts():
             db.add(admin)
             logger.info(f"Akun demo ADMIN berhasil di-seed: {admin_email}")
 
-        # 2. Pastikan Akun User Demo Ada (Gunakan Gmail)
-        user_email = "amos@gmail.com"  # atau ganti dengan email user Anda
+        # 2. Pastikan Akun User Demo Ada (Gmail)
+        user_email = "amoskurniawan@gmail.com"  # Sesuaikan jika perlu
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             user = User(
                 email=user_email,
                 password_hash=hash_password("password123"),
-                full_name="User",
+                full_name="Amos Kurniawan",
                 role="USER",
                 is_active=True,
             )
@@ -60,7 +60,6 @@ async def lifespan(app: FastAPI):
     logger.info("Memeriksa dan menginisialisasi skema database...")
     Base.metadata.create_all(bind=engine)
     
-    # Jalankan seeding akun jika diaktifkan (default: True)
     if getattr(settings, "AUTO_SEED_DEMO", True):
         seed_default_accounts()
         
@@ -84,8 +83,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# PENDAFTARAN ROUTER BERSIH (Tanpa Prefix Ganda)
-# Base prefix didapatkan dari settings.API_V1_STR (misal: /api/v1)
+# Pendaftaran Router (Tanpa Prefix Ganda)
 app.include_router(auth_routes.router, prefix=settings.API_V1_STR)
 app.include_router(detection_routes.router, prefix=settings.API_V1_STR)
 app.include_router(feedback_routes.router, prefix=settings.API_V1_STR)

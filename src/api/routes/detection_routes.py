@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
 
 from src.api.schemas import (
     TextDetectionRequest, 
@@ -19,9 +18,8 @@ from src.utils.political_guardrail import check_political_domain
 
 router = APIRouter(prefix="/detect", tags=["Detection"])
 
-
 # =====================================================================
-# JALUR A: DETEKSI TEKS & ANALISIS AKHIR (TEXT / OCR EDITED)
+# JALUR A: DETEKSI TEKS & ANALISIS AKHIR
 # =====================================================================
 @router.post("/text", response_model=DetectionResponse)
 def detect_text(
@@ -31,14 +29,14 @@ def detect_text(
 ):
     raw_text = payload.text.strip()
     
-    # 1. Validasi Batas Minimal Karakter (Layer 1)
+    # 1. Validasi Batas Minimal Karakter
     if len(raw_text) < 30:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Naskah berita terlalu pendek (minimal 30 karakter)."
         )
 
-    # 2. Guardrail Politik (Layer 2: Menghindari pemborosan komputasi LIME)
+    # 2. Guardrail Politik
     is_political, entities = check_political_domain(raw_text)
     if not is_political:
         raise HTTPException(
@@ -46,7 +44,7 @@ def detect_text(
             detail="Naskah di luar jangkauan. Sistem dikhususkan untuk verifikasi isu sosial-politik Indonesia."
         )
 
-    # 3. Inferensi Model IndoBERT + Explainability LIME (Layer 3 & 4)
+    # 3. Inferensi AI
     try:
         result = predictor.predict_and_explain(raw_text)
     except Exception as e:
@@ -55,7 +53,6 @@ def detect_text(
             detail=f"Terjadi kesalahan pada mesin AI: {str(e)}"
         )
 
-    # Pemetaan atribut (kompatibilitas dictionary hasil inferensi)
     pattern_label = result.get("pattern_label") or result.get("prediction")
     agreement_ratio = result.get("agreement_ratio") or result.get("confidence_score")
     latency_seconds = result.get("latency_seconds") or result.get("inference_time_seconds", 0.0)
@@ -64,12 +61,12 @@ def detect_text(
     narrative_text = result.get("narrative_text")
     political_topic = result.get("political_topic", "ALL")
 
-    # 4. Simpan Log Prediksi ke Database (Layer 6)
+    # 4. Simpan ke Database
     log_entry = PredictionLog(
         user_id=current_user.id,
         input_text=raw_text,
-        input_type=payload.input_type,      # 'TEXT' atau 'IMAGE'
-        image_url=payload.image_url,        # Tersimpan jika berasal dari hasil upload OCR
+        input_type=payload.input_type,
+        image_url=payload.image_url,
         is_political=True,
         political_topic=political_topic,
         detected_entities=entities if entities else result.get("detected_entities", []),
@@ -84,7 +81,7 @@ def detect_text(
     db.commit()
     db.refresh(log_entry)
 
-    # 5. Kembalikan Response Sesuai Schema DetectionResponse (Layer 5)
+    # 5. Response
     return DetectionResponse(
         status="success",
         message="Verifikasi berhasil diselesaikan.",
@@ -106,16 +103,14 @@ def detect_text(
         )
     )
 
-
 # =====================================================================
-# JALUR B: EKSTRAKSI GAMBAR (PADDLEOCR DENGAN CEK 'dapat_dinilai')
+# JALUR B: EKSTRAKSI GAMBAR (PADDLEOCR)
 # =====================================================================
 @router.post("/image", response_model=OCRResponse)
 async def extract_text_from_image_upload(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    # Validasi tipe konten berkas
     if file.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -123,8 +118,6 @@ async def extract_text_from_image_upload(
         )
 
     contents = await file.read()
-    
-    # 1. Ekstraksi Menggunakan PaddleOCR
     ocr_raw = extract_text_from_image(contents)
     if not ocr_raw.get("success", False):
         raise HTTPException(
@@ -132,15 +125,13 @@ async def extract_text_from_image_upload(
             detail=ocr_raw.get("message", "Gagal mengekstrak teks dari gambar.")
         )
 
-    # 2. Pemeriksaan 'dapat_dinilai' (Kualitas Teks & Keterbacaan)
     dapat_dinilai = ocr_raw.get("dapat_dinilai", True)
     if not dapat_dinilai:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ocr_raw.get("reason", "Kualitas teks gambar tidak layak untuk dianalisis (buram, terpotong, atau tidak terbaca).")
+            detail=ocr_raw.get("reason", "Kualitas teks gambar tidak layak untuk dianalisis.")
         )
 
-    # 3. Validasi Panjang Teks Hasil OCR (Minimal 50 Karakter)
     extracted_text = ocr_raw.get("text", "").strip()
     if len(extracted_text) < 50:
         raise HTTPException(
@@ -148,10 +139,8 @@ async def extract_text_from_image_upload(
             detail="Teks yang terdeteksi pada gambar kurang dari 50 karakter."
         )
 
-    # 4. Normalisasi dan Pembersihan Noise Artefak OCR
     cleaned_ocr_text = clean_ocr_artifacts(extracted_text)
 
-    # Kembalikan teks ke frontend agar user bisa mengedit sebelum submit deteksi
     return OCRResponse(
         status="success",
         message="Teks berhasil diekstrak. Silakan periksa atau sunting sebelum dianalisis.",

@@ -25,7 +25,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    import uuid
+    try:
+        user_uuid = uuid.UUID(str(user_id)) if isinstance(user_id, str) else user_id
+    except (ValueError, TypeError):
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_uuid, User.is_active == True).first()
     if user is None:
         raise credentials_exception
     return user

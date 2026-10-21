@@ -1,26 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Optional, List
+from typing import Optional
 
 from src.database.session import get_db
 from src.database.models import PredictionLog, UserFeedback, AdminSetting, ThresholdHistory, User
 from src.core.auth_deps import require_admin
-from src.api.schemas import ThresholdUpdateRequest, SettingUpdateRequest
+from src.api.schemas import ThresholdUpdateRequest
 
 router = APIRouter(prefix="/admin", tags=["Admin Portal"])
-
-# 1 METRIK DASHBOARD STATISTIK
 
 @router.get("/stats")
 def get_admin_dashboard_stats(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    """Menampilkan metrik statistik deteksi dan performa sistem terbaru."""
     total_detections = db.query(PredictionLog).count()
     
-    # Menghitung label hasil analisis (kompatibel skema baru dan arsip)
     total_hoaxes = db.query(PredictionLog).filter(
         PredictionLog.pattern_label.in_(["BERPOLA HOAKS", "HOAX"])
     ).count()
@@ -33,15 +29,12 @@ def get_admin_dashboard_stats(
         PredictionLog.pattern_label == "PERLU KONFIRMASI"
     ).count()
 
-    # Statistik Distribusi Kanal Input
     total_text_inputs = db.query(PredictionLog).filter(PredictionLog.input_type == "TEXT").count()
     total_image_inputs = db.query(PredictionLog).filter(PredictionLog.input_type == "IMAGE").count()
 
-    # Metrik Feedback
     total_feedbacks = db.query(UserFeedback).count()
     pending_feedbacks = db.query(UserFeedback).filter(UserFeedback.review_status == "PENDING").count()
     
-    # Rata-rata Latensi Inferensi
     avg_latency = db.query(func.avg(PredictionLog.latency_seconds)).scalar() or 0.0
 
     return {
@@ -64,7 +57,6 @@ def get_admin_dashboard_stats(
         }
     }
 
-# 2. PENGATURAN & HISTORI THRESHOLD
 @router.get("/threshold")
 def get_current_threshold(
     db: Session = Depends(get_db),
@@ -80,7 +72,6 @@ def get_current_threshold(
             "updated_at": setting.updated_at if setting else None
         }
     }
-
 
 @router.put("/threshold")
 def update_threshold(
@@ -103,7 +94,6 @@ def update_threshold(
         setting.value = str(payload.new_threshold)
         setting.updated_by = admin_user.id
 
-    # Catat jejak audit histori
     history_entry = ThresholdHistory(
         setting_key="classification_threshold",
         old_value=old_value,
@@ -123,8 +113,6 @@ def update_threshold(
         }
     }
 
-
-# 3. LIST FEEDBACK UNTUK REVIEW ADMIN
 @router.get("/feedbacks")
 def list_feedbacks(
     status_filter: Optional[str] = Query(None, regex="^(PENDING|REVIEWED|DISMISSED|RETRAINED)$"),

@@ -47,7 +47,17 @@ const SAMPLE_REG: Record<Period, RegPoint[]> = {
 };
 
 export default function AdminDashboardPage() {
-    const { stats, recentLogs, loading } = useAdminDashboard();
+    const { stats, recentLogs, loading, error, reload } = useAdminDashboard();
+
+    const safeStats = stats ?? {
+        total_detections_today: 0,
+        total_detections_delta: 0,
+        hoax_detected_today: 0,
+        hoax_ratio_percent: 0,
+        pending_feedbacks: 0,
+        active_threshold: 0.60,
+        active_users_count: 0,
+    };
 
     /* ---------- Data turunan ---------- */
     const logs = recentLogs ?? [];
@@ -108,6 +118,20 @@ export default function AdminDashboardPage() {
 
     return (
         <div className="space-y-6 pb-6">
+            {error && (
+                <div className="p-4 bg-rose-50 border border-rose-200/80 rounded-2xl flex items-center justify-between text-rose-800 text-xs shadow-xs">
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span><strong>Status Layanan:</strong> {error}</span>
+                    </div>
+                    <button
+                        onClick={() => reload()}
+                        className="font-bold underline hover:text-rose-950 transition cursor-pointer ml-4 shrink-0"
+                    >
+                        Coba Lagi
+                    </button>
+                </div>
+            )}
 
             {/* 1. HERO BANNER */}
             <div className="relative overflow-hidden bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 rounded-3xl p-6 sm:p-8 text-white shadow-md border border-emerald-900/50">
@@ -121,11 +145,11 @@ export default function AdminDashboardPage() {
                         </span>
                         <div className="flex items-baseline gap-3 mt-1">
                             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans">
-                                {stats.total_detections_today.toLocaleString("id-ID")}
+                                {safeStats.total_detections_today.toLocaleString("id-ID")}
                             </h2>
                             <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-200 border border-white/15">
                                 <ArrowUpRight className="w-3.5 h-3.5" />
-                                +{stats.total_detections_delta}% hari ini
+                                +{safeStats.total_detections_delta}% hari ini
                             </span>
                         </div>
                         <p className="text-xs text-emerald-100/70 mt-2 max-w-md leading-relaxed">
@@ -139,7 +163,7 @@ export default function AdminDashboardPage() {
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/15 backdrop-blur-xs transition"
                         >
                             <Sliders className="w-3.5 h-3.5 text-emerald-300" />
-                            <span>Threshold: {stats.active_threshold.toFixed(2)}</span>
+                            <span>Threshold: {safeStats.active_threshold.toFixed(2)}</span>
                         </Link>
 
                         <Link
@@ -164,8 +188,8 @@ export default function AdminDashboardPage() {
                             <div className={CHIP}><ShieldAlert className="w-4 h-4" /></div>
                         </div>
                         <div className="flex items-baseline gap-2 mt-1">
-                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{stats.hoax_detected_today}</h3>
-                            <span className={PILL}>{stats.hoax_ratio_percent}% rasio</span>
+                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{safeStats.hoax_detected_today}</h3>
+                            <span className={PILL}>{safeStats.hoax_ratio_percent}% rasio</span>
                         </div>
                     </div>
 
@@ -190,7 +214,7 @@ export default function AdminDashboardPage() {
                             <div className={CHIP}><Clock className="w-4 h-4" /></div>
                         </div>
                         <div className="flex items-baseline gap-2 mt-1">
-                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{stats.pending_feedbacks}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{safeStats.pending_feedbacks}</h3>
                             <span className={PILL}>Menunggu Review</span>
                         </div>
                     </div>
@@ -211,7 +235,7 @@ export default function AdminDashboardPage() {
                             <div className={CHIP}><Activity className="w-4 h-4" /></div>
                         </div>
                         <div className="flex items-baseline gap-2 mt-1">
-                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{stats.active_users_count}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 font-sans">{safeStats.active_users_count}</h3>
                             <span className={PILL}>Online</span>
                         </div>
                     </div>

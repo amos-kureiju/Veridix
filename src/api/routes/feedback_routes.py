@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import datetime
-from typing import List, Optional
 
 from src.database.session import get_db
 from src.database.models import UserFeedback, PredictionLog, User
@@ -16,14 +15,12 @@ from src.api.schemas import (
 
 router = APIRouter(prefix="/feedback", tags=["Feedback"])
 
-# 1. USER: KIRIM / PERBARUI FEEDBACK (UPSERT)
 @router.post("", response_model=FeedbackResponse)
 def submit_feedback(
     payload: FeedbackCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. Validasi keberadaan log deteksi
     detection = db.query(PredictionLog).filter(PredictionLog.id == payload.detection_id).first()
     if not detection:
         raise HTTPException(
@@ -31,22 +28,19 @@ def submit_feedback(
             detail="Data deteksi tidak ditemukan."
         )
 
-    # 2. Cek apakah feedback sudah ada (Mencegah pelanggaran uq_feedback_per_user_detection)
     existing_feedback = db.query(UserFeedback).filter(
         UserFeedback.detection_id == payload.detection_id,
         UserFeedback.user_id == current_user.id
     ).first()
 
     if existing_feedback:
-        # Perbarui feedback yang sudah ada
         existing_feedback.is_agreed = payload.is_agreed
         existing_feedback.claimed_label = payload.claimed_label
         existing_feedback.user_notes = payload.user_notes
         existing_feedback.clarification_url = str(payload.clarification_url) if payload.clarification_url else None
-        existing_feedback.review_status = "PENDING"  # Reset status review jika user memperbarui klaim
+        existing_feedback.review_status = "PENDING"
         feedback_obj = existing_feedback
     else:
-        # Buat feedback baru
         feedback_obj = UserFeedback(
             detection_id=payload.detection_id,
             user_id=current_user.id,
@@ -79,8 +73,6 @@ def submit_feedback(
         )
     )
 
-
-# 2. ADMIN: TINJAU FEEDBACK (REVIEW / DISMISS / RETRAINED)
 @router.put("/{feedback_id}/review", response_model=FeedbackResponse)
 def review_user_feedback(
     feedback_id: UUID,
@@ -95,8 +87,7 @@ def review_user_feedback(
             detail="Data feedback tidak ditemukan."
         )
 
-    # Update status verifikasi admin
-    feedback.review_status = payload.review_status  # REVIEWED, DISMISSED, atau RETRAINED
+    feedback.review_status = payload.review_status
     feedback.admin_notes = payload.admin_notes
     feedback.reviewed_by = admin_user.id
     feedback.reviewed_at = datetime.utcnow()

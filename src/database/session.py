@@ -1,25 +1,30 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Ambil DATABASE_URL dari .env (default ke PostgreSQL lokal jika env tidak terbaca)
+# Ambil DATABASE_URL dari .env (default ke SQLite lokal jika env tidak terdefinisi)
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://postgres:postgres@127.0.0.1:5432/veridix_db"
+    "sqlite:///./hoax_inspect.db"
 )
 
-# Konfigurasi engine dengan pool pre-ping agar tidak drop koneksi
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
-)
+# Konfigurasi engine (support SQLite & PostgreSQL)
+is_sqlite = DATABASE_URL.startswith("sqlite")
+engine_kwargs = {"pool_pre_ping": True}
+
+if is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 # Dependency FastAPI untuk Session DB per request
 def get_db():

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Boolean, Text, Float, DateTime, ForeignKey, 
-    UniqueConstraint, Integer
+    UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, declarative_base
@@ -39,7 +39,6 @@ class User(Base):
     reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     threshold_changes = relationship("ThresholdHistory", back_populates="admin_user")
 
-    # Backward compatibility jika ada kode yang mengakses user.feedbacks
     @property
     def feedbacks(self):
         return self.feedbacks_given
@@ -66,7 +65,7 @@ class PredictionLog(Base):
     
     input_text = Column(Text, nullable=False)
     input_type = Column(String(20), default="TEXT", nullable=False)  # 'TEXT' | 'IMAGE'
-    image_url = Column(Text, nullable=True)                         # Mengembalikan referensi gambar OCR
+    image_url = Column(Text, nullable=True)
     
     # Domain & Guardrail
     is_political = Column(Boolean, default=True, nullable=False)
@@ -74,12 +73,12 @@ class PredictionLog(Base):
     detected_entities = Column(JSONB, nullable=True)
     
     # Hasil AI
-    process_status = Column(String(30), default="DINILAI", nullable=False)  # DINILAI, AMBIGU, DI_LUAR_DOMAIN, DITOLAK
-    pattern_label = Column(String(50), nullable=True)                      # BERPOLA HOAKS, TIDAK BERPOLA HOAKS, PERLU KONFIRMASI
-    agreement_ratio = Column(Float, nullable=True)                         # NULL jika ditolak/di luar domain
+    process_status = Column(String(30), default="DINILAI", nullable=False)
+    pattern_label = Column(String(50), nullable=True)
+    agreement_ratio = Column(Float, nullable=True)
     latency_seconds = Column(Float, nullable=False)
     
-    # Explainability (LIME / Attention)
+    # Explainability
     lime_explanation = Column(JSONB, nullable=True)
     narrative_text = Column(Text, nullable=True)
     
@@ -97,11 +96,10 @@ class UserFeedback(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     is_agreed = Column(Boolean, nullable=False)
-    claimed_label = Column(String(50), nullable=True)  # BERPOLA HOAKS, TIDAK BERPOLA HOAKS, PERLU KONFIRMASI
+    claimed_label = Column(String(50), nullable=True)
     user_notes = Column(Text, nullable=True)
     clarification_url = Column(Text, nullable=True)
     
-    # Alur Review Admin & Retraining
     review_status = Column(String(30), default="PENDING", nullable=False)  # PENDING, REVIEWED, DISMISSED, RETRAINED
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     admin_notes = Column(Text, nullable=True)
@@ -118,7 +116,6 @@ class UserFeedback(Base):
 
 
 class AdminSetting(Base):
-    """Menyimpan konfigurasi dinamis sistem/model AI (misal: threshold, active guardrails)."""
     __tablename__ = "admin_settings"
 
     key = Column(String(100), primary_key=True, index=True)
@@ -131,7 +128,6 @@ class AdminSetting(Base):
 
 
 class ThresholdHistory(Base):
-    """Menyimpan jejak audit saat admin mengubah threshold ambang batas keyakinan model."""
     __tablename__ = "threshold_histories"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

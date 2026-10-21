@@ -7,10 +7,8 @@ from src.database.models import User
 from src.core.security import hash_password, verify_password, create_access_token
 from src.core.auth_deps import get_current_user
 
-# Prefix diset "/auth" (akan digabung dengan settings.API_V1_STR di main.py)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Skema Validasi Input
 class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
@@ -20,8 +18,6 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-
-# 1. REGISTRASI PENGGUNA
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
@@ -53,8 +49,6 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
         "message": "Akun berhasil dibuat. Silakan login."
     }
 
-
-# 2. LOGIN PENGGUNA & ADMIN
 @router.post("/login")
 def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
@@ -88,8 +82,6 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         }
     }
 
-
-# 3. PROFILE DATA AKTIF (/me)
 @router.get("/me")
 def get_my_profile(current_user: User = Depends(get_current_user)):
     return {

@@ -36,7 +36,7 @@ export function useAuth() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUser(res.data);
-        } catch {
+        } catch (err: any) {
             localStorage.removeItem("token");
             document.cookie = "token=; Max-Age=0; path=/";
             document.cookie = "role=; Max-Age=0; path=/";
@@ -119,9 +119,9 @@ export function useAuth() {
             const res = await apiClient.patch<UserProfile>(AUTH_EP.updateProfile, payload);
             setUser(res.data);
             return { success: true, message: "Profil berhasil diperbarui." };
-        } catch {
-            setUser((prev) => prev ? { ...prev, name: payload.name, email: payload.email } : null);
-            return { success: true, message: "Profil diperbarui (Mode Offline)." };
+        } catch (err: any) {
+
+            return { success: false, message: err.response?.data?.detail || "Gagal memperbarui profil di server." };
         } finally {
             setLoading(false);
         }
@@ -131,7 +131,7 @@ export function useAuth() {
         setLoading(true);
         try {
             await apiClient.delete(AUTH_EP.deleteAccount);
-        } catch {
+        } catch (err: any) {
             // Ignore
         } finally {
             logout();

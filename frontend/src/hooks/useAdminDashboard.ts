@@ -13,37 +13,44 @@ export function useAdminDashboard() {
     const [error, setError] = useState<string | null>(null);
 
     // Ambil data statistik dari FastAPI
+    // Ambil data statistik dari FastAPI
     const fetchDashboardData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const resStats = await apiClient.get<GlobalStats>("/api/v1/admin/stats");
-            setStats(resStats.data);
-            if (resStats.data.active_threshold !== undefined) {
-                setThreshold(resStats.data.active_threshold);
+            // 1. Ambil Statistik Utama (Buka bungkusan resStats.data.data jika ada)
+            const resStats = await apiClient.get<any>("/api/v1/admin/stats");
+            const statsData = resStats.data?.data || resStats.data;
+            setStats(statsData);
+
+            if (statsData?.active_threshold !== undefined) {
+                setThreshold(statsData.active_threshold);
             }
-            const resLogs = await apiClient.get<AdminLogItem[]>("/api/v1/admin/logs/recent");
-            setRecentLogs(resLogs.data || []);
+
+            // 2. Ambil Log Terkini (Pisahkan try-catch agar jika log 404, statistik dashboard tetap tampil)
+            try {
+                const resLogs = await apiClient.get<any>("/api/v1/admin/logs/recent");
+                const logsData = resLogs.data?.data || resLogs.data;
+                setRecentLogs(Array.isArray(logsData) ? logsData : []);
+            } catch {
+                setRecentLogs([]); // Fallback log kosong jika endpoint belum siap
+            }
+
         } catch (err: any) {
             const message = err.response?.data?.detail || "Gagal memuat data statistik dari server.";
             setError(message);
-            // Bersihkan data log: jangan tampilkan log simulasi/rekaan
             setRecentLogs([]);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, [fetchDashboardData]);
-
-    // Update Threshold AI secara Real-Time
+    // Update Threshold AI (Gunakan PUT dan new_threshold sesuai schema backend)
     const updateThreshold = async (newValue: number) => {
         try {
-            await apiClient.post("/api/v1/admin/threshold", { threshold: newValue });
+            await apiClient.put("/api/v1/admin/threshold", { new_threshold: newValue });
             setThreshold(newValue);
-            setStats((prev) => (prev ? { ...prev, active_threshold: newValue } : null));
+            setStats((prev: any) => (prev ? { ...prev, active_threshold: newValue } : null));
             return { success: true, message: "Threshold AI berhasil diperbarui ke server." };
         } catch (err: any) {
             const message = err.response?.data?.detail || "Gagal menyimpan perubahan threshold ke server.";

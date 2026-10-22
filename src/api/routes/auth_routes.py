@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from src.database.session import get_db
-from src.database.models import User
+from src.database.models import User, PredictionLog, UserFeedback
 from src.core.security import hash_password, verify_password, create_access_token
 from src.core.auth_deps import get_current_user
 
@@ -18,6 +19,8 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+
+# 1. REGISTRASI
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
@@ -49,6 +52,8 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
         "message": "Akun berhasil dibuat. Silakan login."
     }
 
+
+# 2. LOGIN (Perbaikan: Query COUNT Ringan Tanpa Lazy Load Kolom AI)
 @router.post("/login")
 def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
@@ -67,6 +72,20 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
 
+    # Hitung total deteksi secara aman (HANYA membaca kolom id & user_id)
+    try:
+        total_detections = db.query(func.count(PredictionLog.id)).filter(PredictionLog.user_id == user.id).scalar() or 0
+    except Exception:
+        db.rollback()
+        total_detections = 0
+
+    # Hitung total feedback secara aman
+    try:
+        total_feedbacks = db.query(func.count(UserFeedback.id)).filter(UserFeedback.user_id == user.id).scalar() or 0
+    except Exception:
+        db.rollback()
+        total_feedbacks = 0
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -77,13 +96,30 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
             "role": user.role,
             "avatar_url": user.avatar_url or "",
             "is_active": user.is_active,
-            "total_detections": len(user.detections),
-            "total_feedbacks": len(user.feedbacks_given)
+            "total_detections": total_detections,
+            "total_feedbacks": total_feedbacks
         }
     }
 
+
+# 3. GET PROFILE /auth/me (Perbaikan: Query COUNT Ringan)
 @router.get("/me")
-def get_my_profile(current_user: User = Depends(get_current_user)):
+def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        total_detections = db.query(func.count(PredictionLog.id)).filter(PredictionLog.user_id == current_user.id).scalar() or 0
+    except Exception:
+        db.rollback()
+        total_detections = 0
+
+    try:
+        total_feedbacks = db.query(func.count(UserFeedback.id)).filter(UserFeedback.user_id == current_user.id).scalar() or 0
+    except Exception:
+        db.rollback()
+        total_feedbacks = 0
+
     return {
         "id": str(current_user.id),
         "name": current_user.full_name,
@@ -91,6 +127,6 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
         "role": current_user.role,
         "avatar_url": current_user.avatar_url or "",
         "is_active": current_user.is_active,
-        "total_detections": len(current_user.detections),
-        "total_feedbacks": len(current_user.feedbacks_given)
+        "total_detections": total_detections,
+        "total_feedbacks": total_feedbacks
     }

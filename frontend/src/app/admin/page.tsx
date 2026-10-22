@@ -47,16 +47,16 @@ const SAMPLE_REG: Record<Period, RegPoint[]> = {
 };
 
 export default function AdminDashboardPage() {
-    const { stats, recentLogs, loading, error, reload } = useAdminDashboard();
+    const { stats, recentLogs, threshold, loading, error, reload } = useAdminDashboard();
 
-    const safeStats = stats ?? {
-        total_detections_today: 0,
-        total_detections_delta: 0,
-        hoax_detected_today: 0,
-        hoax_ratio_percent: 0,
-        pending_feedbacks: 0,
-        active_threshold: 0.60,
-        active_users_count: 0,
+    const safeStats = {
+        total_detections_today: (stats as any)?.total_detections ?? stats?.total_detections_today ?? 0,
+        total_detections_delta: stats?.total_detections_delta ?? 0,
+        hoax_detected_today: (stats as any)?.total_hoaxes ?? stats?.hoax_detected_today ?? 0,
+        hoax_ratio_percent: (stats as any)?.hoax_percentage ?? stats?.hoax_ratio_percent ?? 0,
+        pending_feedbacks: (stats as any)?.feedbacks?.pending_review ?? stats?.pending_feedbacks ?? 0,
+        active_threshold: (stats as any)?.active_threshold ?? threshold ?? 0.60,
+        active_users_count: (stats as any)?.total_users ?? stats?.active_users_count ?? 0,
     };
 
     /* ---------- Data turunan ---------- */
@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
     const [hover, setHover] = useState<number | null>(null);
 
     // Backend cukup mengirim: stats.registrations = { week: [...], month: [...], year: [...] }
-    const apiReg = (stats as unknown as { registrations?: Partial<Record<Period, RegPoint[]>> }).registrations;
+    const apiReg = (stats as unknown as { registrations?: Partial<Record<Period, RegPoint[]>> })?.registrations;
     const apiSeries = apiReg?.[period];
     const isSample = !apiSeries || apiSeries.length === 0;
     const series: RegPoint[] = isSample ? SAMPLE_REG[period] : apiSeries!;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/apiClient";
-import type { UserProfile, UpdateProfilePayload, ChangePasswordPayload } from "@/types/user";
+import type { UserProfile } from "@/types/user";
 
 const AUTH_EP = {
     login: "/api/v1/auth/login",
@@ -18,8 +18,11 @@ export function useAuth() {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [ready, setReady] = useState<boolean>(false);
+    const [sessionError, setSessionError] = useState<string | null>(null);
 
     const refreshUser = useCallback(async () => {
+        setReady(false);
+        setSessionError(null);
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
         if (!token) {
             setUser(null);
@@ -28,6 +31,7 @@ export function useAuth() {
         }
         try {
             const res = await apiClient.get<any>(AUTH_EP.me);
+            if (localStorage.getItem("token") !== token) return;
             const data = res.data;
             setUser({
                 id: String(data.id),
@@ -37,13 +41,18 @@ export function useAuth() {
                 avatar_url: data.avatar_url || "",
                 total_detections: data.total_detections ?? 0,
                 total_feedbacks: data.total_feedbacks ?? 0,
+                is_active: data.is_active,
+                created_at: data.created_at ?? "",
             });
         } catch (err: any) {
+            if (localStorage.getItem("token") !== token) return;
             if (err.response?.status === 401) {
                 localStorage.removeItem("token");
                 document.cookie = "token=; Max-Age=0; path=/";
                 document.cookie = "role=; Max-Age=0; path=/";
                 setUser(null);
+            } else {
+                setSessionError("Tidak dapat memverifikasi sesi. Pastikan backend aktif lalu coba lagi.");
             }
         } finally {
             setReady(true);
@@ -51,7 +60,14 @@ export function useAuth() {
     }, []);
 
     useEffect(() => {
+        const handleSessionExpired = () => {
+            setUser(null);
+            setSessionError(null);
+            setReady(true);
+        };
+        window.addEventListener("auth:session-expired", handleSessionExpired);
         refreshUser();
+        return () => window.removeEventListener("auth:session-expired", handleSessionExpired);
     }, [refreshUser]);
 
     const login = async (email: string, password: string) => {
@@ -72,6 +88,8 @@ export function useAuth() {
                 avatar_url: raw.avatar_url || "",
                 total_detections: raw.total_detections ?? 0,
                 total_feedbacks: raw.total_feedbacks ?? 0,
+                is_active: raw.is_active,
+                created_at: raw.created_at ?? "",
             };
 
             localStorage.setItem("token", token);
@@ -79,6 +97,8 @@ export function useAuth() {
             document.cookie = `role=${userData.role}; path=/; max-age=604800; SameSite=Lax`;
 
             setUser(userData);
+            setSessionError(null);
+            setReady(true);
             return { success: true, user: userData };
         } catch (err: any) {
             return {
@@ -95,12 +115,14 @@ export function useAuth() {
         document.cookie = "token=; Max-Age=0; path=/";
         document.cookie = "role=; Max-Age=0; path=/";
         setUser(null);
-        window.location.href = "/auth/login";
+        window.location.href = "/";
     };
 
     return {
         user,
         ready,
+        sessionError,
+        retrySession: refreshUser,
         isGuest: ready && !user,
         isAdmin: user?.role === "ADMIN",
         loading,

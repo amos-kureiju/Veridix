@@ -2,6 +2,7 @@
 
 import UserSidebar from "./UserSidebar";
 import UserTopbar from "./UserTopbar";
+import { useRouter } from "next/navigation";
 
 interface UserShellProps {
     guest?: boolean;
@@ -22,12 +23,14 @@ export default function UserShell({
     onLogout,
     children,
 }: UserShellProps) {
+    const router = useRouter();
+    const handleAccountAction = guest ? () => router.push("/auth/login") : onLogout;
     return (
         // 1. Kunci layar total (h-screen overflow-hidden)
         <div className="flex h-screen w-full bg-[#f1f5f5] text-slate-800 overflow-hidden font-sans">
 
             {/* 2. Sidebar Kiri (Menetap permanen) */}
-            <UserSidebar guest={guest} userName={userName} onLogout={onLogout} />
+            <UserSidebar guest={guest} userName={userName} onLogout={handleAccountAction} />
 
             {/* 3. Kolom Kanan Membentang Penuh */}
             <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
@@ -39,7 +42,7 @@ export default function UserShell({
                     userName={userName}
                     userRole={userRole}
                     guest={guest}
-                    onLogout={onLogout}
+                    onLogout={handleAccountAction}
                 />
 
                 {/* AREA KONTEN (HANYA INI YANG BERGULIR SAAT DI-SCROLL) */}

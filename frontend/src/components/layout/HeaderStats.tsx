@@ -6,7 +6,6 @@ export interface HeaderStatsProps {
     totalDetections?: number;
     hoaxCount?: number;
     feedbackCount?: number;
-    quotaLeft?: number | string;
     isGuest?: boolean;
 }
 
@@ -14,7 +13,6 @@ export default function HeaderStats({
     totalDetections = 0,
     hoaxCount = 0,
     feedbackCount = 0,
-    quotaLeft = 3,
     isGuest = true,
 }: HeaderStatsProps) {
     const stats = [
@@ -49,11 +47,11 @@ export default function HeaderStats({
             iconBg: "bg-emerald-50 border-emerald-100",
         },
         {
-            title: "SISA KUOTA HARI INI",
-            value: isGuest ? `${quotaLeft}` : "∞",
-            badgeText: isGuest ? "Aktif" : "Unlimited",
+            title: "AKSES DETEKSI",
+            value: isGuest ? "Tamu" : "Aktif",
+            badgeText: isGuest ? "Perlu login" : "Terdaftar",
             badgePositive: true,
-            footerText: isGuest ? "Batas kuota tamu" : "Akun aktif",
+            footerText: isGuest ? "Masuk untuk mendeteksi" : "Akun aktif",
             icon: Gauge,
             iconColor: "text-emerald-600",
             iconBg: "bg-emerald-50 border-emerald-100",

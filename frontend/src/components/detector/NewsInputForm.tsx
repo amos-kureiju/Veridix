@@ -18,10 +18,12 @@ import { apiClient } from "@/lib/apiClient";
 interface NewsInputFormProps {
     loading: boolean;
     blocked: boolean;
+    loginRequired: boolean;
+    onRequireLogin: () => void;
     onAnalyze: (text: string, focusIssue?: string) => Promise<void>;
 }
 
-export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInputFormProps) {
+export default function NewsInputForm({ loading, blocked, loginRequired, onRequireLogin, onAnalyze }: NewsInputFormProps) {
     const [activeTab, setActiveTab] = useState<"text" | "image">("text");
     const [inputText, setInputText] = useState("");
     const [selectedIssue, setSelectedIssue] = useState("ALL");
@@ -31,6 +33,7 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [ocrLoading, setOcrLoading] = useState(false);
     const [ocrText, setOcrText] = useState("");
+    const [ocrError, setOcrError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Kata kunci Guardrail Politik Indonesia
@@ -40,6 +43,12 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
 
     // Handler Upload Gambar & Ekstraksi PaddleOCR
     const handleImageSelect = async (file: File) => {
+        if (blocked || loading || ocrLoading) return;
+        if (loginRequired) {
+            onRequireLogin();
+            return;
+        }
+        setOcrError(null);
         setImageFile(file);
         setImagePreview(URL.createObjectURL(file));
         setOcrLoading(true);
@@ -48,19 +57,24 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
         formData.append("file", file);
 
         try {
-            const res = await apiClient.post<{ text: string }>("/api/v1/detect/ocr-extract", formData, {
+            const res = await apiClient.post<{ data: { extracted_text: string } }>("/api/v1/detect/image", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setOcrText(res.data.text || "");
+            setOcrText(res.data.data.extracted_text || "");
         } catch {
-            // Fallback pesan ramah jika OCR server sedang booting
-            setOcrText("Teks tangkapan layar siap dianalisis. Periksa kembali keakuratan kata di bawah ini sebelum mengirim ke model IndoBERT.");
+            setOcrText("");
+            setOcrError("Gagal membaca gambar. Pastikan sesi login aktif dan coba unggah ulang.");
         } finally {
             setOcrLoading(false);
         }
     };
 
     const handleSubmit = () => {
+        if (blocked || loading || ocrLoading) return;
+        if (loginRequired) {
+            onRequireLogin();
+            return;
+        }
         const textToSend = activeTab === "text" ? inputText : ocrText;
         if (textToSend.trim().length < 30) {
             alert("Teks berita minimal 30 karakter agar model IndoBERT dapat mendeteksi pola retorika secara akurat.");
@@ -159,7 +173,11 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
                         <div className="space-y-3">
                             {!imagePreview ? (
                                 <div
-                                    onClick={() => fileInputRef.current?.click()}
+                                    onClick={() => {
+                                        if (blocked || loading) return;
+                                        if (loginRequired) onRequireLogin();
+                                        else fileInputRef.current?.click();
+                                    }}
                                     className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition text-center"
                                 >
                                     <input
@@ -216,6 +234,7 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
                     )}
 
                 </div>
+                {ocrError && <p role="alert" className="mt-3 text-xs text-rose-600">{ocrError}</p>}
             </div>
 
             {/* 3. TOMBOL EKSEKUSI PIPELINE */}
@@ -227,7 +246,7 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={loading || blocked || currentText.trim().length < 30}
+                    disabled={loading || blocked || ocrLoading || (!loginRequired && currentText.trim().length < 30)}
                     className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-xl shadow-xs transition"
                 >
                     {loading ? (
@@ -238,7 +257,7 @@ export default function NewsInputForm({ loading, blocked, onAnalyze }: NewsInput
                     ) : (
                         <>
                             <Sparkles className="w-4 h-4 text-emerald-400" />
-                            <span>Analisis Sekarang</span>
+                            <span>{loginRequired ? "Masuk untuk Analisis" : "Analisis Sekarang"}</span>
                         </>
                     )}
                 </button>

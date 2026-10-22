@@ -9,9 +9,9 @@ export function useHistory(enabled: boolean) {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null); 
 
-    const fetchHistory = useCallback(async () => {
+    const fetchHistory = useCallback(async (signal?: AbortSignal) => {
         // Jika tidak aktif (misal user belum login / tamu), bersihkan data
-        if (!enabled) {
+        if (!enabled || !localStorage.getItem("token")) {
             setItems([]);
             setError(null);
             setLoading(false);
@@ -22,23 +22,27 @@ export function useHistory(enabled: boolean) {
         setError(null);
 
         try {
-            const res = await api.get<any>("/api/v1/users/history");
+            const res = await api.get<any>("/api/v1/users/history", { signal });
+            if (signal?.aborted) return;
             // 2. Pembacaan array secara aman
             const rawData = res.data?.data ?? res.data;
             const historyList: HistoryItem[] = Array.isArray(rawData) ? rawData : [];
             setItems(historyList);
         } catch (err: any) {
+            if (signal?.aborted) return;
             // 3. Catat pesan error agar UI tahu ini kegagalan request, bukan riwayat kosong
             const message = err.response?.data?.detail || "Gagal memuat riwayat deteksi dari server.";
             setError(message);
             setItems([]);
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
     }, [enabled]);
 
     useEffect(() => {
-        fetchHistory();
+        const controller = new AbortController();
+        fetchHistory(controller.signal);
+        return () => controller.abort();
     }, [fetchHistory]);
 
     return {
@@ -46,6 +50,6 @@ export function useHistory(enabled: boolean) {
         loading,
         error,                                      // Ekspor status error
         isEmpty: !loading && !error && items.length === 0, // Flag praktis untuk UI
-        reload: fetchHistory,
+        reload: () => fetchHistory(),
     };
 }

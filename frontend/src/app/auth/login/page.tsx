@@ -128,11 +128,6 @@ export default function LoginPage() {
                 <span className="h-px flex-1 bg-slate-200" />
             </div>
 
-            <Link href="/" className="auth-btn-ghost">
-                <Sparkles size={15} className="text-emerald-600" />
-                Coba sebagai tamu · 3 deteksi gratis
-            </Link>
-
             <p className="mt-8 text-center text-sm text-slate-500">
                 Belum punya akun?{" "}
                 <Link href="/auth/register" className="font-bold text-emerald-700 transition hover:text-emerald-800">

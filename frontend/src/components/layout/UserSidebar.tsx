@@ -262,7 +262,7 @@ export default function UserSidebar({
                                     {guest ? "Mode Tamu" : userName}
                                 </p>
                                 <p className="text-[10px] text-emerald-400/70 truncate">
-                                    {guest ? "3 Kuota Tersisa" : "User Terdaftar"}
+                                    {guest ? "Masuk untuk mendeteksi" : "User Terdaftar"}
                                 </p>
                             </div>
                         )}

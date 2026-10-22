@@ -144,7 +144,7 @@ export default function UserTopbar({
                         <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 text-xs text-slate-700 z-50 animate-in fade-in zoom-in-95">
                             <div className="px-3 py-2 border-b border-slate-100 mb-1">
                                 <p className="font-bold text-slate-800 truncate">{guest ? "Mode Tamu" : userName}</p>
-                                <p className="text-[10px] text-slate-400">{guest ? "3 Kuota Tersisa" : userRole}</p>
+                                <p className="text-[10px] text-slate-400">{guest ? "Masuk untuk mendeteksi" : userRole}</p>
                             </div>
 
                             <button

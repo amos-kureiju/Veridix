@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useDetection } from "@/hooks/useDetection";
 import { useHistory } from "@/hooks/useHistory";
@@ -12,49 +12,53 @@ import NewsInputForm from "@/components/detector/NewsInputForm";
 import VerdictCard from "@/components/detector/VerdictCard";
 
 export default function Home() {
-    const { user, isGuest, logout } = useAuth();
+    const router = useRouter();
+    const { user, ready, logout } = useAuth();
     const d = useDetection();
-    const history = useHistory(!isGuest);
+    const history = useHistory(ready && Boolean(user));
+    const isGuest = !user;
 
-    const [guestQuota, setGuestQuota] = useState(3);
-    const blocked = isGuest && guestQuota === 0;
+    const requireLogin = () => router.push("/auth/login");
 
     const analyze = async (text: string) => {
-        if (blocked) return;
-        await d.detectText(text);
-        if (isGuest) {
-            setGuestQuota((prev) => Math.max(0, prev - 1));
-        } else {
-            history.reload();
+        if (!ready) return;
+        if (!user) {
+            requireLogin();
+            return;
         }
+        const result = await d.detectText(text);
+        if (result) await history.reload();
     };
 
     return (
         <UserShell
             guest={isGuest}
-            userName={user?.name || "Amos Manurung"}
+            userName={user?.name || "Pengunjung"}
             userRole={user?.role || "USER"}
             onLogout={logout}
         >
-            {/* Banner Kuota jika Mode Tamu */}
-            {isGuest && <GuestBanner remainingFreeDetections={guestQuota} />}
+            {isGuest && <GuestBanner />}
 
             {/* 4 Kartu Metrik Ringkasan */}
             <HeaderStats
-                totalDetections={0}
+                totalDetections={user?.total_detections ?? 0}
                 hoaxCount={0}
-                feedbackCount={0}
-                quotaLeft={guestQuota}
+                feedbackCount={user?.total_feedbacks ?? 0}
                 isGuest={isGuest}
             />
 
             {/* Grid Formulir Input dan Hasil Deteksi */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
-                <NewsInputForm
-                    loading={d.loading}
-                    blocked={blocked}
-                    onAnalyze={analyze}
-                />
+                <div className="space-y-3">
+                    <NewsInputForm
+                        loading={d.loading}
+                        blocked={!ready}
+                        loginRequired={isGuest}
+                        onRequireLogin={requireLogin}
+                        onAnalyze={analyze}
+                    />
+                    {d.error && <p role="alert" className="text-sm text-rose-600">{d.error}</p>}
+                </div>
                 <VerdictCard
                     result={d.result}
                     loading={d.loading}

@@ -22,8 +22,8 @@ import UserShell from "@/components/layout/UserShell";
 
 export default function HistoryPage() {
     // 1. Panggil useHistory HANYA jika sesi sudah selesai diperiksa dan user sudah login
-    const { user, ready, isGuest } = useAuth();
-    const { items, loading, reload } = useHistory(ready && Boolean(user));
+    const { user, ready, isGuest, logout } = useAuth();
+    const { items, loading, error } = useHistory(ready && Boolean(user));
 
     // State Filter & Pencarian
     const [searchTerm, setSearchTerm] = useState("");
@@ -121,8 +121,9 @@ export default function HistoryPage() {
             guest={isGuest}
             userName={user?.name}
             userRole={user?.role}
-            onLogout={reload}
+            onLogout={logout}
         >
+            {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
             <div className="flex justify-end pb-2">
                 <button
                     type="button"

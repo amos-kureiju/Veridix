@@ -31,20 +31,22 @@ apiClient.interceptors.response.use(
         // Jangan auto-logout jika error terjadi pada endpoint login itu sendiri
         const isLoginRequest = error.config?.url?.includes("/auth/login");
 
-        // Jika token kedaluwarsa atau tidak valid (HTTP 401)
+        // Bersihkan sesi yang ditolak; halaman publik tetap dapat dibuka.
         if (error.response?.status === 401 && !isLoginRequest && typeof window !== "undefined") {
-            console.warn("[Auth]: Sesi kedaluwarsa atau tidak valid. Membersihkan sesi...");
-            localStorage.removeItem("token");
-            document.cookie = "token=; Max-Age=0; path=/";
-            document.cookie = "role=; Max-Age=0; path=/";
-
-            // Redirect ke login jika bukan di halaman publik
-            if (!window.location.pathname.startsWith("/auth/")) {
-                window.location.href = "/auth/login";
+            const token = localStorage.getItem("token");
+            const authorization = error.config?.headers?.Authorization;
+            // Respons request lama tidak boleh menghapus sesi login yang lebih baru.
+            if (token && authorization === `Bearer ${token}`) {
+                localStorage.removeItem("token");
+                document.cookie = "token=; Max-Age=0; path=/";
+                document.cookie = "role=; Max-Age=0; path=/";
+                window.dispatchEvent(new Event("auth:session-expired"));
             }
         }
 
-        console.error("[API Error]:", error.response?.data || error.message);
+        if (error.response?.status !== 401 && !axios.isCancel(error)) {
+            console.error("[API Error]:", error.response?.data || error.message);
+        }
         return Promise.reject(error);
     }
 );

@@ -4,29 +4,26 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useHistory } from "@/hooks/useHistory";
-import UserSidebar from "@/components/layout/UserShell";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import {
     Search,
     Download,
     Trash2,
     Eye,
-    Filter,
-    Calendar,
-    Clock,
     CheckCircle,
     XCircle,
     AlertTriangle,
     Lock,
-    ArrowUpDown,
-    X
+    X,
+    Loader2
 } from "lucide-react";
 import type { HistoryItem } from "@/types/detector";
 import UserShell from "@/components/layout/UserShell";
 
 export default function HistoryPage() {
-    const { user, isGuest } = useAuth();
-    const { items, loading, reload } = useHistory(!isGuest);
+    // 1. Panggil useHistory HANYA jika sesi sudah selesai diperiksa dan user sudah login
+    const { user, ready, isGuest } = useAuth();
+    const { items, loading, reload } = useHistory(ready && Boolean(user));
 
     // State Filter & Pencarian
     const [searchTerm, setSearchTerm] = useState("");
@@ -38,49 +35,51 @@ export default function HistoryPage() {
     const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
-    // Data Dummy Demo jika backend riwayat belum memiliki isi
+    // Data Dummy HANYA untuk Mode Tamu (Guest)
     const dummyHistory: HistoryItem[] = useMemo(() => [
         {
-            id: "hist-001",
-            text_snippet: "KPU RI diklaim menetapkan sistem pemilu tertutup secara sepihak tanpa putusan resmi MK...",
+            id: "hist-demo-1",
+            input_text: "KPU RI diklaim menetapkan sistem pemilu tertutup secara sepihak tanpa putusan resmi MK pada rapat tertutup kemarin malam.",
             full_text: "KPU RI diklaim menetapkan sistem pemilu tertutup secara sepihak tanpa putusan resmi MK pada rapat tertutup kemarin malam.",
+            pattern_label: "BERPOLA HOAKS",
             prediction: "HOAKS",
+            agreement_ratio: 0.94,
             confidence_score: 0.942,
             political_topic: "KPU & Pemilu",
             created_at: "2026-10-06T10:30:00Z",
-            inference_time: 0.38,
         },
         {
-            id: "hist-002",
-            text_snippet: "Presiden RI memimpin rapat terbatas mengenai penyaluran beras cadangan pemerintah di Istana...",
+            id: "hist-demo-2",
+            input_text: "Presiden RI memimpin rapat terbatas mengenai penyaluran beras cadangan pemerintah di Istana Merdeka Jakarta bersama menteri terkait.",
             full_text: "Presiden RI memimpin rapat terbatas mengenai penyaluran beras cadangan pemerintah di Istana Merdeka Jakarta bersama menteri terkait.",
+            pattern_label: "TIDAK BERPOLA HOAKS",
             prediction: "FAKTA",
+            agreement_ratio: 0.88,
             confidence_score: 0.885,
             political_topic: "Kebijakan & Bansos",
             created_at: "2026-10-05T14:15:00Z",
-            inference_time: 0.41,
-        },
-        {
-            id: "hist-003",
-            text_snippet: "DPR RI mengusulkan peninjauan ulang ambang batas parlemen pasca evaluasi tahun anggaran...",
-            full_text: "DPR RI mengusulkan peninjauan ulang ambang batas parlemen pasca evaluasi tahun anggaran dalam forum dengar pendapat umum.",
-            prediction: "PERLU KONFIRMASI",
-            confidence_score: 0.620,
-            political_topic: "DPR & Parlemen",
-            created_at: "2026-10-04T09:00:00Z",
-            inference_time: 0.45,
         },
     ], []);
 
-    const displayItems = items && items.length > 0 ? items : dummyHistory;
+    // 2. Jika user login -> tampilkan data riil database (walaupun kosong []). Jika tamu -> tampilkan dummy.
+    const displayItems = isGuest ? dummyHistory : items;
 
-    // Logika Filter
+    // 3. Logika Filter (Aman dari undefined input_text)
     const filteredData = useMemo(() => {
         return displayItems.filter((item) => {
-            const matchSearch = item.text_snippet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.political_topic.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchVerdict = selectedVerdict === "ALL" || item.prediction === selectedVerdict;
-            const matchTopic = selectedTopic === "ALL" || item.political_topic.toLowerCase().includes(selectedTopic.toLowerCase());
+            const textContent = item.input_text || item.full_text || "";
+            const topic = item.political_topic || "";
+            const label = item.pattern_label || item.prediction || "";
+
+            const matchSearch = textContent.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                topic.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchVerdict = selectedVerdict === "ALL" ||
+                label.toUpperCase().includes(selectedVerdict.toUpperCase()) ||
+                (selectedVerdict === "HOAKS" && label.includes("HOAKS")) ||
+                (selectedVerdict === "FAKTA" && label.includes("TIDAK BERPOLA"));
+
+            const matchTopic = selectedTopic === "ALL" || topic.toLowerCase().includes(selectedTopic.toLowerCase());
 
             return matchSearch && matchVerdict && matchTopic;
         });
@@ -92,12 +91,12 @@ export default function HistoryPage() {
             alert("Tidak ada data riwayat untuk diekspor.");
             return;
         }
-        const headers = ["ID", "Cuplikan Teks", "Vonis", "Skor Keyakinan", "Topik", "Tanggal"];
+        const headers = ["ID", "Teks Berita", "Vonis Pola", "Skor Konsensus", "Topik", "Tanggal"];
         const rows = filteredData.map(d => [
             d.id,
-            `"${d.text_snippet.replace(/"/g, '""')}"`,
-            d.prediction,
-            `${(d.confidence_score * 100).toFixed(1)}%`,
+            `"${(d.input_text || d.full_text || "").replace(/"/g, '""')}"`,
+            d.pattern_label || d.prediction || "-",
+            `${(((d.agreement_ratio ?? d.confidence_score) || 0) * 100).toFixed(1)}%`,
             `"${d.political_topic}"`,
             new Date(d.created_at).toLocaleString("id-ID")
         ]);
@@ -111,10 +110,8 @@ export default function HistoryPage() {
         document.body.removeChild(link);
     };
 
-    // Eksekusi Hapus Riwayat
     const handleDeleteConfirm = () => {
         if (!deleteId) return;
-        // Logika panggil backend API delete jika sudah siap
         alert(`Entri riwayat ${deleteId} berhasil dihapus.`);
         setDeleteId(null);
     };
@@ -126,7 +123,6 @@ export default function HistoryPage() {
             userRole={user?.role}
             onLogout={reload}
         >
-            {/* Tombol Ekspor CSV di Sudut Kanan Atas */}
             <div className="flex justify-end pb-2">
                 <button
                     type="button"
@@ -138,7 +134,7 @@ export default function HistoryPage() {
                 </button>
             </div>
 
-            {/* JIKA USER BERSTATUS TAMU (GUEST BANNER PROTEKSI) */}
+            {/* JIKA USER BERSTATUS TAMU (GUEST BANNER) */}
             {isGuest && (
                 <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -148,7 +144,7 @@ export default function HistoryPage() {
                         <div>
                             <p className="text-xs font-bold text-amber-900">Mode Tamu Aktif</p>
                             <p className="text-[11px] text-amber-700 mt-0.5">
-                                Riwayat di bawah adalah data pratinjau demo. Masuk atau daftar akun agar setiap deteksi Anda tersimpan otomatis.
+                                Riwayat di bawah adalah data pratinjau demo. Masuk atau daftar akun agar setiap deteksi Anda tersimpan permanen di cloud.
                             </p>
                         </div>
                     </div>
@@ -164,8 +160,6 @@ export default function HistoryPage() {
             {/* BARIS FILTER & PENCARIAN */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-
-                    {/* Input Pencarian */}
                     <div className="relative md:col-span-1">
                         <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
@@ -177,21 +171,19 @@ export default function HistoryPage() {
                         />
                     </div>
 
-                    {/* Filter Vonis */}
                     <div>
                         <select
                             value={selectedVerdict}
                             onChange={(e) => setSelectedVerdict(e.target.value)}
                             className="w-full bg-[#f8fafc] border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500 transition"
                         >
-                            <option value="ALL">Semua Vonis</option>
-                            <option value="HOAKS">Vonis: HOAKS</option>
-                            <option value="FAKTA">Vonis: FAKTA</option>
-                            <option value="PERLU KONFIRMASI">Vonis: PERLU KONFIRMASI</option>
+                            <option value="ALL">Semua Vonis Pola</option>
+                            <option value="HOAKS">Berpola Hoaks</option>
+                            <option value="FAKTA">Tidak Berpola Hoaks</option>
+                            <option value="PERLU KONFIRMASI">Perlu Konfirmasi</option>
                         </select>
                     </div>
 
-                    {/* Filter Sub-Topik */}
                     <div>
                         <select
                             value={selectedTopic}
@@ -206,7 +198,6 @@ export default function HistoryPage() {
                         </select>
                     </div>
 
-                    {/* Filter Waktu */}
                     <div>
                         <select
                             value={selectedTime}
@@ -219,7 +210,6 @@ export default function HistoryPage() {
                             <option value="30DAYS">30 Hari Terakhir</option>
                         </select>
                     </div>
-
                 </div>
             </div>
 
@@ -229,42 +219,49 @@ export default function HistoryPage() {
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr className="border-b border-slate-100 bg-[#f8fafc]/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                                <th className="py-3 px-4">Cuplikan Berita</th>
+                                <th className="py-3 px-4">Teks Naskah</th>
                                 <th className="py-3 px-4">Sub-Topik</th>
-                                <th className="py-3 px-4">Vonis Model</th>
-                                <th className="py-3 px-4">Keyakinan</th>
+                                <th className="py-3 px-4">Indikasi Pola</th>
+                                <th className="py-3 px-4">Konsensus AI</th>
                                 <th className="py-3 px-4">Waktu</th>
                                 <th className="py-3 px-4 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredData.length === 0 ? (
+                            {loading ? (
                                 <tr>
                                     <td colSpan={6} className="text-center py-12 text-slate-400">
-                                        Tidak ada riwayat deteksi yang sesuai dengan filter.
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                            <span>Memuat riwayat deteksi dari cloud...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-12 text-slate-400">
+                                        Belum ada riwayat analisis berita. Naskah yang Anda analisis di beranda akan tersimpan otomatis di sini.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredData.map((item) => {
-                                    const isHoax = item.prediction === "HOAKS";
-                                    const isFact = item.prediction === "FAKTA";
+                                    const label = item.pattern_label || item.prediction || "DINILAI";
+                                    const isHoax = label.includes("HOAKS");
+                                    const isFact = label.includes("FAKTA") || label.includes("TIDAK BERPOLA");
+                                    const ratio = item.agreement_ratio ?? item.confidence_score ?? 0;
 
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50/60 transition group">
-
-                                            {/* Cuplikan Teks */}
                                             <td className="py-3.5 px-4 font-medium text-slate-800 max-w-xs md:max-w-md truncate">
-                                                {item.text_snippet}
+                                                {item.input_text || item.full_text}
                                             </td>
 
-                                            {/* Sub-Topik */}
                                             <td className="py-3.5 px-4">
                                                 <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-medium border border-slate-200/60">
                                                     {item.political_topic}
                                                 </span>
                                             </td>
 
-                                            {/* Vonis */}
                                             <td className="py-3.5 px-4">
                                                 <span
                                                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isHoax
@@ -277,16 +274,14 @@ export default function HistoryPage() {
                                                     {isHoax && <XCircle className="w-3.5 h-3.5" />}
                                                     {isFact && <CheckCircle className="w-3.5 h-3.5" />}
                                                     {!isHoax && !isFact && <AlertTriangle className="w-3.5 h-3.5" />}
-                                                    {item.prediction}
+                                                    {label}
                                                 </span>
                                             </td>
 
-                                            {/* Keyakinan */}
                                             <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
-                                                {(item.confidence_score * 100).toFixed(1)}%
+                                                {(ratio * 100).toFixed(1)}%
                                             </td>
 
-                                            {/* Waktu */}
                                             <td className="py-3.5 px-4 text-slate-400 text-[11px] whitespace-nowrap">
                                                 {new Date(item.created_at).toLocaleDateString("id-ID", {
                                                     day: "numeric",
@@ -295,7 +290,6 @@ export default function HistoryPage() {
                                                 })}
                                             </td>
 
-                                            {/* Aksi */}
                                             <td className="py-3.5 px-4 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button
@@ -316,7 +310,6 @@ export default function HistoryPage() {
                                                     </button>
                                                 </div>
                                             </td>
-
                                         </tr>
                                     );
                                 })
@@ -325,22 +318,19 @@ export default function HistoryPage() {
                     </table>
                 </div>
 
-                {/* Footer Tabel */}
                 <div className="py-3 px-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                     <span>Menampilkan {filteredData.length} entri riwayat</span>
-                    <span>INSPECT-AI History Audit</span>
+                    <span>VERIDIX History Audit</span>
                 </div>
             </div>
 
-            {/* ========================================================= */}
-            {/* MODAL LIHAT DETAIL RIWAYAT LENGKAP                        */}
-            {/* ========================================================= */}
+            {/* MODAL LIHAT DETAIL RIWAYAT LENGKAP */}
             {detailItem && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
                     <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div>
-                                <span className="text-[10px] font-bold uppercase text-slate-400">Detail Riwayat #{detailItem.id}</span>
+                                <span className="text-[10px] font-bold uppercase text-slate-400">Detail Riwayat #{detailItem.id.slice(0, 8)}</span>
                                 <h3 className="text-base font-bold text-slate-800">{detailItem.political_topic}</h3>
                             </div>
                             <button
@@ -356,20 +346,39 @@ export default function HistoryPage() {
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Teks Berita:</label>
                                 <p className="bg-slate-50 p-3 rounded-xl text-slate-700 leading-relaxed border border-slate-200/60 max-h-40 overflow-y-auto">
-                                    {detailItem.full_text || detailItem.text_snippet}
+                                    {detailItem.input_text || detailItem.full_text}
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 pt-1">
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
-                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Vonis:</span>
-                                    <span className="text-xs font-bold text-slate-800">{detailItem.prediction}</span>
+                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Pola Terdeteksi:</span>
+                                    <span className="text-xs font-bold text-slate-800">{detailItem.pattern_label || detailItem.prediction}</span>
                                 </div>
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
-                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Keyakinan Model:</span>
-                                    <span className="text-xs font-bold text-slate-800 font-mono">{(detailItem.confidence_score * 100).toFixed(1)}%</span>
+                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Konsensus Model:</span>
+                                    <span className="text-xs font-bold text-slate-800 font-mono">
+                                        {(((detailItem.agreement_ratio ?? detailItem.confidence_score) || 0) * 100).toFixed(1)}%
+                                    </span>
                                 </div>
                             </div>
+
+                            {/* Tampilkan Status Feedback Admin jika Ada */}
+                            {detailItem.feedback && (
+                                <div className="bg-emerald-50/70 border border-emerald-100 p-3 rounded-xl">
+                                    <span className="text-[10px] font-bold uppercase text-emerald-800 block">Status Sanggahan User:</span>
+                                    <div className="mt-1 flex items-center justify-between">
+                                        <span className="font-semibold text-emerald-900">
+                                            Status: {detailItem.feedback.review_status || "PENDING"}
+                                        </span>
+                                    </div>
+                                    {detailItem.feedback.admin_notes && (
+                                        <p className="mt-1 text-slate-600 text-[11px]">
+                                            Catatan Admin: {detailItem.feedback.admin_notes}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="pt-3 border-t border-slate-100 flex justify-end">
@@ -385,9 +394,6 @@ export default function HistoryPage() {
                 </div>
             )}
 
-            {/* ========================================================= */}
-            {/* DIALOG KONFIRMASI HAPUS                                   */}
-            {/* ========================================================= */}
             <ConfirmDialog
                 open={!!deleteId}
                 title="Hapus Riwayat Deteksi?"
@@ -397,7 +403,6 @@ export default function HistoryPage() {
                 onConfirm={handleDeleteConfirm}
                 onCancel={() => setDeleteId(null)}
             />
-
         </UserShell>
     );
 }

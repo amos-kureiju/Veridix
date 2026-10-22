@@ -81,3 +81,31 @@ class ThresholdUpdateRequest(BaseModel):
 class SettingUpdateRequest(BaseModel):
     value: str
     description: Optional[str] = None
+
+    # UBAH HISTORY SCHEMAS ( Penyelarasan Riwayat )
+
+class UserHistoryFeedbackItem(BaseModel):
+    id: UUID
+    is_agreed: bool
+    claimed_label: Optional[str] = None
+    review_status: Optional[str] = None
+    admin_notes: Optional[str] = None
+
+class UserHistoryItem(BaseModel):
+    id: UUID
+    input_text: str
+    input_type: str
+    image_url: Optional[str] = None
+    political_topic: Optional[str] = None
+    process_status: str = "DINILAI"
+    pattern_label: Optional[str] = None
+    prediction: Optional[str] = None
+    agreement_ratio: Optional[float] = None
+    confidence_score: Optional[float] = None
+    created_at: Optional[datetime] = None
+    has_feedback: bool = False
+    feedback: Optional[UserHistoryFeedbackItem] = None
+
+class UserHistoryResponse(BaseModel):
+    status: str = "success"
+    data: List[UserHistoryItem] = []

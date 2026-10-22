@@ -128,6 +128,34 @@ class TestLoginRoles(unittest.TestCase):
         response = self.client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
         self.assertEqual(response.status_code, 401)
 
+    def test_registered_account_can_login_with_user_role(self):
+        response = self.client.post("/api/v1/auth/register", json={
+            "name": "  Pengguna Baru  ", "email": "NEW@example.com",
+            "password": self.password, "role": "ADMIN",
+        })
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("access_token", response.json())
+        with self.session_factory() as db:
+            user = db.query(User).filter(User.email == "new@example.com").one()
+            self.assertEqual(user.full_name, "Pengguna Baru")
+            self.assertEqual(user.role, "USER")
+            self.assertNotEqual(user.password_hash, self.password)
+        login = self.client.post("/api/v1/auth/login", json={
+            "email": "new@example.com", "password": self.password,
+        })
+        self.assertEqual(login.status_code, 200)
+        self.assertEqual(login.json()["user"]["role"], "USER")
+
+    def test_registration_rejects_duplicate_email_and_short_password(self):
+        cases = [("USER@example.com", self.password), ("new@example.com", "short")]
+        for email, password in cases:
+            response = self.client.post("/api/v1/auth/register", json={
+                "name": "Pengguna Baru", "email": email, "password": password,
+            })
+            self.assertEqual(response.status_code, 400)
+        with self.session_factory() as db:
+            self.assertEqual(db.query(User).count(), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

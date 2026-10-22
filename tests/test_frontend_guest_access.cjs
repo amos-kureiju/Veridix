@@ -195,3 +195,65 @@ test('anonymous 401 and wrong login preserve the public page and other session s
         assert.equal(result.location, 'http://localhost:3000/');
     }
 });
+
+test('registration hook sends the backend payload without creating a login session', async () => {
+    const hooks = reactHooks();
+    const requests = [];
+    const { useAuth } = load('hooks/useAuth.ts', {
+        react: hooks,
+        '@/lib/apiClient': { apiClient: { post: async (url, body) => {
+            requests.push({ url, body });
+            return { data: { status: 'success', message: 'Akun berhasil dibuat. Silakan login.' } };
+        } } },
+    });
+    const result = await useAuth().register('  Pengguna Baru  ', '  NEW@example.com  ', 'RegisterTest123!');
+    assert.equal(result.success, true);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, '/api/v1/auth/register');
+    assert.equal(requests[0].body.name, 'Pengguna Baru');
+    assert.equal(requests[0].body.email, 'new@example.com');
+    assert.equal(requests[0].body.password, 'RegisterTest123!');
+    assert.deepEqual(Object.keys(requests[0].body).sort(), ['email', 'name', 'password']);
+});
+
+test('registration reports duplicate email, validation errors, and connection failures as text', async () => {
+    const cases = [
+        ['Alamat email sudah terdaftar.', 'Alamat email sudah terdaftar.'],
+        [[{ msg: 'Email tidak valid.' }], 'Email tidak valid.'],
+        [undefined, 'Pendaftaran gagal. Silakan coba lagi.'],
+    ];
+    for (const [detail, expected] of cases) {
+        const hooks = reactHooks();
+        const { useAuth } = load('hooks/useAuth.ts', {
+            react: hooks,
+            '@/lib/apiClient': { apiClient: { post: async () => {
+                throw { isAxiosError: true, response: detail ? { data: { detail } } : undefined };
+            } } },
+        });
+        const result = await useAuth().register('Pengguna', 'new@example.com', 'RegisterTest123!');
+        assert.equal(result.success, false);
+        assert.equal(result.message, expected);
+    }
+});
+
+test('registration page goes to login only after successful account creation', async () => {
+    for (const success of [true, false]) {
+        const hooks = reactHooks(['Pengguna Baru', 'new@example.com', 'RegisterTest123!', 'RegisterTest123!']);
+        const routes = [];
+        const { default: RegisterPage } = load('app/auth/register/page.tsx', {
+            react: hooks,
+            'next/navigation': { useRouter: () => ({ push: route => routes.push(route) }) },
+            '@/hooks/useAuth': { useAuth: () => ({ register: async () => ({
+                success, message: success ? 'Akun berhasil dibuat.' : 'Email sudah terdaftar.',
+            }) }) },
+            '@/components/auth/AuthHeading': { default: 'AuthHeading' },
+        });
+        const form = [...elements(RegisterPage())].find(node => node.type === 'form');
+        await form.props.onSubmit({ preventDefault() {} });
+        assert.deepEqual(routes, success ? ['/auth/login'] : []);
+        if (!success) {
+            assert.ok(hooks.updates.some(update => update.value === 'Email sudah terdaftar.'));
+            assert.equal(hooks.updates.at(-1).value, false);
+        }
+    }
+});

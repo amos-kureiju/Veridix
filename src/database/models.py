@@ -4,7 +4,7 @@ from sqlalchemy import (
     Column, String, Boolean, Text, Float, DateTime, ForeignKey, 
     UniqueConstraint
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
@@ -18,7 +18,11 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
     avatar_url = Column(Text, nullable=True)
-    role = Column(String(20), default="USER", nullable=False)  # 'USER' | 'ADMIN'
+    role = Column(
+        ENUM("USER", "ADMIN", name="user_role_enum", create_type=False, validate_strings=True),
+        default="USER",
+        nullable=False,
+    )
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

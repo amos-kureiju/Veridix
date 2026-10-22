@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isAxiosError } from "axios";
 import { apiClient } from "@/lib/apiClient";
 import type { UserProfile } from "@/types/user";
 
@@ -110,6 +111,27 @@ export function useAuth() {
         }
     };
 
+    const register = async (name: string, email: string, password: string) => {
+        setLoading(true);
+        try {
+            const res = await apiClient.post<{ status: string; message: string }>(
+                AUTH_EP.register,
+                { name: name.trim(), email: email.trim().toLowerCase(), password }
+            );
+            return { success: true, message: res.data.message };
+        } catch (err: unknown) {
+            const detail = isAxiosError<{ detail?: string | { msg: string }[] }>(err)
+                ? err.response?.data?.detail
+                : undefined;
+            const message = typeof detail === "string"
+                ? detail
+                : Array.isArray(detail) ? detail.map(issue => issue.msg).join(" ") : "";
+            return { success: false, message: message || "Pendaftaran gagal. Silakan coba lagi." };
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem("token");
         document.cookie = "token=; Max-Age=0; path=/";
@@ -127,6 +149,7 @@ export function useAuth() {
         isAdmin: user?.role === "ADMIN",
         loading,
         login,
+        register,
         logout,
         refreshUser,
     };

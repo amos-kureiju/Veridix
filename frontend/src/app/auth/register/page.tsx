@@ -62,12 +62,15 @@ export default function RegisterPage() {
 
         setLoading(true);
         try {
-            // CATATAN: sesuaikan dengan signature `register` di hooks/useAuth
-            await register(name.trim(), email.trim(), password);
-            // Jika register tidak otomatis login, ganti tujuan ke "/auth/login"
-            router.push("/");
+            const result = await register(name.trim(), email.trim(), password);
+            if (!result.success) {
+                setError(result.message);
+                return;
+            }
+            router.push("/auth/login");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Pendaftaran gagal. Coba lagi.");
+        } finally {
             setLoading(false);
         }
     };

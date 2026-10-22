@@ -21,14 +21,21 @@ export default function LoginPage() {
         if (loading) return;
         setError("");
         setLoading(true);
-        try {
-            const u = await login(email.trim(), password);
-            // Tidak peduli backend kirim "admin" atau "ADMIN"
-            const isAdmin = String(u.role).toLowerCase() === "admin";
-            router.push(isAdmin ? "/admin" : "/");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Email atau kata sandi salah.");
+
+        const result = await login(email.trim(), password);
+
+        if (!result.success || !result.user) {
+            setError(result.message || "Email atau kata sandi tidak cocok.");
             setLoading(false);
+            return;
+        }
+
+        // Pengarahan Dinamis Berdasarkan Role Resmi dari Database
+        const userRole = String(result.user.role).toUpperCase();
+        if (userRole === "ADMIN") {
+            router.push("/admin");
+        } else {
+            router.push("/");
         }
     };
 
@@ -43,7 +50,7 @@ export default function LoginPage() {
                 {error && (
                     <div
                         role="alert"
-                        className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700"
+                        className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700 animate-in fade-in duration-200"
                     >
                         <AlertCircle size={16} className="mt-0.5 shrink-0" />
                         <span>{error}</span>

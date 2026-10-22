@@ -12,7 +12,9 @@ export interface UserProfile {
 
 export interface UpdateProfilePayload {
     name: string;
-    email: string;
+    full_name: string;
+    email?: string;
+    avatar_url: string;
 }
 
 export interface ChangePasswordPayload {

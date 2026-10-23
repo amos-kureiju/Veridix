@@ -23,9 +23,18 @@ interface AdminSidebarProps {
     // Opsional: kalau diisi, state collapse dikontrol dari luar (AdminShell)
     collapsed?: boolean;
     onToggleCollapse?: () => void;
+    // Data admin dinamis (dari useAuth lewat AdminShell)
+    userName?: string;
+    userRole?: string;
 }
 
-export default function AdminSidebar({ onLogout, collapsed: collapsedProp, onToggleCollapse }: AdminSidebarProps) {
+export default function AdminSidebar({
+    onLogout,
+    collapsed: collapsedProp,
+    onToggleCollapse,
+    userName = "Administrator",
+    userRole = "Admin",
+}: AdminSidebarProps) {
     const pathname = usePathname();
     const [internalCollapsed, setInternalCollapsed] = useState(false);
     const collapsed = collapsedProp ?? internalCollapsed;
@@ -219,20 +228,22 @@ export default function AdminSidebar({ onLogout, collapsed: collapsedProp, onTog
                     className={`group bg-white/60 border border-white/90 rounded-2xl flex items-center shadow-[0_4px_16px_-8px_rgba(15,23,42,0.22)] backdrop-blur-md transition-all duration-300 hover:border-emerald-300/60 hover:shadow-[0_6px_20px_-8px_rgba(16,185,129,0.35)] ${collapsed ? "flex-col gap-2 p-2" : "justify-between p-2.5"
                         }`}
                 >
-                    <div className={`flex items-center ${collapsed ? "flex-col" : "gap-2.5"}`}>
-                        <div
-                            title={collapsed ? "Administrator" : undefined}
-                            className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/80 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm transition-all duration-300 group-hover:from-emerald-400 group-hover:to-emerald-600"
-                        >
-                            A
+                    {/* Klik kartu → halaman profil admin */}
+                    <Link
+                        href="/admin/profile"
+                        title={collapsed ? `${userName} — Profil Admin` : "Buka profil admin"}
+                        className={`flex items-center min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50 ${collapsed ? "flex-col" : "gap-2.5"}`}
+                    >
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/80 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm transition-all duration-300 group-hover:from-emerald-400 group-hover:to-emerald-600">
+                            {userName.charAt(0).toUpperCase()}
                         </div>
                         {!collapsed && (
                             <div className="leading-tight truncate max-w-[110px]">
-                                <p className="text-xs font-semibold text-slate-900 truncate">Administrator</p>
-                                <p className="text-[10px] text-slate-500 truncate">Super Admin</p>
+                                <p className="text-xs font-semibold text-slate-900 truncate">{userName}</p>
+                                <p className="text-[10px] text-slate-500 truncate">{userRole}</p>
                             </div>
                         )}
-                    </div>
+                    </Link>
 
                     <button
                         type="button"

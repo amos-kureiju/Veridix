@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
     Search,
-    Newspaper,
+    BrainCircuit,
     History,
     MessageSquareQuote,
     UserCircle,
@@ -26,7 +26,7 @@ interface UserSidebarProps {
 type MenuItem = {
     label: string;
     href: string;
-    icon: typeof Newspaper;
+    icon: typeof BrainCircuit;
     badge?: string;
 };
 
@@ -56,7 +56,7 @@ export default function UserSidebar({
 
     // Menu Utama — fitur inti deteksi hoaks untuk user
     const mainMenuItems: MenuItem[] = [
-        { label: "Deteksi Berita", href: "/", icon: Newspaper },
+        { label: "Deteksi Berita", href: "/", icon: BrainCircuit },
         { label: "Riwayat Saya", href: "/history", icon: History },
         {
             label: "Feedback Saya",

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Boolean, Text, Float, DateTime, ForeignKey, 
-    UniqueConstraint
+    UniqueConstraint, Integer
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
 from sqlalchemy.orm import relationship, declarative_base
@@ -24,6 +24,7 @@ class User(Base):
         nullable=False,
     )
     is_active = Column(Boolean, default=True, nullable=False)
+    token_version = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -52,7 +53,7 @@ class PasswordResetToken(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    token_code = Column(String(10), nullable=False, index=True)
+    token_code = Column(String(64), nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
@@ -119,7 +120,7 @@ class AdminSetting(Base):
     __tablename__ = "admin_settings"
 
     # Sinkron dengan DDL Supabase: memiliki id dan memakai setting_key/setting_value
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     setting_key = Column(String(100), unique=True, nullable=False, index=True)
     setting_value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
@@ -148,7 +149,7 @@ class ThresholdHistory(Base):
     # Sinkron dengan DDL Supabase: nama tabel 'threshold_history' (singular)
     __tablename__ = "threshold_history"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     old_threshold = Column(Float, nullable=True)
     new_threshold = Column(Float, nullable=False)
     reason = Column(Text, nullable=True)

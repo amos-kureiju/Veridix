@@ -32,11 +32,12 @@ export default function UserShell({
             {/* 2. Sidebar Kiri (Menetap permanen) */}
             <UserSidebar guest={guest} userName={userName} onLogout={handleAccountAction} />
 
-            {/* 3. Kolom Kanan Membentang Penuh */}
-            <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+            {/* 3. Kolom Kanan — "relative" supaya topbar overlay menempel di kolom ini */}
+            <div className="relative flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
 
-                {/* TOPBAR MENEMPEL PENUH DI ATAS (TIDAK ADA CELAH / BORDER MELAYANG) */}
+                {/* TOPBAR KACA — menumpuk di atas konten agar blur terlihat */}
                 <UserTopbar
+                    overlay
                     title={title}
                     subtitle={subtitle}
                     userName={userName}
@@ -45,8 +46,8 @@ export default function UserShell({
                     onLogout={handleAccountAction}
                 />
 
-                {/* AREA KONTEN (HANYA INI YANG BERGULIR SAAT DI-SCROLL) */}
-                <main className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 space-y-6">
+                {/* AREA KONTEN — pt-[95px] memberi ruang setinggi topbar, konten tetap bergulir di bawah kaca */}
+                <main className="flex-1 overflow-y-auto px-6 lg:px-8 pb-6 pt-[95px] space-y-6">
                     {children}
                 </main>
 

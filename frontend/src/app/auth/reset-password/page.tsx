@@ -34,14 +34,17 @@ export default function ResetPasswordPage() {
         if (!valid || !token) return;
         setError("");
         setLoading(true);
-        try {
-            await reset(token, pw);
+
+        // 1. Panggil reset() dengan menyertakan token, pw, dan konfirmasi
+        const res = await reset(token, pw, confirm);
+        setLoading(false);
+
+        // 2. Periksa status res.success secara presisi
+        if (res && res.success) {
             setDone(true);
             setTimeout(() => router.push("/auth/login"), 2500);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Tautan sudah kedaluwarsa atau tidak valid.");
-        } finally {
-            setLoading(false);
+        } else {
+            setError(res?.message || "Tautan sudah kedaluwarsa atau tidak valid.");
         }
     };
 

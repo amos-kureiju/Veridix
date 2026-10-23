@@ -1,34 +1,43 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 import bcrypt
+from datetime import datetime, timedelta
+from typing import Optional, Any, Dict
 from jose import jwt
 from src.core.config import settings
 
-# Kunci rahasia untuk tanda tangan JWT (bisa dipindah ke file .env)
+ALGORITHM = settings.JWT_ALGORITHM
 SECRET_KEY = settings.JWT_SECRET_KEY.get_secret_value()
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7  # Token berlaku selama 7 hari
+
+
+def _truncate_password_bytes(password: str) -> bytes:
+    """Bcrypt memiliki batas maksimal 72 byte. Potong secara aman pada level UTF-8."""
+    return password.encode("utf-8")[:72]
+
 
 def hash_password(password: str) -> str:
-    """Mengubah kata sandi polos menjadi hash bcrypt aman."""
-    pwd_bytes = password.encode("utf-8")
+    """Meng-hash kata sandi dengan bcrypt (aman terhadap input > 72 byte)."""
+    pw_bytes = _truncate_password_bytes(password)
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
+    return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Mencocokkan kata sandi yang diketik user dengan hash di database."""
+    """Memverifikasi kecocokan kata sandi."""
+    pw_bytes = _truncate_password_bytes(plain_password)
     try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        return bcrypt.checkpw(pw_bytes, hashed_password.encode("utf-8"))
     except Exception:
         return False
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Menerbitkan token JWT untuk autentikasi user/admin."""
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Membuat JWT token yang memuat sub (user_id), role, dan token_version."""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    now = datetime.utcnow()
     
-    to_encode.update({"exp": expire})
+    if expires_delta:
+        expire = now + expires_delta
+    else:
+        expire = now + timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
+        
+    to_encode.update({"exp": expire, "iat": now})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

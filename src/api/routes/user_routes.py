@@ -15,6 +15,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(..., min_length=1, description="Kata sandi lama wajib diisi")
     new_password: str = Field(..., min_length=8, description="Kata sandi baru minimal 8 karakter")
+    confirm_password: Optional[str] = Field(None, description="Konfirmasi kata sandi baru")
 
 
 class UpdateProfileRequest(BaseModel):
@@ -61,30 +62,41 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Validasi 1: Konfirmasi kecocokan password baru
+    if payload.confirm_password and payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Konfirmasi kata sandi baru tidak cocok."
+        )
+
+    # Validasi 2: Password lama wajib benar
     if not payload.old_password or not payload.old_password.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Kata sandi lama wajib diisi."
+            detail="Kata sandi saat ini wajib diisi."
         )
 
     if not verify_password(payload.old_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Kata sandi lama yang Anda masukkan salah."
+            detail="Kata sandi saat ini yang Anda masukkan salah."
         )
 
+    # Validasi 3: Cegah password sama
     if payload.old_password == payload.new_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kata sandi baru tidak boleh sama dengan kata sandi lama."
         )
 
+    # Simpan password baru & NAIKKAN token_version (otomatis batalkan JWT sesi lama)
     current_user.password_hash = hash_password(payload.new_password)
+    current_user.token_version = (getattr(current_user, "token_version", 0) or 0) + 1
     db.commit()
 
     return {
         "status": "success",
-        "message": "Kata sandi berhasil diperbarui. Silakan gunakan kata sandi baru untuk login."
+        "message": "Kata sandi berhasil diperbarui. Demi keamanan, silakan masuk kembali."
     }
 
 

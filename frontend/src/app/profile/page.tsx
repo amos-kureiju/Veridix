@@ -50,36 +50,52 @@ export default function ProfilePage() {
     const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // Handler Simpan Profil
+    // Handler Simpan Profil (Hanya kirim full_name ke backend)
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isGuest) {
             alert("Mode Tamu tidak dapat mengubah profil. Silakan daftar atau masuk akun resmi.");
             return;
         }
-        const res = await updateProfile({ name, email });
-        setProfileMsg(res.message);
+        const res = await updateProfile({ full_name: name, name });
+        setProfileMsg(res.message || "Profil berhasil diperbarui.");
         setTimeout(() => setProfileMsg(null), 3000);
     };
 
-    // Handler Ubah Sandi
+    // Handler Ubah Sandi (Dengan Session Revocation & Auto Logout)
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isGuest) {
             alert("Mode Tamu tidak memiliki kata sandi.");
             return;
         }
+
+        if (newPassword !== confirmPassword) {
+            setPasswordMsg({ type: "error", text: "Konfirmasi kata sandi baru tidak cocok." });
+            return;
+        }
+
         setPasswordMsg(null);
         const res = await changePassword({
             old_password: oldPassword,
             new_password: newPassword,
             confirm_password: confirmPassword
         });
-        setPasswordMsg({ type: res.success ? "success" : "error", text: res.message });
+
         if (res.success) {
             setOldPassword("");
             setNewPassword("");
             setConfirmPassword("");
+            setPasswordMsg({
+                type: "success",
+                text: "Kata sandi berhasil diperbarui! Demi keamanan, sesi Anda telah direset. Mengalihkan ke login...",
+            });
+            // Karena token_version di database naik, logout otomatis ke login page
+            setTimeout(() => {
+                logout();
+            }, 2000);
+        } else {
+            setPasswordMsg({ type: "error", text: res.message || "Gagal mengubah kata sandi. Periksa kata sandi lama." });
         }
     };
 

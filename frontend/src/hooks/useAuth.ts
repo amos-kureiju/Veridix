@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { isAxiosError } from "axios";
 import { apiClient } from "@/lib/apiClient";
-import type { UserProfile } from "@/types/user";
+import type { UserProfile, UpdateProfilePayload, ChangePasswordPayload } from "@/types/user";
 
 const AUTH_EP = {
     login: "/api/v1/auth/login",
@@ -132,6 +132,105 @@ export function useAuth() {
         }
     };
 
+    // --- 1. LUPA PASSWORD (Kirim email tautan) ---
+    const forgotPassword = async (email: string) => {
+        setLoading(true);
+        try {
+            const res = await apiClient.post(AUTH_EP.forgot, {
+                email: email.trim().toLowerCase()
+            });
+            return {
+                success: true,
+                message: res.data?.message || "Tautan pemulihan kata sandi telah dikirim ke email Anda."
+            };
+        } catch (err: any) {
+            return {
+                success: false,
+                message: err.response?.data?.detail || "Gagal memproses permintaan lupa kata sandi."
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- 2. RESET PASSWORD (Pakai token dari link email) ---
+    const resetPassword = async (token: string, password: string, confirmPassword?: string) => {
+        setLoading(true);
+        try {
+            const res = await apiClient.post(AUTH_EP.reset, {
+                token: token.trim(),
+                new_password: password,
+                confirm_password: confirmPassword || password,
+            });
+            return {
+                success: true,
+                message: res.data?.message || "Kata sandi berhasil diperbarui. Silakan login."
+            };
+        } catch (err: any) {
+            return {
+                success: false,
+                message: err.response?.data?.detail || "Tautan reset tidak valid atau sudah kedaluwarsa."
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- 3. GANTI PASSWORD (Saat sudah login) ---
+    const changePassword = async (payload: ChangePasswordPayload) => {
+        if (payload.confirm_password && payload.new_password !== payload.confirm_password) {
+            return { success: false, message: "Konfirmasi kata sandi baru tidak cocok." };
+        }
+
+        setLoading(true);
+        try {
+            const res = await apiClient.post(AUTH_EP.changePassword, {
+                old_password: payload.old_password,
+                new_password: payload.new_password,
+                confirm_password: payload.confirm_password,
+            });
+            return {
+                success: true,
+                message: res.data?.message || "Kata sandi berhasil diperbarui."
+            };
+        } catch (err: any) {
+            return {
+                success: false,
+                message: err.response?.data?.detail || "Gagal mengganti kata sandi."
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- 4. UPDATE PROFIL (Nama & Avatar) ---
+    const updateProfile = async (payload: UpdateProfilePayload) => {
+        setLoading(true);
+        try {
+            const fullName = payload.full_name || payload.name;
+            const res = await apiClient.put(AUTH_EP.profile, {
+                full_name: fullName,
+                avatar_url: payload.avatar_url,
+            });
+
+            // Update state user lokal langsung
+            setUser((prev) => prev ? {
+                ...prev,
+                name: fullName || prev.name,
+                avatar_url: payload.avatar_url !== undefined ? payload.avatar_url : prev.avatar_url,
+            } : null);
+
+            return { success: true, message: res.data?.message || "Profil berhasil diperbarui." };
+        } catch (err: any) {
+            return {
+                success: false,
+                message: err.response?.data?.detail || "Gagal memperbarui profil."
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem("token");
         document.cookie = "token=; Max-Age=0; path=/";
@@ -150,6 +249,12 @@ export function useAuth() {
         loading,
         login,
         register,
+        forgotPassword,
+        forgot: forgotPassword,
+        resetPassword,
+        reset: resetPassword,
+        changePassword,
+        updateProfile,
         logout,
         refreshUser,
     };

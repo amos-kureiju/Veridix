@@ -116,7 +116,7 @@ function PasswordField({
 /* ───────────────────────── Halaman ───────────────────────── */
 
 export default function AdminProfilePage() {
-    const { user } = useAuth();
+    const { user, changePassword, logout} = useAuth();
     const u = user as { name?: string; email?: string; role?: string } | null;
     const name = u?.name || "Administrator";
     const email = u?.email || "-";
@@ -154,45 +154,33 @@ export default function AdminProfilePage() {
 
         setMessage(null);
         setLoading(true);
-        try {
-            const token = getToken();
-            const res = await fetch(CHANGE_PASSWORD_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                credentials: "include",
-                body: JSON.stringify(buildPayload(current, next)),
-            });
 
-            const data = await res.json().catch(() => null);
+        // Memanggil endpoint backend POST /api/v1/users/change-password
+        const res = await changePassword({
+            old_password: current,
+            new_password: next,
+            confirm_password: confirm,
+        });
 
-            if (!res.ok) {
-                const serverMessage =
-                    typeof data?.message === "string" ? data.message :
-                        typeof data?.detail === "string" ? data.detail : null;
-                throw new Error(
-                    serverMessage ??
-                    (res.status === 401 || res.status === 403
-                        ? "Password saat ini salah atau sesi Anda berakhir."
-                        : "Gagal mengganti password. Silakan coba lagi.")
-                );
-            }
+        setLoading(false);
 
+        if (res.success) {
             setCurrent("");
             setNext("");
             setConfirm("");
-            setMessage({ type: "ok", text: "Password berhasil diganti. Gunakan password baru saat login berikutnya." });
-        } catch (err) {
+            setMessage({
+                type: "ok",
+                text: "Password berhasil diganti. Sesi telah direset demi keamanan, mengalihkan ke halaman login...",
+            });
+            // Karena token_version di DB naik, sesi lama hangus -> redirect login
+            setTimeout(() => {
+                logout();
+            }, 2000);
+        } else {
             setMessage({
                 type: "error",
-                text: err instanceof TypeError
-                    ? "Tidak dapat terhubung ke server. Periksa koneksi atau alamat API."
-                    : err instanceof Error ? err.message : "Terjadi kesalahan.",
+                text: res.message || "Gagal mengganti password. Periksa kembali password saat ini.",
             });
-        } finally {
-            setLoading(false);
         }
     }
 

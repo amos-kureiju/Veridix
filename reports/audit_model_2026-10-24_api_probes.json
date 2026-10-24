@@ -1,0 +1,66 @@
+{
+  "decided_response": {
+    "body": {
+      "status": "success",
+      "message": "Verifikasi berhasil diselesaikan.",
+      "data": {
+        "id": "44fcbdc8-292a-4314-ad86-6ab95e0b50e4",
+        "input_text": "KPU RI secara resmi mengumumkan jadwal pelaksanaan tahapan pemilu serentak dan pilpres tahun depan.",
+        "input_type": "TEXT",
+        "image_url": null,
+        "process_status": "dinilai",
+        "pattern_label": "BERPOLA HOAKS",
+        "agreement_ratio": null,
+        "latency_seconds": 0.2,
+        "is_political": true,
+        "political_topic": "pemilu",
+        "detected_entities": [
+          "kpu"
+        ],
+        "explanation": null,
+        "narrative_text": null,
+        "created_at": "2026-10-24T15:33:46.516334Z"
+      }
+    },
+    "predictor_call_kwargs": {}
+  },
+  "rejected_response": {
+    "body": {
+      "status": "success",
+      "message": "Verifikasi berhasil diselesaikan.",
+      "data": {
+        "id": "66fa7592-0968-4e50-838c-27312ac602a3",
+        "input_text": "KPU RI secara resmi mengumumkan jadwal pelaksanaan tahapan pemilu serentak dan pilpres tahun depan.",
+        "input_type": "TEXT",
+        "image_url": null,
+        "process_status": "ditolak",
+        "pattern_label": "TIDAK DAPAT DINILAI",
+        "agreement_ratio": null,
+        "latency_seconds": 0.001,
+        "is_political": true,
+        "political_topic": "pemilu",
+        "detected_entities": [
+          "kpu"
+        ],
+        "explanation": null,
+        "narrative_text": null,
+        "created_at": "2026-10-24T15:33:46.553397Z"
+      }
+    }
+  },
+  "successful_ocr_wrapper_response": {
+    "body": {
+      "status": "success",
+      "message": "Teks berhasil diekstrak. Silakan periksa atau sunting sebelum dianalisis.",
+      "data": {
+        "extracted_text": "KPU RI secara resmi mengumumkan jadwal pelaksanaan tahapan pemilu serentak dan pilpres tahun depan.",
+        "dapat_dinilai": true,
+        "confidence": 0.99,
+        "character_count": 99,
+        "image_url": null,
+        "reason": null
+      }
+    }
+  },
+  "scope": "Direct real route functions and Pydantic schemas; mocked model/OCR/user/database. ASGI client probe encountered redirect loop, so no HTTP status claims are made. No external DB or real inference."
+}

@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-24",
+  "script": "uji_paritas_inferensi.py",
+  "device": "cpu",
+  "runtime_overrides": {"BATCH": 4, "torch_num_threads": 2, "offline": true},
+  "reason_for_overrides": "Default batch 32 attempt terminated during memory pressure. No checkpoint, tokenizer, or data edits were made.",
+  "pipeline_sha256": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+  "base_model_revision": "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2",
+  "checkpoint_sha256": {
+    "42": "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+    "123": "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+    "999": "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3"
+  },
+  "integrity_checks_passed": true,
+  "comparisons": [
+    {"split": "val", "seed": 42, "n": 236, "differences": 0},
+    {"split": "val", "seed": 123, "n": 236, "differences": 0},
+    {"split": "val", "seed": 999, "n": 236, "differences": 0},
+    {"split": "dev_test", "seed": 42, "n": 236, "differences": 0},
+    {"split": "dev_test", "seed": 123, "n": 236, "differences": 0},
+    {"split": "dev_test", "seed": 999, "n": 236, "differences": 0}
+  ],
+  "total_comparisons": 1416,
+  "total_differences": 0,
+  "exit_code": 0,
+  "scope": "Real backend predictions on frozen text columns; does not evaluate input/domain gates, API, LIME, or lockbox."
+}

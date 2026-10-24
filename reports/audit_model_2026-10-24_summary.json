@@ -1,0 +1,762 @@
+{
+  "scope": "train/val/dev_test only; no lockbox rows read or evaluated",
+  "splits": {
+    "train": {
+      "n": 1660,
+      "labels": {
+        "0": 830,
+        "1": 830
+      },
+      "nulls": {
+        "id": 0,
+        "text": 0,
+        "title": 0,
+        "body": 3,
+        "label": 0,
+        "sub_topic": 0,
+        "source": 0,
+        "group_id": 0,
+        "date": 0
+      },
+      "words_min_median_max": [
+        10,
+        48.0,
+        60
+      ],
+      "duplicate_ids": 0
+    },
+    "val": {
+      "n": 236,
+      "labels": {
+        "0": 118,
+        "1": 118
+      },
+      "nulls": {
+        "id": 0,
+        "text": 0,
+        "title": 0,
+        "body": 0,
+        "label": 0,
+        "sub_topic": 0,
+        "source": 0,
+        "group_id": 0,
+        "date": 0
+      },
+      "words_min_median_max": [
+        22,
+        49.0,
+        60
+      ],
+      "duplicate_ids": 0
+    },
+    "dev_test": {
+      "n": 236,
+      "labels": {
+        "0": 118,
+        "1": 118
+      },
+      "nulls": {
+        "id": 0,
+        "text": 0,
+        "title": 0,
+        "body": 1,
+        "label": 0,
+        "sub_topic": 0,
+        "source": 0,
+        "group_id": 0,
+        "date": 0
+      },
+      "words_min_median_max": [
+        10,
+        50.0,
+        60
+      ],
+      "duplicate_ids": 0
+    }
+  },
+  "source_by_label": {
+    "cnnindonesia.com": {
+      "0": 339,
+      "1": 0
+    },
+    "hoax_archive_15k": {
+      "0": 0,
+      "1": 250
+    },
+    "kompas.com": {
+      "0": 557,
+      "1": 0
+    },
+    "tempo.co": {
+      "0": 170,
+      "1": 0
+    },
+    "turnbackhoax.id": {
+      "0": 0,
+      "1": 816
+    }
+  },
+  "year_by_label": {
+    "2017": {
+      "0": 77,
+      "1": 71
+    },
+    "2018": {
+      "0": 144,
+      "1": 104
+    },
+    "2019": {
+      "0": 133,
+      "1": 180
+    },
+    "2020": {
+      "0": 63,
+      "1": 269
+    },
+    "2021": {
+      "0": 353,
+      "1": 159
+    },
+    "2022": {
+      "0": 202,
+      "1": 190
+    },
+    "2023": {
+      "0": 94,
+      "1": 93
+    }
+  },
+  "group_cross_split": 0,
+  "text_cross_split": 0,
+  "canonical_title_cross_split": 0,
+  "word_length_ks": 0.04784240150093809,
+  "manifest_development_and_raw": [
+    {
+      "file": "audit_log_per_langkah.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "config.json",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "dataset_v2_full.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "dev_test.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "eval_benar.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "eval_kompas_cekfakta.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "hasil_kriteria.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "label1_ambigu.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "train.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "val.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "RAW/dataset_cnn_10k_cleaned.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "RAW/dataset_kompas_4k_cleaned.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "RAW/dataset_tempo_6k_cleaned.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "RAW/dataset_turnbackhoax_10_cleaned.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "RAW/hoax_dataset_with_text (2).csv.csv",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "text_pipeline.py",
+      "exists": true,
+      "matches": true
+    },
+    {
+      "file": "01b_rebuild_dataset_final.py",
+      "exists": true,
+      "matches": true
+    }
+  ],
+  "training_data_hash_matches": {
+    "train.csv": true,
+    "val.csv": true,
+    "dev_test.csv": true,
+    "eval_benar.csv": true,
+    "eval_kompas_cekfakta.csv": true,
+    "text_pipeline.py": true
+  },
+  "saved_prediction_alignment": {
+    "val": {
+      "unique_ids": true,
+      "id_set_equal": true,
+      "labels_equal": true
+    },
+    "dev_test": {
+      "unique_ids": true,
+      "id_set_equal": true,
+      "labels_equal": true
+    }
+  },
+  "saved_metrics": [
+    {
+      "accuracy": 0.9745762711864406,
+      "macro_f1": 0.9745689655172414,
+      "confusion_matrix_labels_0_1": [
+        [
+          117,
+          1
+        ],
+        [
+          5,
+          113
+        ]
+      ],
+      "split": "val",
+      "run": "ce_42",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9661016949152542,
+      "macro_f1": 0.9660797700323391,
+      "confusion_matrix_labels_0_1": [
+        [
+          117,
+          1
+        ],
+        [
+          7,
+          111
+        ]
+      ],
+      "split": "val",
+      "run": "ce_123",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9703389830508474,
+      "macro_f1": 0.970334189308097,
+      "confusion_matrix_labels_0_1": [
+        [
+          116,
+          2
+        ],
+        [
+          5,
+          113
+        ]
+      ],
+      "split": "val",
+      "run": "ce_999",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9703389830508474,
+      "macro_f1": 0.9703256632717214,
+      "confusion_matrix_labels_0_1": [
+        [
+          117,
+          1
+        ],
+        [
+          6,
+          112
+        ]
+      ],
+      "split": "val",
+      "run": "focal_42",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9661016949152542,
+      "macro_f1": 0.9660797700323391,
+      "confusion_matrix_labels_0_1": [
+        [
+          117,
+          1
+        ],
+        [
+          7,
+          111
+        ]
+      ],
+      "split": "val",
+      "run": "focal_123",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9703389830508474,
+      "macro_f1": 0.970334189308097,
+      "confusion_matrix_labels_0_1": [
+        [
+          116,
+          2
+        ],
+        [
+          5,
+          113
+        ]
+      ],
+      "split": "val",
+      "run": "focal_999",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9449152542372882,
+      "macro_f1": 0.9449063515721803,
+      "confusion_matrix_labels_0_1": [
+        [
+          113,
+          5
+        ],
+        [
+          8,
+          110
+        ]
+      ],
+      "split": "dev_test",
+      "run": "ce_42",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9576271186440678,
+      "macro_f1": 0.9576240752711341,
+      "confusion_matrix_labels_0_1": [
+        [
+          114,
+          4
+        ],
+        [
+          6,
+          112
+        ]
+      ],
+      "split": "dev_test",
+      "run": "ce_123",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9533898305084746,
+      "macro_f1": 0.9533822974841526,
+      "confusion_matrix_labels_0_1": [
+        [
+          114,
+          4
+        ],
+        [
+          7,
+          111
+        ]
+      ],
+      "split": "dev_test",
+      "run": "ce_999",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9364406779661016,
+      "macro_f1": 0.9364395367627256,
+      "confusion_matrix_labels_0_1": [
+        [
+          111,
+          7
+        ],
+        [
+          8,
+          110
+        ]
+      ],
+      "split": "dev_test",
+      "run": "focal_42",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.9533898305084746,
+      "macro_f1": 0.9533889936259987,
+      "confusion_matrix_labels_0_1": [
+        [
+          113,
+          5
+        ],
+        [
+          6,
+          112
+        ]
+      ],
+      "split": "dev_test",
+      "run": "focal_123",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    },
+    {
+      "accuracy": 0.961864406779661,
+      "macro_f1": 0.9618637220576354,
+      "confusion_matrix_labels_0_1": [
+        [
+          114,
+          4
+        ],
+        [
+          5,
+          113
+        ]
+      ],
+      "split": "dev_test",
+      "run": "focal_999",
+      "matches_log_acc": true,
+      "matches_log_f1": true,
+      "pred_probability_mismatches": 0
+    }
+  ],
+  "training_summary": {
+    "ce": {
+      "val_acc": {
+        "mean": 0.9703389830508474,
+        "sample_std": 0.004237288135593209
+      },
+      "val_f1": {
+        "mean": 0.9703276416192258,
+        "sample_std": 0.004244601530107778
+      },
+      "dev_acc": {
+        "mean": 0.9519774011299434,
+        "sample_std": 0.006472564540898062
+      },
+      "dev_f1": {
+        "mean": 0.9519709081091557,
+        "sample_std": 0.006475271345405054
+      },
+      "eval_benar_share_hoaks": {
+        "mean": 0.8904320987654321,
+        "sample_std": 0.015412796570554105
+      },
+      "eval_kompas_share_hoaks": {
+        "mean": 0.8833333333333333,
+        "sample_std": 0.05773502691896256
+      }
+    },
+    "focal": {
+      "val_acc": {
+        "mean": 0.9689265536723163,
+        "sample_std": 0.0024463994457187468
+      },
+      "val_f1": {
+        "mean": 0.9689132075373857,
+        "sample_std": 0.002453832562457779
+      },
+      "dev_acc": {
+        "mean": 0.9505649717514123,
+        "sample_std": 0.012945129081796184
+      },
+      "dev_f1": {
+        "mean": 0.9505640841487866,
+        "sample_std": 0.012945361510723003
+      },
+      "eval_benar_share_hoaks": {
+        "mean": 0.7839506172839507,
+        "sample_std": 0.05557162833342851
+      },
+      "eval_kompas_share_hoaks": {
+        "mean": 0.7833333333333332,
+        "sample_std": 0.07637626158259735
+      }
+    }
+  },
+  "selection_rule_matches": true,
+  "baseline_and_paired_tests": {
+    "val": {
+      "accuracy": 0.940677966101695,
+      "macro_f1": 0.9406395975565935,
+      "confusion_matrix_labels_0_1": [
+        [
+          114,
+          4
+        ],
+        [
+          10,
+          108
+        ]
+      ],
+      "paired_ce_vs_baseline": [
+        {
+          "seed": 42,
+          "bert_only_correct": 9,
+          "baseline_only_correct": 1,
+          "p": 0.021484375,
+          "accuracy_difference": 0.03389830508474567
+        },
+        {
+          "seed": 123,
+          "bert_only_correct": 8,
+          "baseline_only_correct": 2,
+          "p": 0.109375,
+          "accuracy_difference": 0.025423728813559254
+        },
+        {
+          "seed": 999,
+          "bert_only_correct": 9,
+          "baseline_only_correct": 2,
+          "p": 0.0654296875,
+          "accuracy_difference": 0.029661016949152463
+        }
+      ]
+    },
+    "dev_test": {
+      "accuracy": 0.9152542372881356,
+      "macro_f1": 0.9150345622119815,
+      "confusion_matrix_labels_0_1": [
+        [
+          114,
+          4
+        ],
+        [
+          16,
+          102
+        ]
+      ],
+      "paired_ce_vs_baseline": [
+        {
+          "seed": 42,
+          "bert_only_correct": 12,
+          "baseline_only_correct": 5,
+          "p": 0.143463134765625,
+          "accuracy_difference": 0.029661016949152574
+        },
+        {
+          "seed": 123,
+          "bert_only_correct": 12,
+          "baseline_only_correct": 2,
+          "p": 0.012939453125,
+          "accuracy_difference": 0.0423728813559322
+        },
+        {
+          "seed": 999,
+          "bert_only_correct": 12,
+          "baseline_only_correct": 3,
+          "p": 0.03515625,
+          "accuracy_difference": 0.03813559322033899
+        }
+      ]
+    }
+  },
+  "baseline_source_holdout_diagnostic": [
+    {
+      "source": "cnnindonesia.com",
+      "n": 33,
+      "label": 0,
+      "held_source_accuracy": 0.6666666666666666,
+      "regular_baseline_accuracy": 0.9696969696969697
+    },
+    {
+      "source": "hoax_archive_15k",
+      "n": 23,
+      "label": 1,
+      "held_source_accuracy": 0.782608695652174,
+      "regular_baseline_accuracy": 0.8695652173913043
+    },
+    {
+      "source": "kompas.com",
+      "n": 64,
+      "label": 0,
+      "held_source_accuracy": 0.328125,
+      "regular_baseline_accuracy": 0.984375
+    },
+    {
+      "source": "tempo.co",
+      "n": 21,
+      "label": 0,
+      "held_source_accuracy": 0.7619047619047619,
+      "regular_baseline_accuracy": 0.9047619047619048
+    },
+    {
+      "source": "turnbackhoax.id",
+      "n": 95,
+      "label": 1,
+      "held_source_accuracy": 0.042105263157894736,
+      "regular_baseline_accuracy": 0.8631578947368421
+    }
+  ],
+  "refit_similarity_candidates": {
+    "val": [],
+    "dev_test": [
+      {
+        "eval_id": "POL2-000095",
+        "train_id": "POL2-001595",
+        "cosine": 0.7066651944552382,
+        "same_label": true
+      },
+      {
+        "eval_id": "POL2-001425",
+        "train_id": "POL2-001857",
+        "cosine": 0.7187926201319403,
+        "same_label": true
+      },
+      {
+        "eval_id": "POL2-001667",
+        "train_id": "POL2-001712",
+        "cosine": 0.7181658415452933,
+        "same_label": true
+      }
+    ]
+  },
+  "c4_surface_feature_accuracy_recomputed": 0.7245762711864406,
+  "c4_single_feature_accuracy": {
+    "words": 0.538135593220339,
+    "characters": 0.5720338983050848,
+    "sentence_punctuation": 0.6779661016949152,
+    "commas": 0.5550847457627118
+  },
+  "gates_by_label": {
+    "0": {
+      "n": 1066,
+      "input_rejected": 3,
+      "rejected_with_exact_zero_stopword_ratio": 3,
+      "rejected_positive_stopword_ratios": [],
+      "domain_short_pass": 896,
+      "domain_full_pass": 1066,
+      "combined_short_pass": 893
+    },
+    "1": {
+      "n": 1066,
+      "input_rejected": 24,
+      "rejected_with_exact_zero_stopword_ratio": 17,
+      "rejected_positive_stopword_ratios": [
+        0.017857142857142856,
+        0.017241379310344827,
+        0.018867924528301886,
+        0.016666666666666666,
+        0.01818181818181818,
+        0.018518518518518517,
+        0.019230769230769232
+      ],
+      "domain_short_pass": 982,
+      "domain_full_pass": 1066,
+      "combined_short_pass": 960
+    }
+  },
+  "application_on_saved_predictions": {
+    "val": {
+      "note": "Uses saved per-seed outputs; gates re-run on frozen short texts. Not an independent full API evaluation.",
+      "n": 236,
+      "gate_pass": 205,
+      "decided": 203,
+      "ambigu_after_gates": 2,
+      "decided_accuracy": 0.9802955665024631,
+      "correct_and_decided_over_all": 0.8432203389830508
+    },
+    "dev_test": {
+      "note": "Uses saved per-seed outputs; gates re-run on frozen short texts. Not an independent full API evaluation.",
+      "n": 236,
+      "gate_pass": 198,
+      "decided": 196,
+      "ambigu_after_gates": 2,
+      "decided_accuracy": 0.9489795918367347,
+      "correct_and_decided_over_all": 0.788135593220339
+    }
+  },
+  "external_title_dedup": {
+    "eval_benar.csv": {
+      "notebook_n": 432,
+      "canonical_title_overlap_with_development": 0,
+      "overlap_examples": [],
+      "raw_label_counts_not_ground_truth_for_this_diagnostic": {
+        "1": 432
+      },
+      "titles_passing_application_input_and_domain": 102
+    },
+    "eval_kompas_cekfakta.csv": {
+      "notebook_n": 20,
+      "canonical_title_overlap_with_development": 0,
+      "overlap_examples": [],
+      "raw_label_counts_not_ground_truth_for_this_diagnostic": {
+        "0": 20
+      },
+      "titles_passing_application_input_and_domain": 2
+    }
+  },
+  "minimum_words_after_cleanup_probe": {
+    "input_words": 10,
+    "validation_ok": true,
+    "prepared_text": "KPU dan.",
+    "prepared_words": 2,
+    "result": {
+      "success": true,
+      "status": "dinilai",
+      "label": "TIDAK BERPOLA HOAKS",
+      "votes_hoax": "0/3",
+      "decision_rule": "unanimous",
+      "sub_topik": "pemilu",
+      "istilah": [
+        "kpu"
+      ],
+      "teks_dinilai": "KPU dan.",
+      "terpotong": false,
+      "input_flags": {
+        "had_invisible": false,
+        "had_homoglyph": false
+      },
+      "disclaimer": "Sistem mendeteksi kemiripan pola penulisan klaim yang pernah dilabeli hoaks oleh pemeriksa fakta; ia bukan pemverifikasi kebenaran. Hasil pada teks hasil OCR yang berderau kurang andal.",
+      "latency_seconds": 0.0
+    },
+    "backend": "fake; probes orchestration only, not classification ability"
+  }
+}

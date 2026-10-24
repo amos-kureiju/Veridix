@@ -1,0 +1,18 @@
+id,nama,status,label,lulus,galat,alasan,votes_hoax,detik
+TC01,Teks kosong,ditolak,TIDAK DAPAT DINILAI,True,,Teks kosong.,,0.0
+TC02,Hanya simbol dan spasi,ditolak,TIDAK DAPAT DINILAI,True,,Teks tidak memuat huruf.,,0.0
+TC03,Satu kata,ditolak,TIDAK DAPAT DINILAI,True,,Teks terlalu sedikit kata untuk dinilai (1 kata < 10).,,0.0
+TC04,Angka saja,ditolak,TIDAK DAPAT DINILAI,True,,Teks tidak memuat huruf.,,0.0
+TC05,Pendek (< 10 kata),ditolak,TIDAK DAPAT DINILAI,True,,Teks terlalu sedikit kata untuk dinilai (8 kata < 10).,,0.0
+TC06,Non-politik (resep),di_luar_domain,DI LUAR CAKUPAN (BUKAN TOPIK POLITIK),True,,Teks di luar topik politik yang dipakai melatih sistem.,,0.0
+TC07,Bahasa Inggris (>= 10 kata),ditolak,TIDAK DAPAT DINILAI,True,,Teks terlalu sedikit kata fungsi bahasa Indonesia (0.00 < 0.02).,,0.0
+TC08,'pan' huruf kecil (wajan),di_luar_domain,DI LUAR CAKUPAN (BUKAN TOPIK POLITIK),True,,Teks di luar topik politik yang dipakai melatih sistem.,,0.0
+TC09,'PAN' huruf besar (partai),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0
+TC10,Homoglif Sirilik,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0
+TC11,Zero-width tersembunyi,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0
+TC12,Teks sangat panjang,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.004
+TC13,URL dan emoji,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0
+TC14,Teks berderau ala OCR,dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0
+TC15,Masukan bukan string (angka),ditolak,TIDAK DAPAT DINILAI,True,,Teks tidak memuat huruf.,,0.0
+TC16,Masukan None,ditolak,TIDAK DAPAT DINILAI,True,,Teks kosong.,,0.0
+TC17,Politik normal (12 kata),dinilai,TIDAK BERPOLA HOAKS,True,,,0/3,0.0

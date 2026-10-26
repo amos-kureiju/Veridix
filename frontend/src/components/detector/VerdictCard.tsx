@@ -9,7 +9,8 @@ import {
     Bookmark,
     HelpCircle,
     Clock,
-    Sparkles
+    Sparkles,
+    ShieldAlert
 } from "lucide-react";
 import { DetectionResult } from "@/types/detector";
 import LimeHighlighter from "./LimeHighlighter";
@@ -25,7 +26,7 @@ interface VerdictCardProps {
 export default function VerdictCard({ result, loading, canAct = true }: VerdictCardProps) {
     const [showFeedback, setShowFeedback] = useState(false);
 
-    // Kondisi 1: Sedang Menjalankan Inferensi
+    // 1. Kondisi Sedang Memproses
     if (loading) {
         return (
             <div className="bg-white border border-slate-200/80 rounded-3xl p-10 shadow-2xs flex flex-col items-center justify-center text-center min-h-[460px]">
@@ -34,61 +35,164 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                 </div>
                 <h3 className="text-base font-bold text-slate-800">Memproses Inferensi IndoBERT</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-                    Menghitung probabilitas Softmax dan mengekstrak 100 perturbasi bobot kata LIME...
+                    Mengevaluasi representasi kontekstual teks melalui konsensus 3 seed model...
                 </p>
             </div>
         );
     }
 
-    // Kondisi 2: Belum Ada Berita yang Dianalisis
+    // 2. Kondisi Belum Ada Masukan
     if (!result || !result.data) {
         return (
             <div className="bg-white border border-slate-200/80 rounded-3xl p-10 shadow-2xs flex flex-col items-center justify-center text-center min-h-[460px]">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
                     <HelpCircle className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-slate-700">Hasil Analisis 4 Lapis</h3>
+                <h3 className="text-base font-bold text-slate-700">Hasil Analisis Model</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
-                    Tempelkan teks atau unggah tangkapan layar di sebelah kiri, lalu tekan tombol "Analisis Sekarang" untuk melihat vonis dan penjelasan LIME.
+                    Tempelkan teks berita atau unggah tangkapan layar, lalu tekan tombol "Analisis" untuk melihat hasil evaluasi model.
                 </p>
             </div>
         );
     }
 
-    // Kondisi 3: Hasil Berhasil Didapatkan
-    const { prediction, confidence_score, inference_time_seconds, narrative_explanation, explanation, political_topic } = result.data;
-    const scorePercent = (confidence_score * 100).toFixed(1);
+    // ── 3. EKSTRAKSI KONTRAK DATA RESMI BACKEND (Prioritas 1) ─────────────────
+    const d = result.data as any;
 
-    // Penentuan tema warna Lapis 1
+    // Baca status inferensi resmi (process_status dari API atau fallback status)
+    const processStatus: string = (
+        d.process_status ||
+        d.status ||
+        (d.prediction ? "dinilai" : "ditolak")
+    ).toLowerCase();
+
+    // Baca label pola resmi
+    const rawLabel: string = (
+        d.pattern_label ||
+        d.label ||
+        d.prediction ||
+        ""
+    ).trim().toUpperCase();
+
+    // ── 4. PEMETAAN LABEL EKSPLISIT / EXACT MATCH (Prioritas 2 - Anti Terbalik) ─
+    const isHoax = rawLabel === "BERPOLA HOAKS" || rawLabel === "HOAKS" || rawLabel === "HOAX";
+    const isNonHoax = rawLabel === "TIDAK BERPOLA HOAKS" || rawLabel === "FAKTA" || rawLabel === "FACT";
+    const isAmbiguous = processStatus === "ambigu" || rawLabel.includes("PERLU VERIFIKASI") || rawLabel === "PERLU KONFIRMASI";
+    const isOutOfDomain = processStatus === "di_luar_domain" || rawLabel.includes("DI LUAR CAKUPAN");
+    const isRejected = processStatus === "ditolak" || rawLabel === "TIDAK DAPAT DINILAI";
+
+    const topic = d.sub_topik || d.political_topic || "";
+    const votesHoax = d.votes_hoax || "";
+
+    // Latensi riil (tanpa angka fiktif 0.38s)
+    const latencyStr = d.latency_seconds !== undefined
+        ? `${d.latency_seconds}s`
+        : (d.inference_time_seconds !== undefined ? `${d.inference_time_seconds}s` : "-");
+
+    // ── 5. PENENTUAN TEMA KARTU ──────────────────────────────────────────────
     let theme = {
-        bg: "bg-emerald-50 border-emerald-200/80 text-emerald-900",
-        badge: "bg-emerald-600 text-white",
-        icon: CheckCircle,
-        label: "FAKTA",
+        bg: "bg-slate-50 border-slate-200 text-slate-800",
+        badge: "bg-slate-600 text-white",
+        icon: AlertTriangle,
+        label: rawLabel || "TIDAK DAPAT DINILAI",
+        badgeText: "Ditolak"
     };
 
-    if (prediction === "HOAKS") {
-        theme = {
-            bg: "bg-rose-50 border-rose-200/80 text-rose-900",
-            badge: "bg-rose-600 text-white",
-            icon: XCircle,
-            label: "HOAKS",
-        };
-    } else if (prediction === "PERLU KONFIRMASI") {
+    if (processStatus === "dinilai") {
+        if (isHoax) {
+            theme = {
+                bg: "bg-rose-50 border-rose-200/80 text-rose-900",
+                badge: "bg-rose-600 text-white",
+                icon: XCircle,
+                label: "BERPOLA HOAKS",
+                badgeText: votesHoax ? `Suara hoaks: ${votesHoax}` : "Terindikasi"
+            };
+        } else if (isNonHoax) {
+            theme = {
+                bg: "bg-emerald-50 border-emerald-200/80 text-emerald-900",
+                badge: "bg-emerald-600 text-white",
+                icon: CheckCircle,
+                label: "TIDAK BERPOLA HOAKS",
+                badgeText: votesHoax ? `Suara hoaks: ${votesHoax}` : "Terindikasi"
+            };
+        } else {
+            // Label tak dikenal -> Tampilkan netral (bukan otomatis Fakta)
+            theme = {
+                bg: "bg-slate-100 border-slate-300 text-slate-800",
+                badge: "bg-slate-500 text-white",
+                icon: HelpCircle,
+                label: rawLabel || "STATUS TIDAK DIKENAL",
+                badgeText: "Perlu Verifikasi"
+            };
+        }
+    } else if (isAmbiguous) {
         theme = {
             bg: "bg-amber-50 border-amber-200/80 text-amber-900",
             badge: "bg-amber-600 text-white",
             icon: AlertTriangle,
-            label: "PERLU KONFIRMASI",
+            label: "PERLU VERIFIKASI",
+            badgeText: votesHoax ? `Suara hoaks: ${votesHoax}` : "Ambigu"
+        };
+    } else if (isOutOfDomain) {
+        theme = {
+            bg: "bg-blue-50 border-blue-200/80 text-blue-900",
+            badge: "bg-blue-600 text-white",
+            icon: ShieldAlert,
+            label: "DI LUAR CAKUPAN POLITIK",
+            badgeText: "Non-Politik"
+        };
+    } else if (isRejected) {
+        theme = {
+            bg: "bg-slate-100 border-slate-300 text-slate-800",
+            badge: "bg-slate-500 text-white",
+            icon: AlertTriangle,
+            label: "TIDAK DAPAT DINILAI",
+            badgeText: "Input Ditolak"
         };
     }
 
     const IconVerdict = theme.icon;
 
+    // ── 6. NARASI KETERANGAN SISTEM ──────────────────────────────────────────
+    let narrative = d.narrative_text || d.narrative_explanation || d.reason;
+    if (!narrative) {
+        if (isRejected) {
+            narrative = "Teks tidak memenuhi syarat kelayakan analisis sistem (kosong, kurang dari 10 kata, atau didominasi simbol).";
+        } else if (isOutOfDomain) {
+            narrative = "Teks berada di luar domain isu politik Indonesia yang digunakan untuk melatih sistem.";
+        } else if (isAmbiguous) {
+            narrative = `Model mendeteksi divergensi antar-seed (${votesHoax ? `suara hoaks: ${votesHoax}` : 'suara tidak bulat'}). Teks memerlukan verifikasi manual.`;
+        } else if (isHoax) {
+            narrative = "Teks teridentifikasi memiliki kemiripan karakteristik linguistik dengan pola klaim disinformasi historis pada korpus latih.";
+        } else if (isNonHoax) {
+            narrative = "Teks menunjukkan karakteristik yang konsisten dengan struktur penulisan berita faktual pada korpus latih.";
+        } else {
+            narrative = "Hasil evaluasi tidak dapat disimpulkan secara otomatis.";
+        }
+    }
+
+    // ── 7. PENYELARASAN TOKEN LIME (Prioritas 3 - Kompatibilitas Antarmuka) ──
+    const limeAvailable = d.explanation?.explanation_available === true && Array.isArray(d.explanation?.tokens) && d.explanation.tokens.length > 0;
+
+    // Normalisasi token LIME: dukung format backend KE_HOAKS / KE_TIDAK_HOAKS
+    const normalizedTokens = limeAvailable ? d.explanation.tokens.map((t: any) => ({
+        ...t,
+        influence: (t.influence === "KE_HOAKS" || t.influence === "HOAKS" || t.weight > 0) ? "HOAKS" : "FAKTA"
+    })) : [];
+
+    // Kirimkan label 'HOAKS' murni ke LimeHighlighter agar tidak salah deteksi menjadi Fakta
+    const limePredictionLabel = isHoax
+        ? "HOAKS"
+        : isAmbiguous
+            ? "AMBIGU"
+            : isNonHoax
+                ? "FAKTA"
+                : "NETRAL";
+
     return (
         <div className="bg-white border border-slate-200/80 rounded-3xl shadow-2xs p-6 space-y-5">
 
-            {/* LAPIS 1: VONIS & PERSENTASE SOFTMAX */}
+            {/* LAPIS 1: KEPUTUSAN MODEL & KONSENSUS SUARA */}
             <div className={`border rounded-2xl p-4 flex items-center justify-between ${theme.bg}`}>
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/90 rounded-xl shadow-xs">
@@ -96,7 +200,7 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                     </div>
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
-                            Vonis IndoBERT Base {political_topic ? `• ${political_topic}` : ""}
+                            Evaluasi Model IndoBERT {topic ? `• Topik: ${topic}` : ""}
                         </span>
                         <h2 className="text-xl font-black tracking-tight leading-tight">
                             {theme.label}
@@ -106,41 +210,56 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
 
                 <div className="text-right">
                     <span className={`text-xs font-bold px-3 py-1 rounded-full ${theme.badge}`}>
-                        {scorePercent}% Keyakinan
+                        {theme.badgeText}
                     </span>
                     <p className="text-[10px] opacity-70 mt-1 flex items-center justify-end gap-1 font-mono">
-                        <Clock className="w-3 h-3" /> {inference_time_seconds || 0.38}s
+                        <Clock className="w-3 h-3" /> {latencyStr}
                     </p>
                 </div>
             </div>
 
-            {/* LAPIS 2: NARASI POLA LINGUISTIK */}
+            {/* LAPIS 2: KETERANGAN EVALUASI SISTEM */}
             <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    Lapis 2: Narasi Karakteristik Bahasa
+                    Keterangan Evaluasi Sistem
                 </p>
                 <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                    {narrative_explanation || (prediction === "HOAKS"
-                        ? "Teks teridentifikasi memuat pola kalimat hiperbolis, delegitimasi institusi, dan diksi agitatif yang jamak ditemukan pada sampel disinformasi politik."
-                        : "Teks memiliki struktur kalimat netral, kaidah jurnalistik baku, dan tidak menunjukkan pola manipulatif ekstrem.")}
+                    {narrative}
                 </p>
             </div>
 
-            {/* LAPIS 3: PENJELASAN XAI LIME */}
-            <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Lapis 3: Penjelasan Bobot Kata (LIME Explainer)
-                </p>
-                <LimeHighlighter
-                    tokens={explanation?.tokens}
-                    topHoax={explanation?.top_hoax_words}
-                    topFact={explanation?.top_fact_words}
-                    prediction={prediction}
-                    confidenceScore={confidence_score}
-                />
-            </div>
+            {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME) */}
+            {limeAvailable ? (
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Atribusi Kata (LIME Text Explainer)
+                    </p>
+                    <LimeHighlighter
+                        tokens={normalizedTokens}
+                        topHoax={d.explanation?.top_hoax_words}
+                        topFact={d.explanation?.top_fact_words}
+                        prediction={limePredictionLabel}
+                        // JANGAN kirim angka fiktif jika backend tidak menyediakan skor
+                        confidenceScore={
+                            typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
+                                ? d.confidence_score
+                                : undefined
+                        }
+                    />
+                </div>
+            ) : (
+                <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center">
+                    <p className="text-[11px] text-slate-400">
+                        {d.explanation?.error
+                            ? `Gagal mengekstrak LIME: ${d.explanation.error}`
+                            : (processStatus === "dinilai"
+                                ? "Penjelasan LIME dinonaktifkan untuk menjaga efisiensi latensi CPU."
+                                : "Atribusi LIME tidak tersedia untuk status ini.")}
+                    </p>
+                </div>
+            )}
 
-            {/* LAPIS 4: DISCLAIMER MANDATORI */}
+            {/* LAPIS 4: PENAFIAN (DISCLAIMER) MANDATORI */}
             <DisclaimerBanner />
 
             {/* FOOTER TOMBOL AKSI */}
@@ -149,9 +268,8 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                     <button
                         type="button"
                         onClick={() => alert("Hasil telah disimpan ke Riwayat Anda.")}
-                        disabled={!canAct}
+                        disabled={!canAct || isRejected}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-40"
-                        title={canAct ? "Simpan ke riwayat" : "Login untuk menyimpan riwayat"}
                     >
                         <Bookmark className="w-3.5 h-3.5" />
                         <span>Simpan</span>
@@ -159,8 +277,8 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
 
                     <button
                         type="button"
-                        onClick={() => alert("Mengunduh Laporan Resmi Lapis 4 dalam format PDF...")}
-                        disabled={!canAct}
+                        onClick={() => alert("Mengunduh Laporan dalam format PDF...")}
+                        disabled={!canAct || isRejected}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-40"
                     >
                         <Download className="w-3.5 h-3.5" />
@@ -168,23 +286,22 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                     </button>
                 </div>
 
-                {/* Tombol Human-in-the-Loop Feedback */}
                 <button
                     type="button"
                     onClick={() => setShowFeedback(true)}
                     disabled={!canAct}
                     className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition disabled:opacity-40"
                 >
-                    Ini Salah?
+                    Laporkan Anomali
                 </button>
             </div>
 
-            {/* Modal Sanggahan Masukan Koreksi */}
+            {/* Modal Umpan Balik */}
             {showFeedback && (
                 <FeedbackModal
                     onClose={() => setShowFeedback(false)}
                     onSubmit={(claim, note) => {
-                        alert(`Terima kasih! Sanggahan Anda (${claim}) dicatat untuk retraining model.`);
+                        alert(`Terima kasih! Umpan balik Anda (${claim}) dicatat.`);
                         setShowFeedback(false);
                     }}
                 />

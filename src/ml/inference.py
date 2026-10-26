@@ -128,23 +128,46 @@ class Penilai:
                                sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
         x = praproses(v["text"], self.sambung)
-        if not x:
-            return self._tolak("ditolak", "TIDAK DAPAT DINILAI", "Teks kosong setelah pembersihan.", t0,
-                               input_flags=v["flags"])
+        n_kata_praproses = len(x.split()) if x else 0
 
-        probs = np.asarray(self.backend.seed_probs_each([x])[0], dtype=float)
-        n = len(probs)
-        votes = int((probs >= 0.5).sum())
-        status, label = putuskan(votes, n, self.rule)
+        # 1. PENGAMAN TEKS URL/DERAU: Tolak jika teks memendek (< 10 kata) setelah pembersihan URL/karakter
+        if not x or n_kata_praproses < 10:
+            return self._tolak("ditolak", "TIDAK DAPAT DINILAI",
+                               f"Teks kosong atau terlalu sedikit kata setelah pembersihan URL ({n_kata_praproses} kata < 10).",
+                               t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
-        res = {"success": True, "status": status, "label": label, "votes_hoax": f"{votes}/{n}",
-               "decision_rule": self.rule, "sub_topik": topik, "istilah": terms,
-               "teks_dinilai": x, "terpotong": len(v["text"].split()) > MAX_WORDS,
+        # 2. PENGAMAN BATCH & NUMERIK LENGKAP (Anti-IndexError, Anti-NaN, Anti-Inf, Rentang [0, 1])
+        raw_res = self.backend.seed_probs_each([x])
+        if raw_res is None or len(raw_res) == 0:
+            return self._tolak("ditolak", "TIDAK DAPAT DINILAI", "Galat backend: keluaran inferensi kosong.",
+                               t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
+
+        probs = np.asarray(raw_res[0], dtype=float)
+        n_seeds = len(getattr(self.backend, "seeds", []))
+
+        # Cek: jumlah seed > 0, dimensi cocok, bebas NaN/Inf (np.isfinite), dan probabilitas wajib [0.0, 1.0]
+        if n_seeds == 0 or len(probs) != n_seeds or not np.all(np.isfinite(probs)) or np.any(probs < 0.0) or np.any(probs > 1.0):
+            return self._tolak("ditolak", "TIDAK DAPAT DINILAI",
+                               "Galat komputasi model (probabilitas memuat NaN/Inf, di luar [0,1], atau jumlah seed tidak sesuai).",
+                               t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
+
+        # 2. KEPUTUSAN BINER PER SEED: Murni 0 atau 1 sebelum pembulatan desimal
+        seed_decisions = {s: int(probs[j] >= 0.5) for j, s in enumerate(self.backend.seeds)}
+        votes = sum(seed_decisions.values())
+        status, label = putuskan(votes, n_seeds, self.rule)
+
+        res = {"success": True, "status": status, "label": label, "votes_hoax": f"{votes}/{n_seeds}",
+               "decision_rule": self.rule, "seed_decisions": seed_decisions,
+               "sub_topik": topik, "istilah": terms, "teks_dinilai": x,
+               "terpotong": len(v["text"].split()) > MAX_WORDS,
                "input_flags": v["flags"], "disclaimer": DISCLAIMER}
         if explain:
             res["explanation"] = self._lime(x)
         if debug:
-            res["debug"] = {"prob_hoax_per_seed": [round(float(p), 4) for p in probs]}
+            res["debug"] = {
+                "prob_hoax_per_seed": {s: round(float(probs[j]), 6) for j, s in enumerate(self.backend.seeds)},
+                "mean_prob_hoax": round(float(probs.mean()), 6)
+            }
         res["latency_seconds"] = round(time.time() - t0, 3)
         return res
 

@@ -111,13 +111,17 @@ for _, r in df.iterrows():
             decisions = {42: int(float(raw_p[0]) >= 0.5), 123: int(float(raw_p[1]) >= 0.5), 999: int(float(raw_p[2]) >= 0.5)}
 
   rows.append({
-      "status": h["status"],
-      "votes_hoax": h.get("votes_hoax", ""),
-      "pred": pred_final,
-      "pred_42": decisions.get(42),
-      "pred_123": decisions.get(123),
-      "pred_999": decisions.get(999),
-  })
+        "eval_mode": (
+            "stub" if STUB else "real_model"
+        ),  # <── Menandai asal hasil secara permanen
+        "decision_rule": getattr(pen, "rule", "unanimous"),
+        "status": h["status"],
+        "votes_hoax": h.get("votes_hoax", ""),
+        "pred": pred_final,
+        "pred_42": decisions.get(42),
+        "pred_123": decisions.get(123),
+        "pred_999": decisions.get(999),
+    })
 
 # Penggabungan berbasis indeks (kebal terhadap duplikasi ID)
 res = pd.concat([df.reset_index(drop=True), pd.DataFrame(rows)], axis=1)

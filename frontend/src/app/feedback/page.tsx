@@ -50,7 +50,7 @@ export default function UserFeedbackPage() {
     const filteredFeedbacks = useMemo(() => {
         return dummyFeedbacks.filter((item) => {
             const matchSearch = item.news_snippet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.user_note.toLowerCase().includes(searchTerm.toLowerCase());
+                (item.user_note ?? "").toLowerCase().includes(searchTerm.toLowerCase());
             const matchStatus = selectedStatus === "ALL" || item.status === selectedStatus;
             return matchSearch && matchStatus;
         });

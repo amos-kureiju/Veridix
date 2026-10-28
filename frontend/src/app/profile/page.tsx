@@ -48,7 +48,6 @@ export default function ProfilePage() {
     // Alert State
     const [profileMsg, setProfileMsg] = useState<string | null>(null);
     const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     // Handler Simpan Profil (Hanya kirim full_name ke backend)
     const handleSaveProfile = async (e: React.FormEvent) => {

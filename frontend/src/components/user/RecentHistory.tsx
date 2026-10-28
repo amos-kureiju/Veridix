@@ -1,17 +1,14 @@
 "use client";
-import { useState } from "react";
-import { History, RefreshCw, Search } from "lucide-react";
+import { History, RefreshCw } from "lucide-react";
 import Card from "@/components/shared/Card";
 import Pill from "@/components/shared/Pill";
-import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import HistoryTable from "@/components/user/HistoryTable";
 import type { useHistory } from "@/hooks/useHistory";
-import { btnGhost, inputCls } from "@/lib/utils";
+import { btnGhost } from "@/lib/utils";
 
 interface Props { guest: boolean; history: ReturnType<typeof useHistory> }
 
 export default function RecentHistory({ guest, history: h }: Props) {
-    const [del, setDel] = useState<string | null>(null);
     return (
         <Card
             title="Riwayat terbaru"
@@ -25,27 +22,15 @@ export default function RecentHistory({ guest, history: h }: Props) {
                 </p>
             ) : (
                 <>
-                    <div className="mb-3 flex gap-3">
-                        <div className="relative flex-1">
-                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input className={inputCls + " pl-9"} placeholder="Cari berita…" value={h.q} onChange={(e) => h.setQ(e.target.value)} />
+                        <div className="mb-3 flex justify-end">
+                            <button className={btnGhost} onClick={h.reload}>
+                                <RefreshCw size={14} className={h.loading ? "animate-spin" : ""} />Refresh
+                            </button>
                         </div>
-                        <button className={btnGhost} onClick={h.reload}>
-                            <RefreshCw size={14} className={h.loading ? "animate-spin" : ""} />Refresh
-                        </button>
-                    </div>
-                    <HistoryTable items={h.items.slice(0, 5)} loading={h.loading} onDelete={setDel} />
+                        <HistoryTable items={h.items.slice(0, 5)} loading={h.loading} />
                     <a href="/history" className="mt-3 block text-right text-sm font-medium text-emerald-700">Lihat semua</a>
                 </>
             )}
-            <ConfirmDialog
-                open={!!del}
-                title="Hapus riwayat ini?"
-                desc="Hasil deteksi ini akan dihapus dari akun Anda."
-                confirmLabel="Hapus"
-                onCancel={() => setDel(null)}
-                onConfirm={() => { h.remove(del!); setDel(null); }}
-            />
         </Card>
     );
 }

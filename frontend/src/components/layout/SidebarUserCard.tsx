@@ -1,16 +1,16 @@
 import { LogOut } from "lucide-react";
-import type { User } from "@/types/user";
+import type { UserProfile } from "@/types/user";
 import { cn } from "@/lib/utils";
 
 interface Props {
-    user: User | null;   // null = tamu
+    user: UserProfile | null;   // null = tamu
     collapsed: boolean;
     onLogout: () => void;
 }
 
 export default function SidebarUserCard({ user, collapsed, onLogout }: Props) {
-    const avatar = user?.avatar ? (
-        <img src={user.avatar} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+    const avatar = user?.avatar_url ? (
+        <img src={user.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
     ) : (
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-500 text-sm font-bold text-white">
             {user ? user.name.slice(0, 2).toUpperCase() : "T"}

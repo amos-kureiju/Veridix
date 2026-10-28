@@ -171,14 +171,15 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
         }
     }
 
-    // ── 7. PENYELARASAN TOKEN LIME (Prioritas 3 - Kompatibilitas Antarmuka) ──
-    const limeAvailable = d.explanation?.explanation_available === true && Array.isArray(d.explanation?.tokens) && d.explanation.tokens.length > 0;
+    // ── Penanganan Aman: Saring elemen null/rusak sebelum membaca atribut ──
+    const rawTokensList = Array.isArray(d.explanation?.tokens) ? d.explanation.tokens : [];
+    const limeAvailable = d.explanation?.explanation_available === true &&
+        rawTokensList.some((t: any) => t && typeof t === "object" && typeof t.word === "string");
 
-    // Normalisasi token LIME: dukung format backend KE_HOAKS / KE_TIDAK_HOAKS
-    const normalizedTokens = limeAvailable ? d.explanation.tokens.map((t: any) => ({
-        ...t,
-        influence: (t.influence === "KE_HOAKS" || t.influence === "HOAKS" || t.weight > 0) ? "HOAKS" : "FAKTA"
-    })) : [];
+    // Token diteruskan apa adanya; sanitasi hanya dilakukan di LimeHighlighter
+    const limeTokens = limeAvailable
+        ? rawTokensList.filter((t: any) => t && typeof t === "object" && typeof t.word === "string")
+        : [];
 
     // Kirimkan label 'HOAKS' murni ke LimeHighlighter agar tidak salah deteksi menjadi Fakta
     const limePredictionLabel = isHoax
@@ -235,10 +236,15 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                         Atribusi Kata (LIME Text Explainer)
                     </p>
                     <LimeHighlighter
-                        tokens={normalizedTokens}
+                        tokens={limeTokens}
                         topHoax={d.explanation?.top_hoax_words}
                         topFact={d.explanation?.top_fact_words}
                         prediction={limePredictionLabel}
+                        numSamples={
+                            Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0
+                                ? d.explanation.num_samples
+                                : undefined
+                        }
                         // JANGAN kirim angka fiktif jika backend tidak menyediakan skor
                         confidenceScore={
                             typeof d.confidence_score === "number" && !isNaN(d.confidence_score)

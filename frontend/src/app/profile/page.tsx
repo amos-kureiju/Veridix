@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
 import UserShell from "@/components/layout/UserShell";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import {
@@ -10,7 +9,6 @@ import {
     Mail,
     Camera,
     KeyRound,
-    ShieldAlert,
     CheckCircle2,
     Save,
     Lock,
@@ -20,10 +18,11 @@ import {
     ShieldCheck,
     AlertTriangle
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ProfilePage() {
-    const { user, isGuest, updateProfile, changePassword, deleteAccount, logout } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { user, isGuest, updateProfile, changePassword, logout } = useAuth();
 
     // Fallback data cerdas: Jika mode tamu, tampilkan demo identitas agar UI tetap menarik
     const currentName = user?.name || (isGuest ? "Pengunjung Demo" : "Amos Manurung");
@@ -347,46 +346,12 @@ export default function ProfilePage() {
                             </div>
                         </form>
 
-                        {/* 3. DANGER ZONE (HAPUS AKUN) */}
-                        <div className="bg-rose-50/50 border border-rose-200/80 rounded-3xl p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                                    <ShieldAlert className="w-4 h-4 text-rose-600" />
-                                    <span>Zona Bahaya: Nonaktifkan Akun</span>
-                                </h4>
-                                <p className="text-[11px] text-rose-700/80 mt-1 max-w-md leading-relaxed">
-                                    Menonaktifkan akun Anda akan menghapus akses sesi dan riwayat pemeriksaan secara permanen. Tindakan ini tidak dapat dibatalkan.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowDeleteConfirm(true)}
-                                disabled={isGuest}
-                                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl shadow-xs transition shrink-0"
-                            >
-                                Hapus Akun Saya
-                            </button>
-                        </div>
-
                     </div>
 
                 </div>
 
             </div>
 
-            {/* Dialog Konfirmasi Hapus Akun */}
-            <ConfirmDialog
-                open={showDeleteConfirm}
-                title="Konfirmasi Hapus Akun"
-                description="Apakah Anda yakin ingin menonaktifkan akun VERIDIX ini secara permanen? Semua riwayat verifikasi Anda akan dihapus."
-                confirmLabel="Ya, Hapus Akun"
-                cancelLabel="Batalkan"
-                onConfirm={async () => {
-                    await deleteAccount();
-                    setShowDeleteConfirm(false);
-                }}
-                onCancel={() => setShowDeleteConfirm(false)}
-            />
         </UserShell>
     );
 }

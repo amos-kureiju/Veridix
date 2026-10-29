@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import UserShell from "@/components/layout/UserShell";
-import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import {
     User as UserIcon,
     Mail,

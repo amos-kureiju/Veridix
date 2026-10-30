@@ -15,6 +15,19 @@ const AUTH_EP = {
     changePassword: "/api/v1/users/change-password",
 };
 
+const parseErrorMessage = (err: any, fallback: string): string => {
+    const detail = err?.response?.data?.detail;
+    if (typeof detail === "string" && detail) return detail;
+    if (Array.isArray(detail)) {
+        const msg = detail
+            .map((d: any) => (d && typeof d.msg === "string" ? d.msg : ""))
+            .filter(Boolean)
+            .join(", ");
+        if (msg) return msg;
+    }
+    return fallback;
+};
+
 export function useAuth() {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
@@ -104,7 +117,7 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message: err.response?.data?.detail || "Email atau kata sandi salah."
+                message:parseErrorMessage(err, "Email atau kata sandi salah.")
             };
         } finally {
             setLoading(false);
@@ -146,7 +159,7 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message: err.response?.data?.detail || "Gagal memproses permintaan lupa kata sandi."
+                message: parseErrorMessage(err, "Gagal memproses permintaan lupa kata sandi.")
             };
         } finally {
             setLoading(false);
@@ -169,7 +182,7 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message: err.response?.data?.detail || "Tautan reset tidak valid atau sudah kedaluwarsa."
+                message: parseErrorMessage(err, "Tautan reset tidak valid atau sudah kedaluwarsa.")
             };
         } finally {
             setLoading(false);
@@ -196,7 +209,7 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message: err.response?.data?.detail || "Gagal mengganti kata sandi."
+                message: parseErrorMessage(err, "Gagal mengganti kata sandi.")
             };
         } finally {
             setLoading(false);
@@ -224,7 +237,7 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message: err.response?.data?.detail || "Gagal memperbarui profil."
+                message: parseErrorMessage(err, "Gagal memperbarui profil.")
             };
         } finally {
             setLoading(false);

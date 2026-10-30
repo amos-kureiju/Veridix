@@ -44,7 +44,7 @@ export default function ProfilePage() {
     }, [user]);
 
     // Alert State
-    const [profileMsg, setProfileMsg] = useState<string | null>(null);
+    const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Handler Simpan Profil (Hanya kirim full_name ke backend)
@@ -55,7 +55,10 @@ export default function ProfilePage() {
             return;
         }
         const res = await updateProfile({ full_name: name, name });
-        setProfileMsg(res.message || "Profil berhasil diperbarui.");
+        setProfileMsg({
+            type: res.success ? "success" : "error",
+            text: res.message || (res.success ? "Profil berhasil diperbarui." : "Gagal memperbarui profil."),
+        });
         setTimeout(() => setProfileMsg(null), 3000);
     };
 
@@ -155,7 +158,7 @@ export default function ProfilePage() {
                         {/* Nama & Email */}
                         <div className="leading-tight">
                             <h2 className="text-base font-bold text-slate-900">{currentName}</h2>
-                            <p className="text-xs text-slate-400 mt-0.5 font-mono">{currentEmail}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">Perbarui nama pengguna Anda.</p>
                         </div>
 
                         {/* Role Badge */}
@@ -214,8 +217,12 @@ export default function ProfilePage() {
                                     <p className="text-xs text-slate-400 mt-0.5">Perbarui nama pengguna dan alamat surel resmi Anda.</p>
                                 </div>
                                 {profileMsg && (
-                                    <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 animate-in fade-in">
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> {profileMsg}
+                                    <span className={`text-xs font-semibold flex items-center gap-1 px-3 py-1 rounded-xl border animate-in fade-in ${profileMsg.type === "success"
+                                            ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                                            : "text-rose-800 bg-rose-50 border-rose-200"
+                                        }`}>
+                                        {profileMsg.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                                        {profileMsg.text}
                                     </span>
                                 )}
                             </div>
@@ -226,17 +233,16 @@ export default function ProfilePage() {
                                         Nama Lengkap:
                                     </label>
                                     <div className="relative">
-                                        <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                                         <input
-                                            type="text"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            placeholder="Masukkan nama lengkap"
-                                            disabled={isGuest}
-                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
-                                            required
+                                            type="email"
+                                            value={email}
+                                            readOnly
+                                            disabled
+                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
                                         />
                                     </div>
+                                    <p className="text-[10px] text-slate-400 mt-1.5">Email akun tidak dapat diubah secara langsung.</p>
                                 </div>
 
                                 <div>
@@ -248,12 +254,11 @@ export default function ProfilePage() {
                                         <input
                                             type="email"
                                             value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="nama@email.com"
-                                            disabled={isGuest}
-                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
-                                            required
+                                            readOnly
+                                            disabled
+                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
                                         />
+                                        <p className="text-xs text-slate-400 mt-0.5 font-mono">{currentEmail}</p>
                                     </div>
                                 </div>
                             </div>

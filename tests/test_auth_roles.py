@@ -64,6 +64,10 @@ class TestLoginRoles(unittest.TestCase):
         self.client.close()
         self.engine.dispose()
 
+    def token_version(self, role):
+        with self.session_factory() as db:
+            return db.get(User, self.ids[role]).token_version
+
     def login(self, role):
         response = self.client.post("/api/v1/auth/login", json={
             "email": role.lower() + "@example.com", "password": self.password,
@@ -119,12 +123,19 @@ class TestLoginRoles(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_admin_claim_does_not_override_user_role_in_database(self):
-        token = create_access_token({"sub": str(self.ids["USER"]), "role": "ADMIN"})
+        token = create_access_token({
+        "sub": str(self.ids["USER"]),
+        "role": "ADMIN",
+        "token_version": self.token_version("USER"),
+        })
         response = self.client.get("/api/v1/admin/stats", headers={"Authorization": "Bearer " + token})
         self.assertEqual(response.status_code, 403)
 
     def test_expired_token_is_rejected(self):
-        token = create_access_token({"sub": str(self.ids["USER"])}, timedelta(seconds=-1))
+        token = create_access_token({
+            "sub": str(self.ids["USER"]),
+            "token_version": self.token_version("USER"),
+        }, timedelta(seconds=-1))
         response = self.client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
         self.assertEqual(response.status_code, 401)
 
@@ -156,6 +167,19 @@ class TestLoginRoles(unittest.TestCase):
         with self.session_factory() as db:
             self.assertEqual(db.query(User).count(), 2)
 
+    def test_token_without_version_is_rejected(self):
+        token = create_access_token({"sub": str(self.ids["USER"])})
+        response = self.client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
+        self.assertEqual(response.status_code, 401)
+
+    def test_old_token_rejected_after_token_version_changes(self):
+        headers = self.login("USER")
+        self.assertEqual(self.client.get("/api/v1/auth/me", headers=headers).status_code, 200)
+        with self.session_factory() as db:
+            user = db.get(User, self.ids["USER"])
+            user.token_version += 1
+            db.commit()
+        self.assertEqual(self.client.get("/api/v1/auth/me", headers=headers).status_code, 401)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Literal
 from uuid import UUID
 from datetime import datetime
 
@@ -28,12 +28,17 @@ class DetectionResultData(BaseModel):
     input_type: str
     image_url: Optional[str] = None
     process_status: str
-    pattern_label: Optional[str]
-    agreement_ratio: Optional[float]
+    pattern_label: Optional[str] = None
+    agreement_ratio: Optional[float] = None
     latency_seconds: float
     is_political: bool
-    political_topic: Optional[str]
+    political_topic: Optional[str] = None
     detected_entities: List[str] = []
+    votes_hoax: Optional[str] = None
+    seed_decisions: Optional[Dict[int, Literal[0, 1]]] = None
+    sub_topik: Optional[str] = None
+    reason: Optional[str] = None
+    terpotong: bool = False
     explanation: Optional[Dict[str, Any]] = None
     narrative_text: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -42,6 +47,11 @@ class DetectionResponse(BaseModel):
     status: str
     message: str
     data: DetectionResultData
+
+class ExplanationResponse(BaseModel):
+    status: str
+    message: str
+    explanation: Dict[str, Any]
 
 # FEEDBACK SCHEMAS
 class FeedbackCreateRequest(BaseModel):

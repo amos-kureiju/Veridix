@@ -158,7 +158,7 @@ export default function ProfilePage() {
                         {/* Nama & Email */}
                         <div className="leading-tight">
                             <h2 className="text-base font-bold text-slate-900">{currentName}</h2>
-                            <p className="text-xs text-slate-400 mt-0.5">Perbarui nama pengguna Anda.</p>
+                            <p className="text-xs text-slate-400 mt-0.5 font-mono">{currentEmail}</p>
                         </div>
 
                         {/* Role Badge */}
@@ -214,7 +214,7 @@ export default function ProfilePage() {
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-900">Informasi Akun</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">Perbarui nama pengguna dan alamat surel resmi Anda.</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">Perbarui nama pengguna Anda.</p>
                                 </div>
                                 {profileMsg && (
                                     <span className={`text-xs font-semibold flex items-center gap-1 px-3 py-1 rounded-xl border animate-in fade-in ${profileMsg.type === "success"
@@ -233,16 +233,17 @@ export default function ProfilePage() {
                                         Nama Lengkap:
                                     </label>
                                     <div className="relative">
-                                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                                        <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                                         <input
-                                            type="email"
-                                            value={email}
-                                            readOnly
-                                            disabled
-                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            placeholder="Masukkan nama lengkap"
+                                            disabled={isGuest}
+                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
+                                            required
                                         />
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-1.5">Email akun tidak dapat diubah secara langsung.</p>
                                 </div>
 
                                 <div>
@@ -257,10 +258,10 @@ export default function ProfilePage() {
                                             readOnly
                                             disabled
                                             className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
-                                        />
-                                        <p className="text-xs text-slate-400 mt-0.5 font-mono">{currentEmail}</p>
-                                    </div>
+                                    />
                                 </div>
+                                <p className="text-[10px] text-slate-400 mt-1.5">Email akun tidak dapat diubah secara langsung.</p>
+                            </div>
                             </div>
 
                             <div className="pt-2 flex justify-end">

@@ -1,0 +1,286 @@
+{
+  "date_local": "2026-10-31",
+  "scope": {
+    "source_code_changed": false,
+    "weights_changed": false,
+    "frozen_data_changed": false,
+    "lockbox_read": false,
+    "real_database_accessed": false,
+    "frontend_typescript_errors": 0
+  },
+  "environment": {
+    "torch": "2.14.0+cpu",
+    "cuda": false,
+    "logical_cpus": 16,
+    "ram_total_gib": 15.39,
+    "available_ram_gib_at_initial_probe": 2.82,
+    "measured_threads": 2,
+    "stored_default_batch": 32,
+    "measured_batches": [
+      1,
+      4
+    ],
+    "offline": true
+  },
+  "model": {
+    "name": "indobenchmark/indobert-base-p1",
+    "configuration": "CE, seeds 42/123/999",
+    "decision_rule": "unanimous",
+    "allow_unverified": false,
+    "integrity_checks_passed": true,
+    "pipeline_sha256": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+    "base_revision": "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2",
+    "checkpoint_sha256": {
+      "42": "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+      "123": "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+      "999": "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3"
+    }
+  },
+  "timing": {
+    "initialization_seconds": [
+      25.837,
+      6.758
+    ],
+    "initialization_scope": "get_predictor() with locally cached weights; excludes interpreter/import startup. Separate processes/cache state, not repeated cold-start distribution.",
+    "warm_batch1_fixed128": {
+      "n": 7,
+      "seconds": [
+        0.5468,
+        0.5463,
+        0.5532,
+        0.5559,
+        0.5588,
+        0.5432,
+        0.5652
+      ],
+      "median": 0.5532,
+      "p95_observed": 0.5633
+    },
+    "interleaved_batch4_padding": {
+      "n_each": 6,
+      "fixed_seconds": [
+        0.5528,
+        0.5277,
+        0.5378,
+        0.5329,
+        0.5324,
+        0.5339
+      ],
+      "dynamic_seconds": [
+        0.2212,
+        0.2221,
+        0.2207,
+        0.2233,
+        0.2201,
+        0.2231
+      ],
+      "fixed_median": 0.5334,
+      "dynamic_median": 0.2216,
+      "fixed_shape": [
+        1,
+        128
+      ],
+      "dynamic_shape": [
+        1,
+        21
+      ],
+      "max_probability_delta": 4.190951585769653e-9,
+      "seed_label_differences": 0
+    },
+    "lime": {
+      "samples": 200,
+      "n_features": 8,
+      "repeats_per_configuration": 1,
+      "fixed128_batch1_seconds": 102.7947,
+      "fixed128_batch4_seconds": 83.6988,
+      "dynamic_batch4_seconds": 23.552,
+      "same_rounded_token_weights": true,
+      "same_label_and_votes": true,
+      "label": "TIDAK BERPOLA HOAKS",
+      "votes": "0/3",
+      "fixed_local_weighted_r2": 0.6696903912977288,
+      "dynamic_local_weighted_r2": 0.6696903910793632,
+      "fixed_encoded_shapes": [
+        [
+          1,
+          128
+        ],
+        [
+          200,
+          128
+        ]
+      ],
+      "dynamic_encoded_shapes": [
+        [
+          1,
+          21
+        ],
+        [
+          200,
+          21
+        ]
+      ],
+      "returned_metadata_keys": [
+        "explanation_available",
+        "tokens",
+        "catatan"
+      ]
+    },
+    "memory_note": "Model-loaded process RSS approximately 1226–1275 MiB; available system RAM varied. This is observed working-set data, not peak RSS.",
+    "scope_note": "CPU diagnostic measurements, no HTTP/auth/DB/OCR timing or concurrency test; batch/thread settings differ from stored defaults. No production p95/SLA claim."
+  },
+  "padding_candidate_checks": {
+    "first16_development_texts": {
+      "seed_comparisons": 48,
+      "label_differences": 0,
+      "max_probability_delta": 0,
+      "fixed_seconds": 8.4623,
+      "dynamic_seconds": 7.0142,
+      "note": "Single ordered pass; not evidence of repeatable throughput improvement."
+    },
+    "near_threshold8": {
+      "seed_comparisons": 24,
+      "label_differences": 0,
+      "max_probability_delta": 4.76837158203125e-7,
+      "ids": [
+        "POL2-001266",
+        "POL2-000553",
+        "POL2-001178",
+        "POL2-001036",
+        "POL2-001711",
+        "POL2-001911",
+        "POL2-000293",
+        "POL2-000481"
+      ]
+    },
+    "limitation": "Small parity checks; full regression including status/votes/near-threshold cases is still required before source changes."
+  },
+  "illustrative_sample": {
+    "n": 4,
+    "provided_labels": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "predictions": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "votes": [
+      "0/3",
+      "0/3",
+      "3/3",
+      "3/3"
+    ],
+    "note": "Smoke test only; label and style are confounded and hoax samples contain explicit hoaks/palsu cues."
+  },
+  "actual_diagnostics": [
+    {
+      "case": "sample1_uppercase",
+      "status": "dinilai",
+      "votes": "0/3"
+    },
+    {
+      "case": "sample1_add_VIRAL_and_SEBARKAN",
+      "status": "dinilai",
+      "votes": "3/3",
+      "original_votes": "0/3"
+    },
+    {
+      "case": "sample2_add_VIRAL_and_SEBARKAN",
+      "status": "dinilai",
+      "votes": "3/3",
+      "original_votes": "0/3"
+    },
+    {
+      "case": "sample1_Pre_hyphen_siden",
+      "status": "dinilai",
+      "votes": "0/3"
+    },
+    {
+      "case": "english_13_with_KPU",
+      "status": "dinilai",
+      "votes": "3/3",
+      "note": "Language gate accepted out-of-scope English."
+    },
+    {
+      "case": "Megawati_Hangestri_volleyball",
+      "status": "ambigu",
+      "votes": "2/3",
+      "topic": "tokoh",
+      "note": "Domain gate treated athlete name as political figure."
+    }
+  ],
+  "saved_artifact_metrics": {
+    "source": "prediksi_val_dev.csv / log_training.json; recomputed from saved predictions, no new training",
+    "ce_macro_f1": {
+      "val_mean": 0.9703,
+      "val_sample_sd": 0.0042,
+      "dev_mean": 0.952,
+      "dev_sample_sd": 0.0065
+    },
+    "focal_macro_f1": {
+      "val_mean": 0.9689,
+      "val_sample_sd": 0.0025,
+      "dev_mean": 0.9506,
+      "dev_sample_sd": 0.0129
+    },
+    "raw_consensus": {
+      "val": {
+        "n": 236,
+        "decided": 232,
+        "correct": 227,
+        "ambiguous": 4
+      },
+      "dev": {
+        "n": 236,
+        "decided": 233,
+        "correct": 223,
+        "ambiguous": 3
+      },
+      "combined_exploratory": {
+        "n": 472,
+        "decided": 465,
+        "correct": 450,
+        "ambiguous": 7,
+        "false_positive": 4,
+        "false_negative": 11
+      }
+    },
+    "current_gate_overlay_estimate": {
+      "val_gate_pass": 205,
+      "dev_gate_pass": 198,
+      "dev_decided": 196,
+      "dev_correct": 186,
+      "dev_total": 236,
+      "note": "Saved-label overlay only, not newly run Penilai/API evaluation. Prepared input changes on 10 val + 5 dev passing texts; do not label this production accuracy."
+    },
+    "c4": {
+      "accuracy": 0.7245762711864406,
+      "threshold": 0.6,
+      "passed": false
+    }
+  },
+  "next_priorities": [
+    "Separate requested LIME explanation from the first classification response; measure actual HTTP latency and bounded concurrency.",
+    "Unify API status/metadata contracts; forward votes, decision rule, rejection reason, and actual LIME metadata.",
+    "Validate dynamic-padding parity broadly before adopting it; tune batch/threads with memory bounds and preserve backend seed-swap lock.",
+    "Evaluate independent label-by-style/source challenge cases and real OCR with paired manual transcripts.",
+    "Reconcile C4 and benchmark-per-seed vs application-consensus documentation before final held-out evaluation."
+  ],
+  "source_sha256": {
+    "src/ml/inference.py": "a89e99c16d5617272f532e7c2c4d13269841cd5769cc05dea0a7780caea158d5",
+    "src/utils/praproses.py": "dc985e7a7698a3e689125f6d2a72090a9b659057d2575114ef48ff19322d93cb",
+    "src/utils/input_validation.py": "919a73dcb881e70522fe4eddac9ad78021ce4a470212d2ea099946e81302d3c3",
+    "src/utils/political_guardrail.py": "8bf2ee33d5e1e665cde52300ad2792e2de47f5cc06e77cc120a7b25939d1ebb2",
+    "src/api/routes/detection_routes.py": "faee747d2503300eb75ac16315bc98b06543b439da21df5ee995f233d75ddd24",
+    "src/api/schemas.py": "967edad4875ed2cd978419aecbde07a031274b536f4410dbb2a114f564b682d7",
+    "text_pipeline.py": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+    "data/processed_v2/train.csv": "0ffd632a0836c8156e02ac41d6bd15ec4a91c0f29bb11c9fe1f3722c54f9dd32",
+    "data/processed_v2/val.csv": "3dc085b19a4435fbada2504ce57e6ecefb5eac70cfd21a402602d15e31a35810",
+    "data/processed_v2/dev_test.csv": "27e819c80af64b9c6fe11bfb5e1318f2b9023152c7be86e6df07651f1c363480"
+  }
+}

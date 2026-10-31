@@ -1,5 +1,6 @@
 import os
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
@@ -31,5 +32,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     finally:
         db.close()

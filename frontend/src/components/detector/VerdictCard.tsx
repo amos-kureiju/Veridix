@@ -21,9 +21,19 @@ interface VerdictCardProps {
     result: DetectionResult | null;
     loading: boolean;
     canAct?: boolean;
+    onRequestExplanation?: () => void;
+    limeLoading?: boolean;
+    limeError?: string | null;
 }
 
-export default function VerdictCard({ result, loading, canAct = true }: VerdictCardProps) {
+export default function VerdictCard({
+    result,
+    loading,
+    canAct = true,
+    onRequestExplanation,
+    limeLoading = false,
+    limeError = null,
+}: VerdictCardProps) {
     const [showFeedback, setShowFeedback] = useState(false);
 
     // 1. Kondisi Sedang Memproses
@@ -153,6 +163,10 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
 
     const IconVerdict = theme.icon;
 
+    // Tombol penjelasan hanya untuk hasil yang punya ID dan berstatus dinilai/ambigu
+    // (kepemilikan dan status tetap divalidasi backend: 404/409)
+    const canExplain = Boolean(d.id) && (processStatus === "dinilai" || processStatus === "ambigu");
+
     // ── 6. NARASI KETERANGAN SISTEM ──────────────────────────────────────────
     let narrative = d.narrative_text || d.narrative_explanation || d.reason;
     if (!narrative) {
@@ -229,7 +243,7 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                 </p>
             </div>
 
-            {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME) */}
+            {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME, SESUAI PERMINTAAN) */}
             {limeAvailable ? (
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
@@ -254,14 +268,34 @@ export default function VerdictCard({ result, loading, canAct = true }: VerdictC
                     />
                 </div>
             ) : (
-                <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center">
-                    <p className="text-[11px] text-slate-400">
-                        {d.explanation?.error
-                            ? `Gagal mengekstrak LIME: ${d.explanation.error}`
-                            : (processStatus === "dinilai"
-                                ? "Penjelasan LIME dinonaktifkan untuk menjaga efisiensi latensi CPU."
-                                : "Atribusi LIME tidak tersedia untuk status ini.")}
-                    </p>
+                <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center space-y-2">
+                    {limeLoading ? (
+                        <p className="text-[11px] text-slate-500">
+                            Menghitung penjelasan LIME. Proses ini dapat memakan waktu satu menit atau lebih...
+                        </p>
+                    ) : (
+                        <>
+                            <p className="text-[11px] text-slate-400">
+                                {limeError
+                                    ? limeError
+                                    : d.explanation?.error
+                                        ? `Gagal mengekstrak LIME: ${d.explanation.error}`
+                                        : canExplain
+                                            ? "Penjelasan kata (LIME) tidak dihitung otomatis agar hasil klasifikasi tampil lebih cepat."
+                                            : "Atribusi LIME tidak tersedia untuk status ini."}
+                            </p>
+                            {canExplain && onRequestExplanation && (
+                                <button
+                                    type="button"
+                                    onClick={onRequestExplanation}
+                                    disabled={!canAct}
+                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200/60 transition disabled:opacity-40"
+                                >
+                                    {limeError ? "Coba lagi" : "Tampilkan penjelasan"}
+                                </button>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
 

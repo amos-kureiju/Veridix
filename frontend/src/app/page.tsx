@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useDetection } from "@/hooks/useDetection";
@@ -17,6 +18,12 @@ export default function Home() {
     const d = useDetection();
     const history = useHistory(ready && Boolean(user));
     const isGuest = !user;
+    // Sesi berakhir atau pengguna berganti: bersihkan hasil dan permintaan aktif
+    const userId = user?.id ?? null;
+    useEffect(() => {
+        d.reset();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
 
     const requireLogin = () => router.push("/auth/login");
 
@@ -62,6 +69,10 @@ export default function Home() {
                 <VerdictCard
                     result={d.result}
                     loading={d.loading}
+                    onRequestExplanation={d.requestExplanation}
+                    limeLoading={d.limeLoading}
+                    limeError={d.limeError}
+                    canAct={ready && Boolean(user)}
                 />
             </div>
         </UserShell>

@@ -4,6 +4,22 @@ export interface LimeToken {
     influence: "hoax" | "fact" | string;
 }
 
+export interface ExplanationData {
+    explanation_available?: boolean;
+    tokens: LimeToken[];
+    top_hoax_words?: Array<{ word: string; score: number }>;
+    top_fact_words?: Array<{ word: string; score: number }>;
+    num_samples?: number;
+    catatan?: string;
+    error?: string;
+}
+
+export interface ExplanationResponse {
+    status: string;
+    message: string;
+    explanation: ExplanationData;
+}
+
 export interface DetectionResult {
     id?: string;
     status: string;
@@ -14,11 +30,11 @@ export interface DetectionResult {
         input_type?: "TEXT" | "IMAGE";
         image_url?: string;
         is_political: boolean;
-        political_topic?: string;
+        political_topic?: string | null;
         process_status?: string;                                // "DINILAI" | "AMBIGU" | "DITOLAK"
-        pattern_label?: string;                                 // "BERPOLA HOAKS" | "TIDAK BERPOLA HOAKS"
+        pattern_label?: string | null;                                 // "BERPOLA HOAKS" | "TIDAK BERPOLA HOAKS"
         prediction?: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI" | string; // Kompatibilitas UI lama
-        agreement_ratio?: number;                               // Rasio konsensus seed model
+        agreement_ratio?: number | null;                               // Rasio konsensus seed model
         confidence_score?: number;                              // Kompatibilitas UI lama
         latency_seconds?: number;
         inference_time_seconds?: number;
@@ -27,11 +43,12 @@ export interface DetectionResult {
         entities_detected?: string[];
         narrative_text?: string;
         narrative_explanation?: string;
-        explanation?: {
-            tokens: LimeToken[];
-            top_hoax_words?: Array<{ word: string; score: number }>;
-            top_fact_words?: Array<{ word: string; score: number }>;
-        };
+        explanation?: ExplanationData | null;
+        votes_hoax?: string | null;
+        seed_decisions?: Record<string, 0 | 1> | null;
+        sub_topik?: string | null;
+        reason?: string | null;
+        terpotong?: boolean;
     };
 }
 

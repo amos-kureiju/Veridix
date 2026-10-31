@@ -10,6 +10,27 @@ export const apiClient = axios.create({
     timeout: 30000,
 });
 
+export function getApiConnectionMessage(error: unknown): string | null {
+    if (!axios.isAxiosError(error) || error.response || axios.isCancel(error)) return null;
+    if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+        return "Waktu tunggu server habis. Silakan coba lagi.";
+    }
+    if (error.code === "ERR_NETWORK" || error.request) {
+        return "Tidak dapat terhubung ke server. Periksa koneksi dan pastikan backend aktif.";
+    }
+    return null;
+}
+
+function requestEndpoint(url: unknown): string | null {
+    if (typeof url !== "string") return null;
+    try {
+        const parsed = new URL(url, API_BASE_URL);
+        return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.pathname : null;
+    } catch {
+        return null;
+    }
+}
+
 // 1. REQUEST INTERCEPTOR: Otomatis lampirkan Bearer Token jika ada di localStorage
 apiClient.interceptors.request.use(
     (config) => {
@@ -45,7 +66,18 @@ apiClient.interceptors.response.use(
         }
 
         if (error.response?.status !== 401 && !axios.isCancel(error)) {
-            console.error("[API Error]:", error.response?.data || error.message);
+            const method = error.config?.method;
+            const code = error.code;
+            const status = error.response?.status;
+            const timeout = error.config?.timeout;
+            console.error("[API Error]:", {
+                method: typeof method === "string" && /^(get|post|put|patch|delete|head|options)$/i.test(method)
+                    ? method.toUpperCase() : null,
+                endpoint: requestEndpoint(error.config?.url),
+                status: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
+                code: typeof code === "string" && /^[A-Z][A-Z0-9_]{0,39}$/.test(code) ? code : null,
+                timeout: typeof timeout === "number" && Number.isFinite(timeout) && timeout >= 0 ? timeout : null,
+            });
         }
         return Promise.reject(error);
     }

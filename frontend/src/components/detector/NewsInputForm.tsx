@@ -240,7 +240,7 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
             {/* 3. TOMBOL EKSEKUSI PIPELINE */}
             <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-slate-400">
-                    Ensemble: IndoBERT + LIME (500 Perturbasi)
+                    Klasifikasi: IndoBERT (3 seed) • Penjelasan LIME dapat diminta setelah hasil tampil
                 </span>
 
                 <button
@@ -252,7 +252,7 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                     {loading ? (
                         <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Menghitung LIME & IndoBERT...</span>
+                            <span>Menganalisis dengan IndoBERT...</span>
                         </>
                     ) : (
                         <>

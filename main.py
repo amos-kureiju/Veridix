@@ -1,7 +1,14 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import (
+    DisconnectionError,
+    OperationalError,
+    SQLAlchemyError,
+    TimeoutError as DatabaseTimeoutError,
+)
 
 from src.core.config import settings
 from src.database.session import engine, SessionLocal
@@ -100,6 +107,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error_response(request: Request, exc: SQLAlchemyError):
+    # Handler khusus dijalankan di dalam CORS. Jangan log SQL/parameter:
+    # parameter dapat berisi naskah pengguna, hash sandi, atau token reset.
+    logger.error(
+        "Database gagal: method=%s path=%s error=%s sqlstate=%s",
+        request.method,
+        request.url.path,
+        type(exc).__name__,
+        getattr(getattr(exc, "orig", None), "sqlstate", None),
+    )
+    unavailable = isinstance(exc, (OperationalError, DatabaseTimeoutError, DisconnectionError))
+    return JSONResponse(
+        status_code=503 if unavailable else 500,
+        content={
+            "detail": (
+                "Layanan database sementara tidak tersedia. Silakan coba lagi."
+                if unavailable
+                else "Terjadi kesalahan pada penyimpanan data. Silakan hubungi pengelola sistem."
+            )
+        },
+        headers={"Retry-After": "5"} if unavailable else None,
+    )
+
 
 # Pendaftaran Seluruh Router
 app.include_router(auth_routes.router, prefix=settings.API_V1_STR)

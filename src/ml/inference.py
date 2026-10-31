@@ -65,6 +65,18 @@ def sha256_file(path) -> str:
     return h.hexdigest().lower()
 
 
+def _load_pretrained(loader, **kwargs):
+    """Utamakan cache revisi beku; unduh revisi yang sama bila cache belum lengkap."""
+    try:
+        return loader.from_pretrained(
+            MODEL_NAME, revision=EXPECTED_BASE_REVISION, local_files_only=True, **kwargs
+        )
+    except OSError:
+        return loader.from_pretrained(
+            MODEL_NAME, revision=EXPECTED_BASE_REVISION, local_files_only=False, **kwargs
+        )
+
+
 def putuskan(votes_hoax: int, n: int, rule: str = DECISION_RULE):
     """Kembalikan (status, label)."""
     if rule == "unanimous":
@@ -99,7 +111,8 @@ class Penilai:
         return np.column_stack([1.0 - p, p])
 
     def _lime(self, text: str) -> Dict[str, Any]:
-        out = {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN}
+        out = {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
+               "num_samples": LIME_NUM_SAMPLES}
         try:
             if self._explainer is None:
                 from lime.lime_text import LimeTextExplainer
@@ -114,6 +127,22 @@ class Penilai:
         except Exception as e:  # penjelasan gagal tidak boleh menggagalkan vonis
             out["error"] = f"{type(e).__name__}: {e}"
         return out
+
+    def siapkan_teks(self, text: Any) -> Optional[str]:
+        """Teks hasil praproses yang persis dinilai model; None bila tidak layak."""
+        v = validate_input_text(text)
+        if not v["ok"]:
+            return None
+        x = praproses(v["text"], self.sambung)
+        return x if x and len(x.split()) >= 10 else None
+
+    def explain_text(self, text: Any) -> Dict[str, Any]:
+        x = self.siapkan_teks(text)
+        if x is None:
+            return {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
+                    "num_samples": LIME_NUM_SAMPLES,
+                    "error": "Teks tidak layak untuk dijelaskan."}
+        return self._lime(x)
 
     def nilai(self, text: Any, explain: bool = False, debug: bool = False) -> Dict[str, Any]:
         t0 = time.time()
@@ -176,6 +205,9 @@ class BackendIndoBERT:
     """Satu model dasar; keadaan terlatih tiap seed ditukar saat inferensi. Gagal keras bila integritas tidak cocok."""
 
     def __init__(self, seeds: Optional[List[int]] = None):
+        # Transformers 5.17 dapat mengonversi .bin di latar walau use_safetensors=False.
+        # Matikan konversi opsional, tanpa menonaktifkan unduhan untuk instalasi baru.
+        os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "1")
         import torch
         import torch.nn as nn
         from transformers import AutoModel, AutoTokenizer
@@ -188,7 +220,7 @@ class BackendIndoBERT:
         self.audit: Dict[str, Any] = {}
 
         self._cek_pipeline()
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        self.tokenizer = _load_pretrained(AutoTokenizer)
         self.clf = self._bangun(nn, AutoModel).to(self.device).eval()
         self._cek_revisi_model_dasar()
         self.states = {s: self._muat(s) for s in self.seeds}
@@ -218,7 +250,7 @@ class BackendIndoBERT:
         class Clf(nn.Module):                      # identik dengan colab_02_indobert.py
             def __init__(self):
                 super().__init__()
-                self.bert = AutoModel.from_pretrained(MODEL_NAME)
+                self.bert = _load_pretrained(AutoModel, use_safetensors=False)
                 for p in self.bert.embeddings.parameters():
                     p.requires_grad = False
                 for i in range(8):
@@ -283,5 +315,8 @@ class _LazyPredictor:
     def predict_and_explain(self, text, explain: bool = True, debug: bool = False):
         return get_predictor().nilai(text, explain=explain, debug=debug)
 
+    def explain(self, text):
+        return get_predictor().explain_text(text)
 
-predictor = _LazyPredictor()  
+
+predictor = _LazyPredictor()

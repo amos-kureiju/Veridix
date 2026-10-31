@@ -201,6 +201,13 @@ def explain_detection(
     finally:
         _lime_lock.release()
 
+        # LIME gagal (_lime menangkap galat sendiri): jangan simpan, jangan dibalas "success"
+    if not (isinstance(explanation, dict) and explanation.get("explanation_available")):
+        raise HTTPException(
+            status_code=502,
+            detail="Penjelasan gagal dibuat. Hasil klasifikasi tetap berlaku; coba lagi nanti."
+        )
+
     log.lime_explanation = explanation
     db.commit()
     return ExplanationResponse(

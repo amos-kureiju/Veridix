@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { isAxiosError } from "axios";
-import { apiClient } from "@/lib/apiClient";
+import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
 import type { UserProfile, UpdateProfilePayload, ChangePasswordPayload } from "@/types/user";
 
 const AUTH_EP = {
@@ -117,7 +117,12 @@ export function useAuth() {
         } catch (err: any) {
             return {
                 success: false,
-                message:parseErrorMessage(err, "Email atau kata sandi salah.")
+                message: getApiConnectionMessage(err) ?? parseErrorMessage(
+                    err,
+                    err?.response?.status === 401
+                        ? "Email atau kata sandi salah."
+                        : "Gagal masuk. Silakan coba lagi."
+                ),
             };
         } finally {
             setLoading(false);

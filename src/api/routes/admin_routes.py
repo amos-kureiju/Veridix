@@ -4,12 +4,14 @@ from sqlalchemy import func
 from typing import Optional
 
 from src.database.session import get_db
-from src.database.models import PredictionLog, UserFeedback, AdminSetting, ThresholdHistory, User
+from src.database.models import PredictionLog, UserFeedback, User
 from src.core.auth_deps import require_admin
 from src.api.schemas import ThresholdUpdateRequest
-from src.ml.inference import predictor
 
 router = APIRouter(prefix="/admin", tags=["Admin Portal"])
+
+# Ambang keputusan per seed pada model beku (lihat src/ml/inference.py: probs >= 0.5)
+FROZEN_THRESHOLD = 0.5
 
 
 @router.get("/stats")
@@ -18,18 +20,18 @@ def get_admin_dashboard_stats(
     admin_user: User = Depends(require_admin)
 ):
     total_detections = db.query(PredictionLog).count()
-    
+
     total_hoaxes = db.query(PredictionLog).filter(
-        PredictionLog.pattern_label.in_(["BERPOLA HOAKS", "HOAX"])
+        PredictionLog.pattern_label.in_(["BERPOLA HOAKS", "HOAKS", "HOAX"])
     ).count()
 
     total_facts = db.query(PredictionLog).filter(
         PredictionLog.pattern_label.in_(["TIDAK BERPOLA HOAKS", "FACT", "FAKTA"])
     ).count()
 
-    # Perbaikan: Hitung ambigu dari process_status
+    # Status baru disimpan huruf kecil ("ambigu"); data lama mungkin "AMBIGU"
     total_ambiguous = db.query(PredictionLog).filter(
-        PredictionLog.process_status == "AMBIGU"
+        func.lower(PredictionLog.process_status) == "ambigu"
     ).count()
 
     total_text_inputs = db.query(PredictionLog).filter(PredictionLog.input_type == "TEXT").count()
@@ -37,7 +39,7 @@ def get_admin_dashboard_stats(
 
     total_feedbacks = db.query(UserFeedback).count()
     pending_feedbacks = db.query(UserFeedback).filter(UserFeedback.review_status == "PENDING").count()
-    
+
     avg_latency = db.query(func.avg(PredictionLog.latency_seconds)).scalar() or 0.0
 
     return {
@@ -47,6 +49,8 @@ def get_admin_dashboard_stats(
             "total_hoaxes": total_hoaxes,
             "total_facts": total_facts,
             "total_ambiguous": total_ambiguous,
+            "active_threshold": FROZEN_THRESHOLD,
+            "threshold_editable": False,
             "hoax_percentage": round((total_hoaxes / total_detections * 100), 1) if total_detections > 0 else 0.0,
             "input_distribution": {
                 "text": total_text_inputs,
@@ -63,17 +67,17 @@ def get_admin_dashboard_stats(
 
 @router.get("/threshold")
 def get_current_threshold(
-    db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
-    threshold_val = float(setting.setting_value) if setting else 0.5
+    # Ambang tetap pada model beku; tidak membaca nilai database yang tidak dipakai inferensi
     return {
         "status": "success",
         "data": {
             "key": "classification_threshold",
-            "threshold": threshold_val,
-            "updated_at": setting.updated_at if setting else None
+            "threshold": FROZEN_THRESHOLD,
+            "editable": False,
+            "note": "Ambang tetap pada model beku (per seed).",
+            "updated_at": None
         }
     }
 
@@ -81,53 +85,21 @@ def get_current_threshold(
 @router.put("/threshold")
 def update_threshold(
     payload: ThresholdUpdateRequest,
-    db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
-    old_value = float(setting.setting_value) if setting else 0.5
-
-    if not setting:
-        setting = AdminSetting(
-            setting_key="classification_threshold",
-            setting_value=str(payload.new_threshold),
-            description="Confidence threshold for classifying news as hoaks",
-            updated_by=admin_user.id
-        )
-        db.add(setting)
-    else:
-        setting.setting_value = str(payload.new_threshold)
-        setting.updated_by = admin_user.id
-
-    # 1. Catat ke Tabel Audit History
-    history_entry = ThresholdHistory(
-        old_threshold=old_value,
-        new_threshold=payload.new_threshold,
-        reason=payload.reason,
-        modified_by=admin_user.id
+    # Tidak menyimpan apa pun dan tidak mengklaim sukses: mengubah ambang berarti mengubah model beku
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail=(
+            "Perubahan threshold dinonaktifkan: model beku memakai ambang tetap 0,5 "
+            "per seed. Pengaturan ini tidak memengaruhi inferensi."
+        ),
     )
-    db.add(history_entry)
-    db.commit()
-
-    # 2. Perbaikan: Mutakhirkan Mesin AI Secara Dinamis di Memory
-    if hasattr(predictor, "set_threshold"):
-        predictor.set_threshold(payload.new_threshold)
-    elif hasattr(predictor, "threshold"):
-        predictor.threshold = payload.new_threshold
-
-    return {
-        "status": "success",
-        "message": f"Threshold berhasil diperbarui dari {old_value} menjadi {payload.new_threshold}.",
-        "data": {
-            "new_threshold": payload.new_threshold,
-            "changed_by": admin_user.full_name
-        }
-    }
 
 
 @router.get("/feedbacks")
 def list_feedbacks(
-    status_filter: Optional[str] = Query(None, regex="^(PENDING|REVIEWED|DISMISSED|RETRAINED)$"),
+    status_filter: Optional[str] = Query(None, pattern="^(PENDING|REVIEWED|DISMISSED|RETRAINED)$"),
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -136,9 +108,9 @@ def list_feedbacks(
     query = db.query(UserFeedback)
     if status_filter:
         query = query.filter(UserFeedback.review_status == status_filter)
-    
+
     feedbacks = query.order_by(UserFeedback.created_at.desc()).offset(skip).limit(limit).all()
-    
+
     return {
         "status": "success",
         "count": len(feedbacks),
@@ -152,6 +124,7 @@ def list_feedbacks(
                 "user_notes": f.user_notes,
                 "clarification_url": f.clarification_url,
                 "review_status": f.review_status,
+                "admin_notes": getattr(f, "admin_notes", None),
                 "created_at": f.created_at
             } for f in feedbacks
         ]

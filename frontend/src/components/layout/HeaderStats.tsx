@@ -1,17 +1,17 @@
 "use client";
 
-import { Activity, ShieldAlert, MessageSquare, Gauge, ArrowUpRight, ArrowRight } from "lucide-react";
+import { Activity, ShieldAlert, MessageSquare, Gauge, ArrowUpRight } from "lucide-react";
 
 export interface HeaderStatsProps {
     totalDetections?: number;
-    hoaxCount?: number;
+    hoaxCount?: number | null;   // null = belum ada sumber data agregat
     feedbackCount?: number;
     isGuest?: boolean;
 }
 
 export default function HeaderStats({
     totalDetections = 0,
-    hoaxCount = 0,
+    hoaxCount = null,
     feedbackCount = 0,
     isGuest = true,
 }: HeaderStatsProps) {
@@ -19,19 +19,19 @@ export default function HeaderStats({
         {
             title: "TOTAL DETEKSI SAYA",
             value: totalDetections.toString(),
-            badgeText: "+0.0%",
+            badgeText: null as string | null,
             badgePositive: true,
-            footerText: "+0 hari ini",
+            footerText: isGuest ? "Masuk untuk melihat" : "Sejak akun dibuat",
             icon: Activity,
             iconColor: "text-emerald-500",
             iconBg: "bg-emerald-50 border-emerald-100",
         },
         {
             title: "HOAKS DITEMUKAN",
-            value: hoaxCount.toString(),
-            badgeText: hoaxCount > 0 ? "+12.4%" : "0.0%",
+            value: hoaxCount === null ? "—" : hoaxCount.toString(),
+            badgeText: null as string | null,
             badgePositive: false,
-            footerText: `${hoaxCount} dari ${totalDetections} deteksi`,
+            footerText: hoaxCount === null ? "Belum tersedia" : `${hoaxCount} dari ${totalDetections} deteksi`,
             icon: ShieldAlert,
             iconColor: "text-rose-500",
             iconBg: "bg-rose-50 border-rose-100",
@@ -39,7 +39,7 @@ export default function HeaderStats({
         {
             title: "FEEDBACK DIKIRIM",
             value: feedbackCount.toString(),
-            badgeText: "+0%",
+            badgeText: null as string | null,
             badgePositive: true,
             footerText: `${feedbackCount} feedback terkirim`,
             icon: MessageSquare,
@@ -49,7 +49,7 @@ export default function HeaderStats({
         {
             title: "AKSES DETEKSI",
             value: isGuest ? "Tamu" : "Aktif",
-            badgeText: isGuest ? "Perlu login" : "Terdaftar",
+            badgeText: (isGuest ? "Perlu login" : "Terdaftar") as string | null,
             badgePositive: true,
             footerText: isGuest ? "Masuk untuk mendeteksi" : "Akun aktif",
             icon: Gauge,
@@ -80,26 +80,21 @@ export default function HeaderStats({
                             <span className="text-2xl font-bold tracking-tight text-slate-800">
                                 {item.value}
                             </span>
-                            <span
-                                className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${item.badgePositive
+                            {item.badgeText && (
+                                <span
+                                    className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${item.badgePositive
                                         ? "bg-emerald-50 text-emerald-600 border border-emerald-200/50"
                                         : "bg-rose-50 text-rose-600 border border-rose-200/50"
-                                    }`}
-                            >
-                                <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
-                                {item.badgeText}
-                            </span>
+                                        }`}
+                                >
+                                    <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                                    {item.badgeText}
+                                </span>
+                            )}
                         </div>
 
-                        <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                            <span className="truncate max-w-[150px]">{item.footerText}</span>
-                            <button
-                                type="button"
-                                aria-label={`Detail ${item.title}`}
-                                className="text-slate-400 hover:text-slate-700 transition"
-                            >
-                                <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
+                        <div className="pt-3 mt-3 border-t border-slate-100 text-xs text-slate-500">
+                            <span className="truncate block max-w-[200px]">{item.footerText}</span>
                         </div>
                     </div>
                 );

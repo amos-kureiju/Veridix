@@ -14,7 +14,7 @@ import VerdictCard from "@/components/detector/VerdictCard";
 
 export default function Home() {
     const router = useRouter();
-    const { user, ready, logout } = useAuth();
+    const { user, ready, logout, refreshUser } = useAuth();
     const d = useDetection();
     const history = useHistory(ready && Boolean(user));
     const isGuest = !user;
@@ -34,7 +34,11 @@ export default function Home() {
             return;
         }
         const result = await d.detectText(text);
-        if (result) await history.reload();
+        if (result) await Promise.all([history.reload(), refreshUser()]);
+    };
+
+    const refreshAfterFeedback = async () => {
+        await Promise.all([history.reload(), refreshUser()]);
     };
 
     return (
@@ -49,7 +53,7 @@ export default function Home() {
             {/* 4 Kartu Metrik Ringkasan */}
             <HeaderStats
                 totalDetections={user?.total_detections ?? 0}
-                hoaxCount={0}
+                hoaxCount={null}
                 feedbackCount={user?.total_feedbacks ?? 0}
                 isGuest={isGuest}
             />
@@ -73,6 +77,7 @@ export default function Home() {
                     limeLoading={d.limeLoading}
                     limeError={d.limeError}
                     canAct={ready && Boolean(user)}
+                    onFeedbackSubmitted={refreshAfterFeedback}
                 />
             </div>
         </UserShell>

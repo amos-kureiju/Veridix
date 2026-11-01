@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiClient } from "@/lib/apiClient";
 import {
     CheckCircle,
     AlertTriangle,
     XCircle,
     Download,
-    Bookmark,
     HelpCircle,
     Clock,
     Sparkles,
@@ -24,6 +24,7 @@ interface VerdictCardProps {
     onRequestExplanation?: () => void;
     limeLoading?: boolean;
     limeError?: string | null;
+    onFeedbackSubmitted?: () => void | Promise<void>;
 }
 
 export default function VerdictCard({
@@ -33,8 +34,23 @@ export default function VerdictCard({
     onRequestExplanation,
     limeLoading = false,
     limeError = null,
+    onFeedbackSubmitted,
 }: VerdictCardProps) {
-    const [showFeedback, setShowFeedback] = useState(false);
+    const [feedbackForId, setFeedbackForId] = useState<string | null>(null);
+    const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+    const feedbackId = result?.data?.id;
+    const feedbackStatus = (result?.data?.process_status || (result?.data?.prediction ? "dinilai" : "ditolak")).toLowerCase();
+    const feedbackTarget = !loading && canAct && typeof feedbackId === "string" && feedbackId.trim() &&
+        (feedbackStatus === "dinilai" || feedbackStatus === "ambigu") ? feedbackId : null;
+    const feedbackTargetRef = useRef<string | null>(feedbackTarget);
+
+    useEffect(() => {
+        feedbackTargetRef.current = feedbackTarget;
+        setFeedbackForId(null);
+        return () => { feedbackTargetRef.current = null; };
+    }, [feedbackTarget]);
+
+    useEffect(() => { setFeedbackSuccess(null); }, [feedbackId]);
 
     // 1. Kondisi Sedang Memproses
     if (loading) {
@@ -166,6 +182,7 @@ export default function VerdictCard({
     // Tombol penjelasan hanya untuk hasil yang punya ID dan berstatus dinilai/ambigu
     // (kepemilikan dan status tetap divalidasi backend: 404/409)
     const canExplain = Boolean(d.id) && (processStatus === "dinilai" || processStatus === "ambigu");
+    const canFeedback = Boolean(feedbackTarget) && (isHoax || isNonHoax || isAmbiguous);
 
     // ── 6. NARASI KETERANGAN SISTEM ──────────────────────────────────────────
     let narrative = d.narrative_text || d.narrative_explanation || d.reason;
@@ -303,22 +320,17 @@ export default function VerdictCard({
             <DisclaimerBanner />
 
             {/* FOOTER TOMBOL AKSI */}
+            {feedbackSuccess === feedbackId && feedbackId && canAct && (
+                <p role="status" className="text-xs text-emerald-700">
+                    Terima kasih! Umpan balik Anda telah dikirim.
+                </p>
+            )}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => alert("Hasil telah disimpan ke Riwayat Anda.")}
-                        disabled={!canAct || isRejected}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-40"
-                    >
-                        <Bookmark className="w-3.5 h-3.5" />
-                        <span>Simpan</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => alert("Mengunduh Laporan dalam format PDF...")}
-                        disabled={!canAct || isRejected}
+                        disabled
+                        title="Unduh PDF belum tersedia"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-40"
                     >
                         <Download className="w-3.5 h-3.5" />
@@ -328,8 +340,12 @@ export default function VerdictCard({
 
                 <button
                     type="button"
-                    onClick={() => setShowFeedback(true)}
-                    disabled={!canAct}
+                    onClick={() => {
+                        if (!canFeedback) return;
+                        setFeedbackSuccess(null);
+                        setFeedbackForId(feedbackTarget);
+                    }}
+                    disabled={!canFeedback}
                     className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition disabled:opacity-40"
                 >
                     Laporkan Anomali
@@ -337,12 +353,32 @@ export default function VerdictCard({
             </div>
 
             {/* Modal Umpan Balik */}
-            {showFeedback && (
+            {feedbackTarget && feedbackForId === feedbackTarget && (
                 <FeedbackModal
-                    onClose={() => setShowFeedback(false)}
-                    onSubmit={(claim, note) => {
-                        alert(`Terima kasih! Umpan balik Anda (${claim}) dicatat.`);
-                        setShowFeedback(false);
+                    key={feedbackTarget}
+                    onClose={() => setFeedbackForId(current => current === feedbackTarget ? null : current)}
+                    onSubmit={async (claim, note) => {
+                        const targetId = feedbackTarget;
+                        if (!canFeedback || feedbackTargetRef.current !== targetId) return;
+                        const modelLabel = isAmbiguous ? "PERLU KONFIRMASI"
+                            : isHoax ? "BERPOLA HOAKS" : "TIDAK BERPOLA HOAKS";
+                        const response = await apiClient.post<{ status: string }>("/api/v1/feedback", {
+                            detection_id: targetId,
+                            is_agreed: claim === modelLabel,
+                            claimed_label: claim,
+                            user_notes: note.trim() || null,
+                        });
+                        if (response.data?.status !== "success") {
+                            throw new Error("Pengiriman umpan balik belum dikonfirmasi server.");
+                        }
+                        if (feedbackTargetRef.current !== targetId) return;
+                        setFeedbackForId(current => current === targetId ? null : current);
+                        setFeedbackSuccess(targetId);
+                        try {
+                            await onFeedbackSubmitted?.();
+                        } catch {
+                            // Feedback sudah tersimpan; kegagalan memuat ulang statistik tidak boleh mengirimnya ulang.
+                        }
                     }}
                 />
             )}

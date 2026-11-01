@@ -20,6 +20,17 @@ import {
 import type { HistoryItem } from "@/types/detector";
 import UserShell from "@/components/layout/UserShell";
 
+// Pencocokan label eksplisit (bukan includes) agar "TIDAK BERPOLA HOAKS" tidak dianggap hoaks
+const normLabel = (v?: string | null) => (v ?? "").trim().toUpperCase();
+const isHoaxLabel = (v?: string | null) => ["BERPOLA HOAKS", "HOAKS", "HOAX"].includes(normLabel(v));
+const isFactLabel = (v?: string | null) => ["TIDAK BERPOLA HOAKS", "FAKTA", "FACT"].includes(normLabel(v));
+const isUncertainLabel = (v?: string | null) =>
+    normLabel(v).includes("PERLU VERIFIKASI") || normLabel(v) === "PERLU KONFIRMASI";
+
+// Nilai tidak tersedia ditampilkan "—", bukan 0%
+const formatRatio = (v?: number | null) =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? `${(v * 100).toFixed(1)}%` : "—";
+
 export default function HistoryPage() {
     // 1. Panggil useHistory HANYA jika sesi sudah selesai diperiksa dan user sudah login
     const { user, ready, isGuest, logout } = useAuth();
@@ -74,10 +85,11 @@ export default function HistoryPage() {
             const matchSearch = textContent.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 topic.toLowerCase().includes(searchTerm.toLowerCase());
 
-            const matchVerdict = selectedVerdict === "ALL" ||
-                label.toUpperCase().includes(selectedVerdict.toUpperCase()) ||
-                (selectedVerdict === "HOAKS" && label.includes("HOAKS")) ||
-                (selectedVerdict === "FAKTA" && label.includes("TIDAK BERPOLA"));
+            const matchVerdict =
+                selectedVerdict === "ALL" ||
+                (selectedVerdict === "HOAKS" && isHoaxLabel(label)) ||
+                (selectedVerdict === "FAKTA" && isFactLabel(label)) ||
+                (selectedVerdict === "PERLU KONFIRMASI" && isUncertainLabel(label));
 
             const matchTopic = selectedTopic === "ALL" || topic.toLowerCase().includes(selectedTopic.toLowerCase());
 
@@ -96,7 +108,7 @@ export default function HistoryPage() {
             d.id,
             `"${(d.input_text || d.full_text || "").replace(/"/g, '""')}"`,
             d.pattern_label || d.prediction || "-",
-            `${(((d.agreement_ratio ?? d.confidence_score) || 0) * 100).toFixed(1)}%`,
+            formatRatio(d.agreement_ratio ?? d.confidence_score ?? null),
             `"${d.political_topic}"`,
             new Date(d.created_at).toLocaleString("id-ID")
         ]);
@@ -110,9 +122,9 @@ export default function HistoryPage() {
         document.body.removeChild(link);
     };
 
+    // Penghapusan belum punya endpoint backend: jangan menampilkan pesan sukses palsu
     const handleDeleteConfirm = () => {
-        if (!deleteId) return;
-        alert(`Entri riwayat ${deleteId} berhasil dihapus.`);
+        alert("Fitur hapus riwayat belum tersedia.");
         setDeleteId(null);
     };
 
@@ -246,10 +258,10 @@ export default function HistoryPage() {
                                 </tr>
                             ) : (
                                 filteredData.map((item) => {
-                                    const label = item.pattern_label || item.prediction || "DINILAI";
-                                    const isHoax = label.includes("HOAKS");
-                                    const isFact = label.includes("FAKTA") || label.includes("TIDAK BERPOLA");
-                                    const ratio = item.agreement_ratio ?? item.confidence_score ?? 0;
+                                    const label = item.pattern_label || item.prediction || "TIDAK ADA LABEL";
+                                    const isHoax = isHoaxLabel(label);
+                                    const isFact = isFactLabel(label);
+                                    const ratio = item.agreement_ratio ?? item.confidence_score ?? null;
 
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50/60 transition group">
@@ -280,7 +292,7 @@ export default function HistoryPage() {
                                             </td>
 
                                             <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
-                                                {(ratio * 100).toFixed(1)}%
+                                                {formatRatio(ratio)}
                                             </td>
 
                                             <td className="py-3.5 px-4 text-slate-400 text-[11px] whitespace-nowrap">
@@ -354,12 +366,12 @@ export default function HistoryPage() {
                             <div className="grid grid-cols-2 gap-3 pt-1">
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
                                     <span className="text-[10px] text-slate-400 block font-semibold uppercase">Pola Terdeteksi:</span>
-                                    <span className="text-xs font-bold text-slate-800">{detailItem.pattern_label || detailItem.prediction}</span>
+                                    <span className="text-xs font-bold text-slate-800">{detailItem.pattern_label || detailItem.prediction || "—"}</span>
                                 </div>
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
                                     <span className="text-[10px] text-slate-400 block font-semibold uppercase">Konsensus Model:</span>
                                     <span className="text-xs font-bold text-slate-800 font-mono">
-                                        {(((detailItem.agreement_ratio ?? detailItem.confidence_score) || 0) * 100).toFixed(1)}%
+                                        {formatRatio(detailItem.agreement_ratio ?? detailItem.confidence_score ?? null)}
                                     </span>
                                 </div>
                             </div>

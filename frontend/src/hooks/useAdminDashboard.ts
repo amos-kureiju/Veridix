@@ -8,7 +8,7 @@ export function useAdminDashboard() {
     // Inisialisasi state awal bersih (tanpa angka palsu)
     const [stats, setStats] = useState<GlobalStats | null>(null);
     const [recentLogs, setRecentLogs] = useState<AdminLogItem[]>([]);
-    const [threshold, setThreshold] = useState<number>(0.60);
+    const [threshold, setThreshold] = useState<number | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -23,9 +23,12 @@ export function useAdminDashboard() {
             const statsData = resStats.data?.data || resStats.data;
             setStats(statsData);
 
-            if (statsData?.active_threshold !== undefined) {
-                setThreshold(statsData.active_threshold);
-            }
+            const activeThreshold = statsData?.active_threshold;
+            setThreshold(
+                typeof activeThreshold === "number" && Number.isFinite(activeThreshold) && activeThreshold >= 0 && activeThreshold <= 1
+                    ? activeThreshold
+                    : null
+            );
 
             // 2. Ambil Log Terkini (Pisahkan try-catch agar jika log 404, statistik dashboard tetap tampil)
             try {
@@ -44,6 +47,10 @@ export function useAdminDashboard() {
             setLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
 
     // Update Threshold AI (Gunakan PUT dan new_threshold sesuai schema backend)
     const updateThreshold = async (newValue: number) => {

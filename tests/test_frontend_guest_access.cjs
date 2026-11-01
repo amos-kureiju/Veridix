@@ -79,11 +79,14 @@ function* elements(node) {
 
 function home(auth) {
     const hooks = reactHooks();
-    const calls = { routes: [], history: [], detections: 0, reloads: 0, explanations: 0, resets: 0 };
+    const calls = { routes: [], history: [], detections: 0, reloads: 0, explanations: 0, resets: 0, profileRefreshes: 0 };
     const mocks = {
         react: hooks,
         'next/navigation': { useRouter: () => ({ push: route => calls.routes.push(route) }) },
-        '@/hooks/useAuth': { useAuth: () => auth },
+        '@/hooks/useAuth': { useAuth: () => ({
+            ...auth,
+            refreshUser: async () => { calls.profileRefreshes++; },
+        }) },
         '@/hooks/useDetection': { useDetection: () => ({
             loading: false, result: null, error: null,
             detectText: async () => { calls.detections++; return { status: 'success' }; },
@@ -121,7 +124,7 @@ test('public homepage stays visible and never enables history before verified lo
     }
 });
 
-test('verified user can analyze and refresh private history', async () => {
+test('verified user refreshes history and profile counts after detection and feedback', async () => {
     const { form, card, calls } = home({ user: { id: 'user-test', name: 'Test User', role: 'USER' }, ready: true });
     assert.deepEqual(calls.history, [true]);
     assert.equal(form.loginRequired, false);
@@ -132,6 +135,10 @@ test('verified user can analyze and refresh private history', async () => {
     await form.onAnalyze('Presiden memimpin rapat pemerintah tentang kebijakan publik.');
     assert.equal(calls.detections, 1);
     assert.equal(calls.reloads, 1);
+    assert.equal(calls.profileRefreshes, 1);
+    await card.onFeedbackSubmitted();
+    assert.equal(calls.reloads, 2);
+    assert.equal(calls.profileRefreshes, 2);
     assert.deepEqual(calls.routes, []);
 });
 

@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -8,6 +11,7 @@ from src.database.models import User, PredictionLog, UserFeedback
 from src.core.auth_deps import get_current_user
 from src.core.security import verify_password, hash_password
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
@@ -171,12 +175,12 @@ def get_user_history(
                 "input_type": row.input_type,
                 "image_url": row.image_url,
                 "political_topic": row.political_topic or "Sosial Politik",
-                "process_status": row.process_status or "DINILAI",
+                "process_status": row.process_status or "dinilai",
                 "pattern_label": row.pattern_label,
                 # Kompatibilitas untuk frontend lama yang masih membaca .prediction / .confidence_score
                 "prediction": row.pattern_label or "PERLU KONFIRMASI",
                 "agreement_ratio": row.agreement_ratio,
-                "confidence_score": row.agreement_ratio or 0.0,
+                "confidence_score": row.agreement_ratio,
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "has_feedback": fb_info is not None,
                 "feedback": fb_info
@@ -186,10 +190,13 @@ def get_user_history(
             "status": "success",
             "data": results
         }
-    except Exception:
+    except SQLAlchemyError:
+        # get_db melakukan rollback; handler aplikasi memberi respons aman dengan CORS.
+        raise
+    except Exception as exc:
         db.rollback()
-        # Fallback aman jika tabel kosong atau ada perbedaan skema
-        return {
-            "status": "success",
-            "data": []
-        }
+        logger.error("Gagal membaca riwayat deteksi: error=%s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Riwayat tidak dapat dimuat saat ini. Silakan coba lagi."
+        )

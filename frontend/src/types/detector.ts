@@ -28,20 +28,20 @@ export interface DetectionResult {
         id?: string;
         input_text?: string;
         input_type?: "TEXT" | "IMAGE";
-        image_url?: string;
+        image_url?: string | null;
         is_political: boolean;
         political_topic?: string | null;
         process_status?: string;                                // "DINILAI" | "AMBIGU" | "DITOLAK"
         pattern_label?: string | null;                                 // "BERPOLA HOAKS" | "TIDAK BERPOLA HOAKS"
         prediction?: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI" | string; // Kompatibilitas UI lama
         agreement_ratio?: number | null;                               // Rasio konsensus seed model
-        confidence_score?: number;                              // Kompatibilitas UI lama
+        confidence_score?: number | null;                       // Kompatibilitas UI lama
         latency_seconds?: number;
         inference_time_seconds?: number;
         extracted_text?: string;
         detected_entities?: string[];
         entities_detected?: string[];
-        narrative_text?: string;
+        narrative_text?: string | null;
         narrative_explanation?: string;
         explanation?: ExplanationData | null;
         votes_hoax?: string | null;
@@ -57,12 +57,12 @@ export interface HistoryItem {
     input_text: string;                                          // Field resmi backend
     full_text?: string;                                          // Alias kompatibilitas UI lama
     input_type?: "TEXT" | "IMAGE";
-    image_url?: string;
+    image_url?: string | null;
     process_status?: string;                                     // "DINILAI", "AMBIGU", dll.
-    pattern_label?: string;                                      // "BERPOLA HOAKS", "TIDAK BERPOLA HOAKS"
+    pattern_label?: string | null;                               // "BERPOLA HOAKS", "TIDAK BERPOLA HOAKS"
     prediction?: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI" | string;// Alias kompatibilitas UI lama
     agreement_ratio?: number | null;
-    confidence_score?: number;                                   // Alias kompatibilitas UI lama
+    confidence_score?: number | null;                            // Alias kompatibilitas UI lama
     political_topic: string;
     created_at: string;
     inference_time?: number;

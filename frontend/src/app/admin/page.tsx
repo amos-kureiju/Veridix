@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
         hoax_detected_today: (stats as any)?.total_hoaxes ?? stats?.hoax_detected_today ?? 0,
         hoax_ratio_percent: (stats as any)?.hoax_percentage ?? stats?.hoax_ratio_percent ?? 0,
         pending_feedbacks: (stats as any)?.feedbacks?.pending_review ?? stats?.pending_feedbacks ?? 0,
-        active_threshold: (stats as any)?.active_threshold ?? threshold ?? 0.60,
+        active_threshold: threshold,
         active_users_count: (stats as any)?.total_users ?? stats?.active_users_count ?? 0,
     };
 
@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/15 backdrop-blur-xs transition"
                         >
                             <Sliders className="w-3.5 h-3.5 text-emerald-300" />
-                            <span>Threshold: {safeStats.active_threshold.toFixed(2)}</span>
+                            <span>Threshold: {safeStats.active_threshold === null ? "—" : safeStats.active_threshold.toFixed(2)}</span>
                         </Link>
 
                         <Link

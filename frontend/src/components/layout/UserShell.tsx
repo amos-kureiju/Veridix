@@ -16,7 +16,7 @@ interface UserShellProps {
 
 export default function UserShell({
     guest = false,
-    userName = "Amos Manurung",
+    userName = "Pengguna",
     userRole = "USER",
     title,
     subtitle,

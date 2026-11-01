@@ -33,7 +33,7 @@ type MenuItem = {
 export default function UserSidebar({
     onLogout,
     guest = false,
-    userName = "Amos Manurung",
+    userName = "Pengguna",
     feedbackCount = 2,
 }: UserSidebarProps) {
     const pathname = usePathname();

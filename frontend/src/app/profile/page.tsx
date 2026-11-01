@@ -24,8 +24,8 @@ export default function ProfilePage() {
     const { user, isGuest, updateProfile, changePassword, logout } = useAuth();
 
     // Fallback data cerdas: Jika mode tamu, tampilkan demo identitas agar UI tetap menarik
-    const currentName = user?.name || (isGuest ? "Pengunjung Demo" : "Amos Manurung");
-    const currentEmail = user?.email || (isGuest ? "tamu@veridix.id" : "amos@veridix.id");
+    const currentName = user?.name || (isGuest ? "Pengunjung Demo" : "Pengguna");
+    const currentEmail = user?.email || (isGuest ? "tamu@veridix.id" : "—"); 
     const currentRole = user?.role || (isGuest ? "TAMU" : "USER");
 
     // Form State

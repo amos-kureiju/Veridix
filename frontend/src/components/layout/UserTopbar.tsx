@@ -53,7 +53,7 @@ const SAMPLE_NOTIFICATIONS: UserNotification[] = [
 export default function UserTopbar({
     title,
     subtitle,
-    userName = "Amos Manurung",
+    userName = "Pengguna",
     userRole = "USER",
     guest = false,
     aiStatus = "ready",

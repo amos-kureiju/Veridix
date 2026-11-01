@@ -10,9 +10,10 @@ import { Search, Send, Lock } from "lucide-react";
 import UserShell from "@/components/layout/UserShell";
 
 export default function UserFeedbackPage() {
-    const { isGuest } = useAuth();
+    const { isGuest, user, logout } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("ALL");
+    const displayName = user?.name || (isGuest ? "Tamu" : "Pengguna");
 
     const dummyFeedbacks: FeedbackItem[] = useMemo(() => [
         {
@@ -57,7 +58,12 @@ export default function UserFeedbackPage() {
     }, [dummyFeedbacks, searchTerm, selectedStatus]);
 
     return (
-        <UserShell guest={isGuest}>
+        <UserShell
+            guest={isGuest}
+            userName={displayName}
+            userRole={user?.role || "USER"}
+            onLogout={logout}
+        >
             {/* Tombol Buat Deteksi Baru */}
             <div className="flex justify-end pb-2">
                 <Link

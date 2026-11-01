@@ -1,9 +1,17 @@
 export default function DisclaimerBanner() {
     return (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-300">Catatan Sistem:</p>
-            <p>
-                Hasil berbasis pola bahasa AI (IndoBERT). Bukan pengganti verifikasi faktual absolut. Rujuk ke <a href="https://cekfakta.com" target="_blank" className="text-emerald-400 underline">CekFakta.com</a> atau TurnBackHoax.id untuk validasi mendalam.
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 space-y-1">
+            <p className="font-semibold">Catatan penggunaan</p>
+            <p className="leading-relaxed">
+                Hasil ini menunjukkan <strong>kemiripan pola penulisan</strong> dengan klaim yang pernah dilabeli hoaks
+                oleh pemeriksa fakta. Sistem bukan pemverifikasi kebenaran. Untuk kepastian, rujuk{" "}
+                <a href="https://cekfakta.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline">
+                    CekFakta.com
+                </a>{" "}
+                atau{" "}
+                <a href="https://turnbackhoax.id" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline">
+                    TurnBackHoax.id
+                </a>.
             </p>
         </div>
     );

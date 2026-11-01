@@ -60,7 +60,7 @@ export default function Home() {
 
             {/* Grid Formulir Input dan Hasil Deteksi */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
-                <div className="space-y-3">
+                <div className="space-y-3 xl:sticky xl:top-24 xl:self-start">
                     <NewsInputForm
                         loading={d.loading}
                         blocked={!ready}

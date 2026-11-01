@@ -127,7 +127,7 @@ function card(props = {}, post = async () => ({ data: { status: 'success' } })) 
 function modalNode(tree) { return [...elements(tree)].find(node => node.type === 'FeedbackModal'); }
 function statusNode(tree) { return [...elements(tree)].find(node => node.props.role === 'status'); }
 function openModal(parent) {
-    button(parent.render(), 'Laporkan Anomali').props.onClick();
+    button(parent.render(), 'Beri masukan').props.onClick();
     const element = modalNode(parent.render());
     assert.ok(element, 'Feedback modal must open');
     const child = component('components/detector/FeedbackModal.tsx', element.props, {
@@ -254,7 +254,7 @@ test('feedback requires a session, result ID, and an eligible model decision', (
     ];
     for (const props of cases) {
         const parent = card(props, async () => assert.fail('Ineligible feedback submitted'));
-        const control = button(parent.render(), 'Laporkan Anomali');
+        const control = button(parent.render(), 'Beri masukan');
         assert.equal(control.props.disabled, true);
         control.props.onClick();
         assert.equal(modalNode(parent.render()), undefined);
@@ -289,7 +289,7 @@ test('session invalidation hides the modal and discards its late success', async
     await sending;
     assert.equal(modalNode(parent.render()), undefined);
     assert.equal(statusNode(parent.render()), undefined);
-    assert.equal(button(parent.render(), 'Laporkan Anomali').props.disabled, true);
+    assert.equal(button(parent.render(), 'Beri masukan').props.disabled, true);
 });
 
 test('refresh callback failure does not turn already saved feedback into a submission failure', async () => {
@@ -337,4 +337,68 @@ test('card hooks remain stable through empty, loading, and result states; PDF re
     const tree = parent.render();
     assert.equal(button(tree, 'Unduh PDF').props.disabled, true);
     assert.equal([...elements(tree)].some(node => node.type === 'button' && text(node).trim() === 'Simpan'), false);
+});
+
+test('collapsing and expanding an existing LIME explanation preserves its data without refetching', () => {
+    let explanationRequests = 0;
+    const result = detection();
+    result.data.explanation = {
+        explanation_available: true,
+        num_samples: 200,
+        tokens: [
+            { word: 'klaim', weight: 0.1234, influence: 'KE_HOAKS' },
+            { word: 'resmi', weight: -0.4321, influence: 'KE_TIDAK_HOAKS' },
+        ],
+        top_hoax_words: [{ word: 'klaim', score: 0.1234 }],
+        top_fact_words: [{ word: 'resmi', score: 0.4321 }],
+    };
+    const original = JSON.stringify(result);
+    const parent = card({ result, onRequestExplanation: () => { explanationRequests++; } },
+        async () => assert.fail('Toggling an existing explanation must not send an HTTP request'));
+    const toggle = tree => [...elements(tree)].find(node => node.type === 'button' && typeof node.props['aria-expanded'] === 'boolean');
+    const highlighter = tree => [...elements(tree)].find(node => node.type === 'LimeHighlighter');
+    const initial = parent.render();
+    assert.equal(toggle(initial).props['aria-expanded'], true);
+    const firstProps = highlighter(initial).props;
+    toggle(initial).props.onClick();
+    const collapsed = parent.render();
+    assert.equal(toggle(collapsed).props['aria-expanded'], false);
+    assert.equal(highlighter(collapsed), undefined);
+    toggle(collapsed).props.onClick();
+    const expanded = parent.render();
+    assert.equal(toggle(expanded).props['aria-expanded'], true);
+    const restored = highlighter(expanded).props;
+    assert.equal(restored.numSamples, 200);
+    assert.equal(restored.prediction, 'HOAKS');
+    assert.equal(restored.confidenceScore, undefined);
+    assert.deepEqual(JSON.parse(JSON.stringify(restored.tokens)), result.data.explanation.tokens);
+    assert.equal(restored.tokens[0].weight, 0.1234);
+    assert.equal(restored.tokens[1].weight, -0.4321);
+    assert.equal(restored.topHoax, firstProps.topHoax);
+    assert.equal(restored.topFact, firstProps.topFact);
+    assert.equal(JSON.stringify(result), original);
+    assert.equal(explanationRequests, 0);
+});
+
+test('feedback still submits correctly while an existing LIME explanation is collapsed', async () => {
+    let explanationRequests = 0;
+    const requests = [];
+    const result = detection();
+    result.data.explanation = { explanation_available: true, num_samples: 200,
+        tokens: [{ word: 'klaim', weight: 0.2, influence: 'KE_HOAKS' }] };
+    const parent = card({ result, onRequestExplanation: () => { explanationRequests++; } },
+        async (url, body) => { requests.push({ url, body }); return { data: { status: 'success' } }; });
+    const toggle = tree => [...elements(tree)].find(node => node.type === 'button' && typeof node.props['aria-expanded'] === 'boolean');
+    toggle(parent.render()).props.onClick();
+    const modal = openModal(parent);
+    button(modal.render(), 'Menurut saya TIDAK BERPOLA HOAKS').props.onClick();
+    await button(modal.render(), 'Kirim Masukan').props.onClick();
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, '/api/v1/feedback');
+    assert.equal(requests[0].body.claimed_label, 'TIDAK BERPOLA HOAKS');
+    assert.equal(requests[0].body.is_agreed, false);
+    assert.ok(statusNode(parent.render()));
+    assert.equal(toggle(parent.render()).props['aria-expanded'], false);
+    assert.equal([...elements(parent.render())].some(node => node.type === 'LimeHighlighter'), false);
+    assert.equal(explanationRequests, 0);
 });

@@ -70,14 +70,20 @@ apiClient.interceptors.response.use(
             const code = error.code;
             const status = error.response?.status;
             const timeout = error.config?.timeout;
-            console.error("[API Error]:", {
+            const diagnostic = {
                 method: typeof method === "string" && /^(get|post|put|patch|delete|head|options)$/i.test(method)
                     ? method.toUpperCase() : null,
                 endpoint: requestEndpoint(error.config?.url),
                 status: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
                 code: typeof code === "string" && /^[A-Z][A-Z0-9_]{0,39}$/.test(code) ? code : null,
                 timeout: typeof timeout === "number" && Number.isFinite(timeout) && timeout >= 0 ? timeout : null,
-            });
+            };
+            if (status === 400 || status === 422) {
+                // Penolakan input tetap diteruskan ke form, tanpa overlay error Next.js.
+                console.warn("[API Validation]:", diagnostic);
+            } else {
+                console.error("[API Error]:", diagnostic);
+            }
         }
         return Promise.reject(error);
     }

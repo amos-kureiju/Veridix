@@ -38,6 +38,7 @@ export default function VerdictCard({
 }: VerdictCardProps) {
     const [feedbackForId, setFeedbackForId] = useState<string | null>(null);
     const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+    const [showLime, setShowLime] = useState(true);
     const feedbackId = result?.data?.id;
     const feedbackStatus = (result?.data?.process_status || (result?.data?.prediction ? "dinilai" : "ditolak")).toLowerCase();
     const feedbackTarget = !loading && canAct && typeof feedbackId === "string" && feedbackId.trim() &&
@@ -225,14 +226,14 @@ export default function VerdictCard({
         <div className="bg-white border border-slate-200/80 rounded-3xl shadow-2xs p-6 space-y-5">
 
             {/* LAPIS 1: KEPUTUSAN MODEL & KONSENSUS SUARA */}
-            <div className={`border rounded-2xl p-4 flex items-center justify-between ${theme.bg}`}>
-                <div className="flex items-center gap-3">
+            <div className={`border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 ${theme.bg}`}>
+                <div className="flex items-center gap-3 min-w-0">
                     <div className="p-2 bg-white/90 rounded-xl shadow-xs">
                         <IconVerdict className="w-6 h-6" />
                     </div>
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
-                            Evaluasi Model IndoBERT {topic ? `• Topik: ${topic}` : ""}
+                            Hasil analisis {topic ? `• Topik: ${topic}` : ""}
                         </span>
                         <h2 className="text-xl font-black tracking-tight leading-tight">
                             {theme.label}
@@ -240,8 +241,8 @@ export default function VerdictCard({
                     </div>
                 </div>
 
-                <div className="text-right">
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${theme.badge}`}>
+                <div className="text-right shrink-0">
+                    <span className={`inline-block whitespace-nowrap text-xs font-bold px-3 py-1 rounded-full ${theme.badge}`}>
                         {theme.badgeText}
                     </span>
                     <p className="text-[10px] opacity-70 mt-1 flex items-center justify-end gap-1 font-mono">
@@ -263,26 +264,38 @@ export default function VerdictCard({
             {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME, SESUAI PERMINTAAN) */}
             {limeAvailable ? (
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                        Atribusi Kata (LIME Text Explainer)
-                    </p>
-                    <LimeHighlighter
-                        tokens={limeTokens}
-                        topHoax={d.explanation?.top_hoax_words}
-                        topFact={d.explanation?.top_fact_words}
-                        prediction={limePredictionLabel}
-                        numSamples={
-                            Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0
-                                ? d.explanation.num_samples
-                                : undefined
-                        }
-                        // JANGAN kirim angka fiktif jika backend tidak menyediakan skor
-                        confidenceScore={
-                            typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
-                                ? d.confidence_score
-                                : undefined
-                        }
-                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowLime((v) => !v)}
+                        className="w-full flex items-center justify-between text-left mb-2"
+                        aria-expanded={showLime}
+                    >
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            Kata yang memengaruhi hasil
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-700">
+                            {showLime ? "Sembunyikan" : "Tampilkan"}
+                        </span>
+                    </button>
+                    {showLime && (
+                        <LimeHighlighter
+                            tokens={limeTokens}
+                            topHoax={d.explanation?.top_hoax_words}
+                            topFact={d.explanation?.top_fact_words}
+                            prediction={limePredictionLabel}
+                            numSamples={
+                                Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0
+                                    ? d.explanation.num_samples
+                                    : undefined
+                            }
+                            // JANGAN kirim angka fiktif jika backend tidak menyediakan skor
+                            confidenceScore={
+                                typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
+                                    ? d.confidence_score
+                                    : undefined
+                            }
+                        />
+                    )}
                 </div>
             ) : (
                 <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center space-y-2">
@@ -348,7 +361,7 @@ export default function VerdictCard({
                     disabled={!canFeedback}
                     className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition disabled:opacity-40"
                 >
-                    Laporkan Anomali
+                    Beri masukan
                 </button>
             </div>
 

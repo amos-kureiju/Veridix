@@ -272,6 +272,76 @@ test('API diagnostics identify the request without logging credentials, query, b
     }
 });
 
+test('400 and 422 input rejections log warnings and preserve the rejected response', async () => {
+    const axios = frontendRequire('axios');
+    for (const status of [400, 422]) {
+        const errors = [];
+        const warnings = [];
+        const { apiClient } = load('lib/apiClient.ts', {}, {
+            console: {
+                ...console,
+                error: (...args) => errors.push(args),
+                warn: (...args) => warnings.push(args),
+            },
+        });
+        let rejection;
+        apiClient.defaults.adapter = async config => {
+            rejection = new axios.AxiosError('private-rejection-message', 'ERR_BAD_REQUEST', config, {}, {
+                status, data: { detail: 'private-input-detail' }, config,
+            });
+            throw rejection;
+        };
+        await assert.rejects(
+            apiClient.post('/api/v1/detect/text?token=private-query', { text: 'private-input' }),
+            error => error === rejection && error.response.status === status,
+        );
+        assert.equal(errors.length, 0);
+        assert.equal(warnings.length, 1);
+        assert.equal(warnings[0][0], '[API Validation]:');
+        assert.deepEqual(JSON.parse(JSON.stringify(warnings[0][1])), {
+            method: 'POST', endpoint: '/api/v1/detect/text',
+            status, code: 'ERR_BAD_REQUEST', timeout: 30000,
+        });
+        assert.equal(JSON.stringify(warnings).includes('private-'), false);
+    }
+});
+
+test('out-of-domain rejection reaches the page notification without preserving a previous verdict', async () => {
+    const axios = frontendRequire('axios');
+    const errors = [];
+    const warnings = [];
+    const detail = 'Naskah di luar jangkauan. Sistem dikhususkan untuk verifikasi isu sosial-politik Indonesia.';
+    const { apiClient } = load('lib/apiClient.ts', {}, {
+        console: {
+            ...console,
+            error: (...args) => errors.push(args),
+            warn: (...args) => warnings.push(args),
+        },
+    });
+    let requests = 0;
+    apiClient.defaults.adapter = async config => {
+        requests++;
+        if (requests === 1) return {
+            status: 200, statusText: 'OK', headers: {}, config,
+            data: { status: 'success', data: { id: 'previous-result', is_political: true, pattern_label: 'BERPOLA HOAKS' } },
+        };
+        throw new axios.AxiosError('Bad Request', 'ERR_BAD_REQUEST', config, {}, {
+            status: 400, data: { detail }, config,
+        });
+    };
+    const render = detectionHook((...args) => apiClient.post(...args));
+    await render().detectText('Naskah politik yang sebelumnya dinilai.');
+    assert.equal(render().result.data.id, 'previous-result');
+    const outcome = await render().detectText('Naskah berikutnya berada di luar cakupan.');
+    assert.equal(outcome, null);
+    assert.equal(render().result, null);
+    assert.equal(render().error, detail);
+    assert.equal(render().loading, false);
+    assert.equal(errors.length, 0);
+    assert.equal(warnings.length, 1);
+    assert.equal(requests, 2);
+});
+
 test('network and timeout diagnostics preserve the configured timeout and omit raw error messages', async () => {
     const axios = frontendRequire('axios');
     for (const code of ['ERR_NETWORK', 'ECONNABORTED']) {

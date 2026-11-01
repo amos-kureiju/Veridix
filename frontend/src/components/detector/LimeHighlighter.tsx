@@ -121,15 +121,15 @@ export default function LimeHighlighter({
 
     return (
         <div className="space-y-4 font-sans">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+            <div className="grid grid-cols-1 gap-4 items-stretch">
 
-                {/* SISI KIRI (7 KOLOM): TEKS BERWARNA BERDASARKAN BOBOT ASLI */}
-                <div className="lg:col-span-7 bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                {/* DAFTAR KATA BERWARNA BERDASARKAN BOBOT ASLI */}
+                <div className="min-w-0 bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
                     <div>
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60 text-[11px] font-bold text-slate-500">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-200/60 text-[11px] font-bold text-slate-500">
                             <span>Sebaran Kata Berpengaruh (Token Highlights)</span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                                {typeof numSamples === "number" ? `${numSamples} Perturbasi LIME` : "Perturbasi LIME"}
+                            <span className="shrink-0 whitespace-nowrap text-[10px] text-slate-400 font-mono">
+                                {typeof numSamples === "number" ? `${numSamples} variasi teks diuji` : "Variasi teks diuji"}
                             </span>
                         </div>
 
@@ -155,7 +155,7 @@ export default function LimeHighlighter({
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
                         <span className="flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
                             <span>Merah: Menaikkan Skor Hoaks (+)</span>
@@ -167,8 +167,8 @@ export default function LimeHighlighter({
                     </div>
                 </div>
 
-                {/* SISI KANAN (5 KOLOM): NARASI FAKTUAL CARA KERJA MODEL */}
-                <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 to-[#0b2520] text-white rounded-2xl p-4 flex flex-col justify-between shadow-xs border border-emerald-950">
+                {/* KETERANGAN CARA KERJA MODEL */}
+                <div className="min-w-0 bg-gradient-to-br from-slate-900 to-[#0b2520] text-white rounded-2xl p-4 flex flex-col justify-between shadow-xs border border-emerald-950">
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                             <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -247,9 +247,11 @@ export default function LimeHighlighter({
             {/* BAGIAN BAWAH: GRAFIK PROPORSI BOBOT KATA (SKALA BERSAMA MURNI TANPA FLOOR 1%) */}
             {(computedTopHoax.length > 0 || computedTopFact.length > 0) && (
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
-                        <span className="font-bold text-slate-800">Grafik Nilai Pengaruh Kata (Feature Importance Chart)</span>
-                        <span className="text-[10px] text-slate-400 font-mono">Skala Relatif Bersama (Maks: {globalMaxAbsScore.toFixed(4)})</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 border-b border-slate-100">
+                        <span className="font-bold text-slate-800">Seberapa besar pengaruh tiap kata</span>
+                        <span className="text-[10px] text-slate-500">
+                            Panjang batang = pengaruh relatif, bukan persentase kebenaran
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">

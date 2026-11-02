@@ -242,7 +242,7 @@ export default function ProfilePage() {
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
                                             placeholder="Masukkan nama lengkap"
-                                            disabled={isGuest}
+                                            disabled={!canEdit}
                                             className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
                                             required
                                         />
@@ -270,7 +270,7 @@ export default function ProfilePage() {
                             <div className="pt-2 flex justify-end">
                                 <button
                                     type="submit"
-                                    disabled={isGuest}
+                                    disabled={!canEdit}
                                     className="flex items-center gap-1.5 px-4 py-2.5 bg-[#0b2520] hover:bg-[#133730] disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl shadow-xs transition"
                                 >
                                     <Save className="w-3.5 h-3.5" />
@@ -307,7 +307,7 @@ export default function ProfilePage() {
                                         value={oldPassword}
                                         onChange={(e) => setOldPassword(e.target.value)}
                                         placeholder="••••••••"
-                                        disabled={isGuest}
+                                        disabled={!canEdit}
                                         className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
                                     />
                                 </div>
@@ -322,7 +322,7 @@ export default function ProfilePage() {
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
                                             placeholder="Min. 8 karakter"
-                                            disabled={isGuest}
+                                            disabled={!canEdit}
                                             className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
                                         />
                                     </div>
@@ -335,7 +335,7 @@ export default function ProfilePage() {
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             placeholder="Ulangi kata sandi baru"
-                                            disabled={isGuest}
+                                            disabled={!canEdit}
                                             className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
                                         />
                                     </div>
@@ -345,7 +345,7 @@ export default function ProfilePage() {
                             <div className="pt-2 flex justify-end">
                                 <button
                                     type="submit"
-                                    disabled={isGuest}
+                                    disabled={!canEdit}
                                     className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl shadow-xs transition"
                                 >
                                     <KeyRound className="w-3.5 h-3.5" />

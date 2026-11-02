@@ -123,10 +123,35 @@ class Penilai:
                                                    num_samples=LIME_NUM_SAMPLES)
             out["tokens"] = [{"word": str(w), "weight": round(float(s), 4),
                               "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in exp.as_list(label=1)]
+            out["diagnostik"] = self._diagnostik_lime(exp)
             out["explanation_available"] = True
         except Exception as e:  # penjelasan gagal tidak boleh menggagalkan vonis
             out["error"] = f"{type(e).__name__}: {e}"
         return out
+
+    @staticmethod
+    def _diagnostik_lime(exp) -> Dict[str, Any]:
+        """Ukuran kesetiaan lokal LIME. Nilai tidak tersedia = None (bukan 0)."""
+        def _ambil(fn):
+            try:
+                v = fn()
+                if v is None:
+                    return None
+                v = float(v)
+                # NaN/Inf bukan angka JSON yang valid: tidak tersedia = None, bukan 0
+                return round(v, 5) if np.isfinite(v) else None
+            except Exception:
+                return None
+
+        def _score():
+            s = getattr(exp, "score", None)
+            return s.get(1) if isinstance(s, dict) else s
+
+        return {
+            "local_r2": _ambil(_score),                                   # kecocokan model linear lokal (bukan akurasi)
+            "intercept": _ambil(lambda: exp.intercept[1]),
+            "local_prediction": _ambil(lambda: exp.local_pred[0]),        # prediksi pendekatan lokal untuk teks asli
+        }
 
     def siapkan_teks(self, text: Any) -> Optional[str]:
         """Teks hasil praproses yang persis dinilai model; None bila tidak layak."""

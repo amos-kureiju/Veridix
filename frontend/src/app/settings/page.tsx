@@ -94,7 +94,7 @@ export default function SettingsPage() {
     return (
         <UserShell
             guest={isGuest}
-            userName={user?.name || "Amos Manurung"}
+            userName={user?.name?.trim() || (isGuest ? "Tamu" : "Pengguna")}
             userRole={user?.role || (isGuest ? "TAMU" : "USER")}
             onLogout={logout}
         >

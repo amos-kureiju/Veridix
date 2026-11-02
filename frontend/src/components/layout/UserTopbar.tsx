@@ -72,7 +72,7 @@ export default function UserTopbar({
     const notifRef = useRef<HTMLDivElement>(null);
 
     // Mode terkontrol (dari parent) atau mode lokal (data contoh)
-    const [localNotifications, setLocalNotifications] = useState<UserNotification[]>(SAMPLE_NOTIFICATIONS);
+    const [localNotifications, setLocalNotifications] = useState<UserNotification[]>([]);
     const notifications = guest ? [] : notificationsProp ?? localNotifications;
     const unreadCount = notifications.filter((n) => !n.read).length;
 

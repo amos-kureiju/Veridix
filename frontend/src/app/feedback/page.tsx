@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import UserSidebar from "@/components/layout/UserShell";
 import FeedbackCard from "@/components/detector/FeedbackCard";
 import { FeedbackItem } from "@/types/detector";
 import { Search, Send, Lock } from "lucide-react";

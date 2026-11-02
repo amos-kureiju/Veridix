@@ -34,7 +34,7 @@ export default function UserSidebar({
     onLogout,
     guest = false,
     userName = "Pengguna",
-    feedbackCount = 2,
+    feedbackCount = 0,
 }: UserSidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);

@@ -47,7 +47,7 @@ export default function HelpPage() {
   return (
     <UserShell 
       guest={isGuest} 
-      userName={user?.name || "Amos Manurung"}
+      userName={user?.name?.trim() || (isGuest ? "Tamu" : "Pengguna")}
       userRole={user?.role || "USER"}
       onLogout={logout}
     >

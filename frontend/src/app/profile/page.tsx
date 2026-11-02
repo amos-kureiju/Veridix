@@ -21,7 +21,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function ProfilePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { user, isGuest, updateProfile, changePassword, logout } = useAuth();
+    const { user, isGuest, updateProfile, changePassword, logout, ready, loading, sessionError } = useAuth();
+    const canEdit = ready && Boolean(user) && !isGuest && !loading && !sessionError;
 
     // Fallback data cerdas: Jika mode tamu, tampilkan demo identitas agar UI tetap menarik
     const currentName = user?.name || (isGuest ? "Pengunjung Demo" : "Pengguna");
@@ -50,6 +51,7 @@ export default function ProfilePage() {
     // Handler Simpan Profil (Hanya kirim full_name ke backend)
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!canEdit) return;
         if (isGuest) {
             alert("Mode Tamu tidak dapat mengubah profil. Silakan daftar atau masuk akun resmi.");
             return;
@@ -65,6 +67,7 @@ export default function ProfilePage() {
     // Handler Ubah Sandi (Dengan Session Revocation & Auto Logout)
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!canEdit) return;
         if (isGuest) {
             alert("Mode Tamu tidak memiliki kata sandi.");
             return;

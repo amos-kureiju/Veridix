@@ -30,7 +30,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-SCRIPT_VERSION = "5.1"
+SCRIPT_VERSION = "5.2"
 N_KONTROL = 10
 PANJANG_MIN_KATA = 3
 LABEL_MAP = {"BERPOLA HOAKS": 1, "TIDAK BERPOLA HOAKS": 0}  # selain ini -> None
@@ -58,6 +58,7 @@ KORPUS_UJI = [
 # sebelum label dipakai sebagai acuan akurasi.
 for _k in KORPUS_UJI:
     _k.setdefault("sumber_label", None)
+    _k["status_label"] = "bersumber" if _k["sumber_label"] else "skenario_peneliti"
 
 
 def punya_data(k):
@@ -146,6 +147,18 @@ class Penilai:
 # ----------------------------------------------------------------------------------
 def _valid(x):
     return x is not None and isinstance(x, (int, float)) and math.isfinite(x)
+
+
+def _angka(x):
+    """Satu angka finite dari skalar / list / array 1 elemen; selain itu None."""
+    try:
+        a = np.ravel(np.asarray(x, dtype=float))
+    except (ValueError, TypeError):
+        return None
+    return float(a[0]) if a.size == 1 and math.isfinite(a[0]) else None
+
+
+KUNCI_LOCAL_PRED = ("local_pred", "local_prediction", "local_pred_hoax")
 
 
 def delta_pt(p, p0):
@@ -322,7 +335,8 @@ def turunkan_metadata(pen, konfig, seeds, diag):
 def uji_kasus(pen, penilai, item):
     res = pen.nilai(item["teks"], explain=True, debug=True)
     base = {"id": item["id"], "label_ground_truth": item["label_ground_truth"],
-            "sumber_label": item.get("sumber_label"), "kategori": item["kategori"],
+            "sumber_label": item.get("sumber_label"), "status_label": item.get("status_label"),
+            "kategori": item["kategori"],
             "teks_asli": item["teks"], "status_engine": res.get("status")}
 
     if not res.get("success"):
@@ -345,6 +359,10 @@ def uji_kasus(pen, penilai, item):
 
     diag = expl.get("diagnostik") or expl.get("diagnostik_lime") or {}
     local_r2 = diag.get("local_r2", diag.get("local_r2_score"))
+    # Kecocokan model linear lokal pada TEKS ASLI: |prediksi lokal - skor asli (rerata 3 seed)|.
+    # Hanya bermakna jika kelas yang dijelaskan LIME = kelas hoaks (verifikasi di inference.py).
+    local_pred = next((v for v in (_angka(diag.get(k_)) for k_ in KUNCI_LOCAL_PRED) if v is not None), None)
+    abs_local_error = None if local_pred is None else abs(local_pred - p0)
 
     merah = [t["word"] for t in sorted((t for t in tokens if t.get("weight", 0) > 0),
                                        key=lambda t: -t["weight"])][:2]
@@ -419,6 +437,7 @@ def uji_kasus(pen, penilai, item):
             "pred_model": LABEL_MAP.get(res.get("label")),
             "tokens_lime": tokens, "local_r2": local_r2, "diagnostik_lime": diag,
             "num_samples_explanation": expl.get("num_samples", diag.get("num_samples")),
+            "local_pred": local_pred, "abs_local_error": abs_local_error,
             "kata_merah": merah, "kata_hijau": hijau,
             "ablasi_merah": ab_m, "ablasi_hijau": ab_h,
             "kontrol_acak": kontrol_out, "n_kandidat_kontrol": len(kandidat)}
@@ -518,10 +537,11 @@ def _probe_alur_inti():
 
     class Pen:
         rule = "2 dari 3 seed"
-        def __init__(self, mode="normal", offset=0.0, tolak=False, lime_gagal=False):
+        def __init__(self, mode="normal", offset=0.0, tolak=False, lime_gagal=False, tanpa_local_pred=False):
             self.backend = Backend(mode)
             self._explainer = Explainer()  # privat, seperti aplikasi
             self.offset, self.tolak, self.lime_gagal = offset, tolak, lime_gagal
+            self.tanpa_lp = tanpa_local_pred
 
         def nilai(self, teks, explain=True, debug=True):
             if self.tolak:
@@ -532,7 +552,9 @@ def _probe_alur_inti():
                     "explanation": {"explanation_available": not self.lime_gagal,
                                     "tokens": [] if self.lime_gagal else TOKENS,
                                     "reason": "lime error" if self.lime_gagal else None,
-                                    "num_samples": 500, "diagnostik": {"local_r2": 0.9}}}
+                                    "num_samples": 500,
+                                    "diagnostik": ({"local_r2": 0.9} if self.tanpa_lp
+                                                   else {"local_r2": 0.9, "local_pred": 0.50})}}
 
     item = {"id": "S01", "label_ground_truth": 1, "kategori": "sintetis", "teks": TEKS}
 
@@ -568,6 +590,11 @@ def _probe_alur_inti():
     h["meta_tak_terdeteksi_ditandai"] = md3["seed_lime"]["nilai"] == "TIDAK_TERDETEKSI" \
         and md3["aturan_voting"]["nilai"] == "TIDAK_TERDETEKSI"
     h["num_samples_per_kasus"] = k["num_samples_explanation"] == 500
+    h["abs_local_error_dihitung"] = (k["abs_local_error"] is not None
+                                     and abs(k["abs_local_error"] - 0.05) < 1e-9)
+    h["abs_local_error_tanpa_payload"] = jalankan(tanpa_local_pred=True)["abs_local_error"] is None
+    h["angka_unwrap"] = (_angka([0.4]) == 0.4 and _angka(None) is None
+                         and _angka(float("nan")) is None and _angka({"a": 1}) is None)
 
     # pemindaian lazy: explainer belum dibuat -> sumber modul; setelah dibuat -> atribut explainer
     import types
@@ -639,8 +666,11 @@ def main():
             continue
         if k["status"] != "ok":
             print(f"  [STATUS: {k['status']}] " + "; ".join(k.get("masalah", [])))
+        ale = k["abs_local_error"]
+        ale_s = "NA" if ale is None else f"{ale:.4f}"
         print(f"  P(awal)={k['p_awal_hoax']*100:.2f}% | {k['label_prediksi']} "
-              f"(pred={k['pred_model']}, label peneliti={k['label_ground_truth']}) | R2={k['local_r2']}")
+              f"(pred={k['pred_model']}, label peneliti={k['label_ground_truth']}, "
+              f"status label={k['status_label']}) | R2={k['local_r2']} | |lokal-asli|={ale_s}")
         for nama, ab in (("Merah", k["ablasi_merah"]), ("Hijau", k["ablasi_hijau"])):
             for n, a in ab.items():
                 c = a["kontrol_setara"]
@@ -656,6 +686,11 @@ def main():
         if isinstance(v, dict) and v.get("nilai") == "TIDAK_TERDETEKSI":
             print(f"PERINGATAN: {kunci} tidak terdeteksi; isi KONFIG_MANUAL['{kunci}'].")
 
+    if not all(it.get("sumber_label") for it in KORPUS_UJI):
+        print("PERINGATAN: sumber_label belum lengkap; label = skenario peneliti, bukan acuan independen.")
+    if not any(k.get("local_pred") is not None for k in kasus):
+        print("PERINGATAN: payload LIME tidak memuat local_pred; abs_local_error tidak dapat dihitung.")
+
     metadata = {
         "script_version": SCRIPT_VERSION, "waktu_eksekusi": datetime.now().isoformat(timespec="seconds"),
         "durasi_detik": round(durasi, 2), "python": platform.python_version(),
@@ -668,6 +703,9 @@ def main():
                              for s in sorted({k["status"] for k in kasus})},
         "num_samples_teramati": sorted({k["num_samples_explanation"] for k in kasus
                                         if k.get("num_samples_explanation") is not None}),
+        "n_local_pred_tersedia": sum(1 for k in kasus if k.get("local_pred") is not None),
+        "n_kasus_uji": len(KORPUS_UJI),
+        "n_label_bersumber": sum(1 for it in KORPUS_UJI if it.get("sumber_label")),
         "catatan_label": "label_ground_truth = skenario berlabel peneliti; belum acuan independen "
                          "kecuali sumber_label terisi.",
         "catatan_statistik": "kontrol_setara = hitungan deskriptif dari N_KONTROL kontrol acak, "
@@ -683,7 +721,7 @@ def main():
     baris = []
     for k in kasus:
         b = {"id": k["id"], "status": k["status"], "status_engine": k.get("status_engine"),
-             "label_peneliti": k["label_ground_truth"]}
+             "label_peneliti": k["label_ground_truth"], "status_label": k.get("status_label")}
         if punya_data(k):
             pm = k["ablasi_merah"].get("hapus_pasangan") or {}
             ph = k["ablasi_hijau"].get("hapus_pasangan") or {}
@@ -701,6 +739,7 @@ def main():
                 "kontrol_k1_mean_pt": k1.get("mean"), "kontrol_k2_mean_pt": k2.get("mean"),
                 "kontrol_k2_std_pt": k2.get("std"), "local_r2": k["local_r2"],
                 "num_samples": k.get("num_samples_explanation"),
+                "local_pred": k.get("local_pred"), "abs_local_error": k.get("abs_local_error"),
             })
         else:
             b["alasan"] = k.get("alasan")

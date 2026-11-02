@@ -1,0 +1,5 @@
+id,status,label,votes,p_awal,kata_merah,kata_hijau,delta_hapus_merah_pt,delta_acak_merah_rerata_pt,delta_hapus_hijau_pt,delta_acak_hijau_rerata_pt,local_r2,lime_num_samples,n_acak
+T01,dinilai,BERPOLA HOAKS,3/3,0.9646,dicoblos|sebelum,dua|suara,-12.05,1.09,2.42,1.09,0.37523,200,10
+T02,dinilai,BERPOLA HOAKS,3/3,0.9712,keuangan|dokumen,politik|demi,-12.48,-0.62,2.66,-0.62,0.42927,200,10
+T03,dinilai,TIDAK BERPOLA HOAKS,0/3,0.0671,penerima,memastikan|Kementerian,-5.31,4.21,92.53,10.5,0.73254,200,10
+T04,dinilai,TIDAK BERPOLA HOAKS,0/3,0.0062,jalan,memangkas|Widodo,-0.05,0.14,1.0,0.94,0.62236,200,10

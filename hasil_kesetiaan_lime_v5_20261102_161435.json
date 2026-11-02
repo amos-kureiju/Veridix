@@ -1,0 +1,2125 @@
+{
+  "metadata": {
+    "script_version": "5.1",
+    "waktu_eksekusi": "2026-11-02T16:14:35",
+    "durasi_detik": 197.33,
+    "python": "3.13.5",
+    "model_name": "indobenchmark/indobert-base-p1",
+    "n_seed": 3,
+    "audit_backend": {
+      "text_pipeline_sha256": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+      "base_revision": "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2",
+      "sha256_seed_42": "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+      "sha256_seed_123": "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+      "sha256_seed_999": "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3"
+    },
+    "jalur_skor": "backend.seed_probs_each -> mean(axis=1)",
+    "n_kontrol_per_k": 10,
+    "toleransi_baseline": 1e-06,
+    "aturan_voting": {
+      "nilai": "unanimous",
+      "sumber": "pen.rule"
+    },
+    "seed_model": [
+      42,
+      123,
+      999
+    ],
+    "seed_lime": {
+      "nilai": 42,
+      "sumber": "KONFIG_MANUAL",
+      "terdeteksi_otomatis": null,
+      "cocok_dengan_deteksi": null
+    },
+    "jumlah_sampel_lime": {
+      "nilai": {
+        "modul.LIME_NUM_SAMPLES": 200
+      },
+      "sumber": "konstanta modul",
+      "sumber_per_kunci": {
+        "modul.LIME_NUM_SAMPLES": "konstanta modul"
+      }
+    },
+    "konfigurasi_terdeteksi": {
+      "backend.seeds": [
+        42,
+        123,
+        999
+      ],
+      "modul.SEEDS": [
+        42,
+        123,
+        999
+      ],
+      "modul.LIME_NUM_SAMPLES": 200,
+      "modul.LIME_CATATAN": "Penjelasan LIME bersifat indikatif: ia menunjukkan kata yang memengaruhi keluaran model, bukan bukti bahwa kata itu benar atau salah."
+    },
+    "n_teks_unik_dinilai": 94,
+    "n_pengukuran_gagal": 0,
+    "ringkasan_status": {
+      "ok": 4
+    },
+    "num_samples_teramati": [
+      200
+    ],
+    "catatan_label": "label_ground_truth = skenario berlabel peneliti; belum acuan independen kecuali sumber_label terisi.",
+    "catatan_statistik": "kontrol_setara = hitungan deskriptif dari N_KONTROL kontrol acak, bukan p-value atau uji signifikansi.",
+    "catatan_pelaporan": "Hanya kasus berstatus 'ok' untuk tabel utama; status lain dilaporkan terpisah."
+  },
+  "kasus_uji": [
+    {
+      "id": "T01",
+      "label_ground_truth": 1,
+      "sumber_label": null,
+      "kategori": "Klaim Hoaks Logistik Pemilu",
+      "teks_asli": "Beredar kabar viral jutaan surat suara pemilu di gudang logistik Tanjung Priok sudah dicoblos nomor dua secara curang sebelum hari pencoblosan nasional dimulai.",
+      "status_engine": "dinilai",
+      "status": "ok",
+      "masalah": [],
+      "n_variasi_total": 26,
+      "n_variasi_valid": 26,
+      "n_variasi_gagal": 0,
+      "teks_dinilai": "Beredar kabar viral jutaan surat suara pemilu di gudang logistik Tanjung Priok sudah dicoblos nomor dua secara curang sebelum hari pencoblosan nasional dimulai.",
+      "p_awal_hoax": 0.964637557665507,
+      "p_awal_engine": 0.964638,
+      "p_awal_per_seed": [
+        0.9268959760665894,
+        0.9878396391868591,
+        0.9791770577430725
+      ],
+      "selisih_baseline": 4.4233449303376915e-07,
+      "baseline_konsisten": true,
+      "votes_hoax": "3/3",
+      "label_prediksi": "BERPOLA HOAKS",
+      "pred_model": 1,
+      "tokens_lime": [
+        {
+          "word": "dicoblos",
+          "weight": 0.0372,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "dua",
+          "weight": -0.0295,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "suara",
+          "weight": -0.0281,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "sebelum",
+          "weight": 0.0278,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "logistik",
+          "weight": -0.0232,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "kabar",
+          "weight": -0.0205,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "curang",
+          "weight": 0.0173,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "Beredar",
+          "weight": -0.016,
+          "influence": "KE_TIDAK_HOAKS"
+        }
+      ],
+      "local_r2": 0.37523,
+      "diagnostik_lime": {
+        "local_r2": 0.37523,
+        "intercept": 0.98947,
+        "local_prediction": 0.95445
+      },
+      "num_samples_explanation": 200,
+      "kata_merah": [
+        "dicoblos",
+        "sebelum"
+      ],
+      "kata_hijau": [
+        "dua",
+        "suara"
+      ],
+      "ablasi_merah": {
+        "hapus_single_dicoblos": {
+          "p_setelah": 0.9056815703709921,
+          "p_setelah_per_seed": [
+            0.8253295421600342,
+            0.9590836763381958,
+            0.9326314926147461
+          ],
+          "delta_pt": -5.89559872945149,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_single_sebelum": {
+          "p_setelah": 0.9413886666297913,
+          "p_setelah_per_seed": [
+            0.8809994459152222,
+            0.9744384288787842,
+            0.9687281250953674
+          ],
+          "delta_pt": -2.32488910357157,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.8441423177719116,
+          "p_setelah_per_seed": [
+            0.7248927354812622,
+            0.908033013343811,
+            0.8995012044906616
+          ],
+          "delta_pt": -12.049523989359534,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "ablasi_hijau": {
+        "hapus_single_dua": {
+          "p_setelah": 0.9807707269986471,
+          "p_setelah_per_seed": [
+            0.9622674584388733,
+            0.9916408061981201,
+            0.9884039163589478
+          ],
+          "delta_pt": 1.613316933314013,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_single_suara": {
+          "p_setelah": 0.9801873763402303,
+          "p_setelah_per_seed": [
+            0.9597876071929932,
+            0.9917410612106323,
+            0.9890334606170654
+          ],
+          "delta_pt": 1.5549818674723381,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.9888530373573303,
+          "p_setelah_per_seed": [
+            0.9783976078033447,
+            0.9941891431808472,
+            0.9939723610877991
+          ],
+          "delta_pt": 2.421547969182336,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "kontrol_acak": {
+        "k1": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "surat"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9563383062680563,
+              "p_setelah_per_seed": [
+                0.9080184102058411,
+                0.9855388402938843,
+                0.9754576683044434
+              ],
+              "delta_pt": -0.8299251397450691,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "pencoblosan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9444322188695272,
+              "p_setelah_per_seed": [
+                0.8910403251647949,
+                0.9787533283233643,
+                0.9635030031204224
+              ],
+              "delta_pt": -2.0205338795979744,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "pencoblosan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9444322188695272,
+              "p_setelah_per_seed": [
+                0.8910403251647949,
+                0.9787533283233643,
+                0.9635030031204224
+              ],
+              "delta_pt": -2.0205338795979744,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "viral"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9630587299664816,
+              "p_setelah_per_seed": [
+                0.9359944462776184,
+                0.9856514930725098,
+                0.9675302505493164
+              ],
+              "delta_pt": -0.1578827699025398,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "nasional"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9643513758977255,
+              "p_setelah_per_seed": [
+                0.9254987835884094,
+                0.9881464242935181,
+                0.9794089198112488
+              ],
+              "delta_pt": -0.02861817677815015,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "pencoblosan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9444322188695272,
+              "p_setelah_per_seed": [
+                0.8910403251647949,
+                0.9787533283233643,
+                0.9635030031204224
+              ],
+              "delta_pt": -2.0205338795979744,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "dimulai"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9798013766606649,
+              "p_setelah_per_seed": [
+                0.9556776881217957,
+                0.9937829375267029,
+                0.9899435043334961
+              ],
+              "delta_pt": 1.5163818995157952,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "hari"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9660862684249878,
+              "p_setelah_per_seed": [
+                0.933447003364563,
+                0.9870967864990234,
+                0.977715015411377
+              ],
+              "delta_pt": 0.14487107594808313,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "nomor"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9609034260114034,
+              "p_setelah_per_seed": [
+                0.918097198009491,
+                0.9865928292274475,
+                0.9780202507972717
+              ],
+              "delta_pt": -0.3734131654103523,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "gudang"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9668158690134684,
+              "p_setelah_per_seed": [
+                0.9381154775619507,
+                0.9846723675727844,
+                0.9776597619056702
+              ],
+              "delta_pt": 0.21783113479614258,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": -0.5572356780370014,
+            "std": 1.1721000461140525,
+            "min": -2.0205338795979744,
+            "max": 1.5163818995157952
+          }
+        },
+        "k2": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "nomor",
+                "dimulai"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9779666463534037,
+              "p_setelah_per_seed": [
+                0.9506963491439819,
+                0.99339359998703,
+                0.9898099899291992
+              ],
+              "delta_pt": 1.3329088687896729,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "curang",
+                "Priok"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9268630146980286,
+              "p_setelah_per_seed": [
+                0.8447768688201904,
+                0.9785909652709961,
+                0.9572212100028992
+              ],
+              "delta_pt": -3.7774542967478397,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "gudang",
+                "pencoblosan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.942116896311442,
+              "p_setelah_per_seed": [
+                0.8953399062156677,
+                0.9713802933692932,
+                0.9596304893493652
+              ],
+              "delta_pt": -2.252066135406494,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "pencoblosan",
+                "Beredar"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9841908613840739,
+              "p_setelah_per_seed": [
+                0.9807923436164856,
+                0.9854942560195923,
+                0.9862859845161438
+              ],
+              "delta_pt": 1.9553303718566895,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "nasional",
+                "surat"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.954623281955719,
+              "p_setelah_per_seed": [
+                0.9013584852218628,
+                0.9860312938690186,
+                0.9764800667762756
+              ],
+              "delta_pt": -1.0014275709787968,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "Beredar",
+                "pemilu"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9816780885060629,
+              "p_setelah_per_seed": [
+                0.9777406454086304,
+                0.9850487112998962,
+                0.9822449088096619
+              ],
+              "delta_pt": 1.70405308405559,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "sudah",
+                "surat"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9524211287498474,
+              "p_setelah_per_seed": [
+                0.8988053798675537,
+                0.9845861196517944,
+                0.9738718867301941
+              ],
+              "delta_pt": -1.221642891565955,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "viral",
+                "nasional"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.962065597375234,
+              "p_setelah_per_seed": [
+                0.932127833366394,
+                0.986261785030365,
+                0.9678071737289429
+              ],
+              "delta_pt": -0.25719602902729566,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "viral",
+                "dimulai"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9813212752342224,
+              "p_setelah_per_seed": [
+                0.9642072916030884,
+                0.9933857321739197,
+                0.9863708019256592
+              ],
+              "delta_pt": 1.668371756871545,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "secara",
+                "jutaan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9507692654927572,
+              "p_setelah_per_seed": [
+                0.911959171295166,
+                0.9790846109390259,
+                0.9612640142440796
+              ],
+              "delta_pt": -1.3868292172749763,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": -0.323595205942786,
+            "std": 1.9455294060099932,
+            "min": -3.7774542967478397,
+            "max": 1.9553303718566895
+          }
+        }
+      },
+      "n_kandidat_kontrol": 18
+    },
+    {
+      "id": "T02",
+      "label_ground_truth": 1,
+      "sumber_label": null,
+      "kategori": "Klaim Hoaks Anggaran Bansos",
+      "teks_asli": "Terbongkar dokumen rahasia menteri keuangan diam-diam menyetujui pemotongan anggaran bantuan sosial rakyat demi mendanai proyek oligarki dan dinasti politik.",
+      "status_engine": "dinilai",
+      "status": "ok",
+      "masalah": [],
+      "n_variasi_total": 26,
+      "n_variasi_valid": 26,
+      "n_variasi_gagal": 0,
+      "teks_dinilai": "Terbongkar dokumen rahasia menteri keuangan diam-diam menyetujui pemotongan anggaran bantuan sosial rakyat demi mendanai proyek oligarki dan dinasti politik.",
+      "p_awal_hoax": 0.9711782733599345,
+      "p_awal_engine": 0.971178,
+      "p_awal_per_seed": [
+        0.9667457938194275,
+        0.9780812859535217,
+        0.9687077403068542
+      ],
+      "selisih_baseline": 2.7335993446619966e-07,
+      "baseline_konsisten": true,
+      "votes_hoax": "3/3",
+      "label_prediksi": "BERPOLA HOAKS",
+      "pred_model": 1,
+      "tokens_lime": [
+        {
+          "word": "politik",
+          "weight": -0.0641,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "keuangan",
+          "weight": 0.0366,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "dokumen",
+          "weight": 0.036,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "Terbongkar",
+          "weight": 0.0332,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "rakyat",
+          "weight": 0.0307,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "rahasia",
+          "weight": 0.0261,
+          "influence": "KE_HOAKS"
+        },
+        {
+          "word": "demi",
+          "weight": -0.0259,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "oligarki",
+          "weight": -0.0199,
+          "influence": "KE_TIDAK_HOAKS"
+        }
+      ],
+      "local_r2": 0.42927,
+      "diagnostik_lime": {
+        "local_r2": 0.42927,
+        "intercept": 0.91851,
+        "local_prediction": 0.97111
+      },
+      "num_samples_explanation": 200,
+      "kata_merah": [
+        "keuangan",
+        "dokumen"
+      ],
+      "kata_hijau": [
+        "politik",
+        "demi"
+      ],
+      "ablasi_merah": {
+        "hapus_single_keuangan": {
+          "p_setelah": 0.923519233862559,
+          "p_setelah_per_seed": [
+            0.908758819103241,
+            0.9468021988868713,
+            0.9149966835975647
+          ],
+          "delta_pt": -4.765903949737549,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_single_dokumen": {
+          "p_setelah": 0.9337445696194967,
+          "p_setelah_per_seed": [
+            0.91014164686203,
+            0.9591819047927856,
+            0.9319101572036743
+          ],
+          "delta_pt": -3.743370374043775,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.846362829208374,
+          "p_setelah_per_seed": [
+            0.7962174415588379,
+            0.9025958776473999,
+            0.8402751684188843
+          ],
+          "delta_pt": -12.481544415156042,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "ablasi_hijau": {
+        "hapus_single_politik": {
+          "p_setelah": 0.993992547194163,
+          "p_setelah_per_seed": [
+            0.994899332523346,
+            0.9953071475028992,
+            0.9917711615562439
+          ],
+          "delta_pt": 2.2814273834228516,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_single_demi": {
+          "p_setelah": 0.9879381855328878,
+          "p_setelah_per_seed": [
+            0.9855749607086182,
+            0.989628791809082,
+            0.9886108040809631
+          ],
+          "delta_pt": 1.6759912172953362,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.9977598190307617,
+          "p_setelah_per_seed": [
+            0.9980599284172058,
+            0.9980593323707581,
+            0.9971601963043213
+          ],
+          "delta_pt": 2.6581545670827267,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "kontrol_acak": {
+        "k1": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "dan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.978086014588674,
+              "p_setelah_per_seed": [
+                0.9761828780174255,
+                0.9842618703842163,
+                0.9738132953643799
+              ],
+              "delta_pt": 0.6907741228739495,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "mendanai"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9668660561243693,
+              "p_setelah_per_seed": [
+                0.9608036875724792,
+                0.9723259806632996,
+                0.9674685001373291
+              ],
+              "delta_pt": -0.43122172355651855,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "mendanai"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9668660561243693,
+              "p_setelah_per_seed": [
+                0.9608036875724792,
+                0.9723259806632996,
+                0.9674685001373291
+              ],
+              "delta_pt": -0.43122172355651855,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "menyetujui"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9704602956771851,
+              "p_setelah_per_seed": [
+                0.9727895259857178,
+                0.9709498882293701,
+                0.9676414728164673
+              ],
+              "delta_pt": -0.07179776827493933,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "bantuan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9679522116978964,
+              "p_setelah_per_seed": [
+                0.9595463871955872,
+                0.9753900170326233,
+                0.9689202308654785
+              ],
+              "delta_pt": -0.32260616620380933,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "mendanai"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9668660561243693,
+              "p_setelah_per_seed": [
+                0.9608036875724792,
+                0.9723259806632996,
+                0.9674685001373291
+              ],
+              "delta_pt": -0.43122172355651855,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "rahasia"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9593053857485453,
+              "p_setelah_per_seed": [
+                0.9437289237976074,
+                0.9739789366722107,
+                0.9602082967758179
+              ],
+              "delta_pt": -1.187288761138916,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "Terbongkar"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9583824078241984,
+              "p_setelah_per_seed": [
+                0.9574989676475525,
+                0.951890230178833,
+                0.9657580256462097
+              ],
+              "delta_pt": -1.2795865535736084,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "oligarki"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9736966490745544,
+              "p_setelah_per_seed": [
+                0.9688463807106018,
+                0.978559672832489,
+                0.9736838936805725
+              ],
+              "delta_pt": 0.25183757146199914,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "proyek"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.9770091970761617,
+              "p_setelah_per_seed": [
+                0.9697259068489075,
+                0.9839699864387512,
+                0.9773316979408264
+              ],
+              "delta_pt": 0.5830923716227288,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": -0.26292403539021514,
+            "std": 0.6585657660767519,
+            "min": -1.2795865535736084,
+            "max": 0.6907741228739495
+          }
+        },
+        "k2": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "rahasia",
+                "mendanai"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.961637814839681,
+              "p_setelah_per_seed": [
+                0.9476211667060852,
+                0.9727796912193298,
+                0.9645125865936279
+              ],
+              "delta_pt": -0.9540458520253425,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "dinasti",
+                "menyetujui"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9808980822563171,
+              "p_setelah_per_seed": [
+                0.9819723963737488,
+                0.9848406910896301,
+                0.9758811593055725
+              ],
+              "delta_pt": 0.9719808896382687,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "rahasia",
+                "menyetujui"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9629756013552347,
+              "p_setelah_per_seed": [
+                0.9594362378120422,
+                0.9696460962295532,
+                0.9598444700241089
+              ],
+              "delta_pt": -0.8202672004699707,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "diam",
+                "anggaran"
+              ],
+              "n_kemunculan_terhapus": 3,
+              "p_setelah": 0.9317989150683085,
+              "p_setelah_per_seed": [
+                0.8719350695610046,
+                0.9670740365982056,
+                0.9563876390457153
+              ],
+              "delta_pt": -3.9379358291625977,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "Terbongkar",
+                "pemotongan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9673275550206503,
+              "p_setelah_per_seed": [
+                0.9660769104957581,
+                0.9608593583106995,
+                0.9750463962554932
+              ],
+              "delta_pt": -0.3850718339284187,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "mendanai",
+                "dan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9795138041178385,
+              "p_setelah_per_seed": [
+                0.9772406220436096,
+                0.9831706881523132,
+                0.9781301021575928
+              ],
+              "delta_pt": 0.8335530757904053,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "dinasti",
+                "menteri"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9766672849655151,
+              "p_setelah_per_seed": [
+                0.9590216279029846,
+                0.989048182964325,
+                0.9819320440292358
+              ],
+              "delta_pt": 0.5489011605580685,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "mendanai",
+                "menyetujui"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9697421987851461,
+              "p_setelah_per_seed": [
+                0.9722328782081604,
+                0.9680421352386475,
+                0.9689515829086304
+              ],
+              "delta_pt": -0.14360745747883374,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "proyek",
+                "dan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.9828314582506815,
+              "p_setelah_per_seed": [
+                0.9782222509384155,
+                0.9882751703262329,
+                0.9819969534873962
+              ],
+              "delta_pt": 1.165318489074707,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "diam",
+                "mendanai"
+              ],
+              "n_kemunculan_terhapus": 3,
+              "p_setelah": 0.9135950605074564,
+              "p_setelah_per_seed": [
+                0.8481727838516235,
+                0.9492694735527039,
+                0.943342924118042
+              ],
+              "delta_pt": -5.758321285247803,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": -0.8479495843251517,
+            "std": 2.273670064876842,
+            "min": -5.758321285247803,
+            "max": 1.165318489074707
+          }
+        }
+      },
+      "n_kandidat_kontrol": 15
+    },
+    {
+      "id": "T03",
+      "label_ground_truth": 0,
+      "sumber_label": null,
+      "kategori": "Berita Fakta Kebijakan Kemenkeu",
+      "teks_asli": "Kementerian Keuangan memastikan alokasi anggaran perlindungan sosial dan bantuan pangan tahun 2026 disalurkan secara transparan kepada pemerintah daerah penerima manfaat.",
+      "status_engine": "dinilai",
+      "status": "ok",
+      "masalah": [],
+      "n_variasi_total": 24,
+      "n_variasi_valid": 24,
+      "n_variasi_gagal": 0,
+      "teks_dinilai": "Kementerian Keuangan memastikan alokasi anggaran perlindungan sosial dan bantuan pangan tahun 2026 disalurkan secara transparan kepada pemerintah daerah penerima manfaat.",
+      "p_awal_hoax": 0.06713566308220227,
+      "p_awal_engine": 0.067136,
+      "p_awal_per_seed": [
+        0.044695526361465454,
+        0.10364782810211182,
+        0.053063634783029556
+      ],
+      "selisih_baseline": 3.3691779773026287e-07,
+      "baseline_konsisten": true,
+      "votes_hoax": "0/3",
+      "label_prediksi": "TIDAK BERPOLA HOAKS",
+      "pred_model": 0,
+      "tokens_lime": [
+        {
+          "word": "memastikan",
+          "weight": -0.3874,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "Kementerian",
+          "weight": -0.2301,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "disalurkan",
+          "weight": -0.1549,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "perlindungan",
+          "weight": -0.1353,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "Keuangan",
+          "weight": -0.1332,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "2026",
+          "weight": -0.1006,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "dan",
+          "weight": -0.0971,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "penerima",
+          "weight": 0.093,
+          "influence": "KE_HOAKS"
+        }
+      ],
+      "local_r2": 0.73254,
+      "diagnostik_lime": {
+        "local_r2": 0.73254,
+        "intercept": 1.38375,
+        "local_prediction": 0.23814
+      },
+      "num_samples_explanation": 200,
+      "kata_merah": [
+        "penerima"
+      ],
+      "kata_hijau": [
+        "memastikan",
+        "Kementerian"
+      ],
+      "ablasi_merah": {
+        "hapus_single_penerima": {
+          "p_setelah": 0.014005955929557482,
+          "p_setelah_per_seed": [
+            0.01161017082631588,
+            0.009884059429168701,
+            0.020523637533187866
+          ],
+          "delta_pt": -5.312970715264479,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "ablasi_hijau": {
+        "hapus_single_memastikan": {
+          "p_setelah": 0.8791003823280334,
+          "p_setelah_per_seed": [
+            0.8105982542037964,
+            0.9558094143867493,
+            0.8708934783935547
+          ],
+          "delta_pt": 81.19647192458311,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_single_Kementerian": {
+          "p_setelah": 0.941590150197347,
+          "p_setelah_per_seed": [
+            0.9157578349113464,
+            0.9610177874565125,
+            0.9479948282241821
+          ],
+          "delta_pt": 87.44544871151447,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.9924437602361044,
+          "p_setelah_per_seed": [
+            0.9899702668190002,
+            0.995195209980011,
+            0.9921658039093018
+          ],
+          "delta_pt": 92.5308097153902,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "kontrol_acak": {
+        "k1": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "perlindungan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.10389921565850575,
+              "p_setelah_per_seed": [
+                0.07566941529512405,
+                0.15488485991954803,
+                0.08114337176084518
+              ],
+              "delta_pt": 3.676355257630348,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "secara"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.07431309173504512,
+              "p_setelah_per_seed": [
+                0.04541806876659393,
+                0.11565257608890533,
+                0.06186863034963608
+              ],
+              "delta_pt": 0.7177428652842849,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "bantuan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.05613805974523226,
+              "p_setelah_per_seed": [
+                0.0330372154712677,
+                0.08610068261623383,
+                0.04927628114819527
+              ],
+              "delta_pt": -1.099760333697001,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "pangan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.0761985294520855,
+              "p_setelah_per_seed": [
+                0.05371008440852165,
+                0.10376325994729996,
+                0.07112224400043488
+              ],
+              "delta_pt": 0.9062866369883225,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "secara"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.07431309173504512,
+              "p_setelah_per_seed": [
+                0.04541806876659393,
+                0.11565257608890533,
+                0.06186863034963608
+              ],
+              "delta_pt": 0.7177428652842849,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "secara"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.07431309173504512,
+              "p_setelah_per_seed": [
+                0.04541806876659393,
+                0.11565257608890533,
+                0.06186863034963608
+              ],
+              "delta_pt": 0.7177428652842849,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "secara"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.07431309173504512,
+              "p_setelah_per_seed": [
+                0.04541806876659393,
+                0.11565257608890533,
+                0.06186863034963608
+              ],
+              "delta_pt": 0.7177428652842849,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "Keuangan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.26466795802116394,
+              "p_setelah_per_seed": [
+                0.20357680320739746,
+                0.4004150927066803,
+                0.19001197814941406
+              ],
+              "delta_pt": 19.753229493896168,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "2026"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.12564455221096674,
+              "p_setelah_per_seed": [
+                0.08018294721841812,
+                0.18428465723991394,
+                0.11246605217456818
+              ],
+              "delta_pt": 5.850888912876447,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "2026"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.12564455221096674,
+              "p_setelah_per_seed": [
+                0.08018294721841812,
+                0.18428465723991394,
+                0.11246605217456818
+              ],
+              "delta_pt": 5.850888912876447,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": 3.780886034170787,
+            "std": 6.085610725028369,
+            "min": -1.099760333697001,
+            "max": 19.753229493896168
+          }
+        },
+        "k2": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "perlindungan",
+                "manfaat"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.0870421143869559,
+              "p_setelah_per_seed": [
+                0.07595553249120712,
+                0.12502643465995789,
+                0.06014437600970268
+              ],
+              "delta_pt": 1.9906451304753632,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "dan",
+                "sosial"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.11599693198998769,
+              "p_setelah_per_seed": [
+                0.07232751697301865,
+                0.19237184524536133,
+                0.0832914337515831
+              ],
+              "delta_pt": 4.886126890778542,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "transparan",
+                "manfaat"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.1508487413326899,
+              "p_setelah_per_seed": [
+                0.08411162346601486,
+                0.2626912295818329,
+                0.10574337095022202
+              ],
+              "delta_pt": 8.371307825048763,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "transparan",
+                "bantuan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.09368636707464854,
+              "p_setelah_per_seed": [
+                0.040646590292453766,
+                0.16151396930217743,
+                0.07889854162931442
+              ],
+              "delta_pt": 2.6550703992446274,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "pemerintah",
+                "secara"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.07627765958507855,
+              "p_setelah_per_seed": [
+                0.0508107952773571,
+                0.11138465255498886,
+                0.06663753092288971
+              ],
+              "delta_pt": 0.9141996502876282,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "Keuangan",
+                "daerah"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.20076508820056915,
+              "p_setelah_per_seed": [
+                0.15297091007232666,
+                0.3066089451313019,
+                0.14271540939807892
+              ],
+              "delta_pt": 13.362942511836689,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "2026",
+                "anggaran"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.13906163225571314,
+              "p_setelah_per_seed": [
+                0.08840597420930862,
+                0.2051747441291809,
+                0.1236041784286499
+              ],
+              "delta_pt": 7.192596917351087,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "pemerintah",
+                "pangan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.08381261924902599,
+              "p_setelah_per_seed": [
+                0.06313332170248032,
+                0.10532926023006439,
+                0.08297527581453323
+              ],
+              "delta_pt": 1.6676956166823715,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "anggaran",
+                "2026"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.13906163225571314,
+              "p_setelah_per_seed": [
+                0.08840597420930862,
+                0.2051747441291809,
+                0.1236041784286499
+              ],
+              "delta_pt": 7.192596917351087,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "daerah",
+                "dan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.10537909219662349,
+              "p_setelah_per_seed": [
+                0.06685785204172134,
+                0.17295807600021362,
+                0.07632134854793549
+              ],
+              "delta_pt": 3.824342911442122,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": 5.2057524770498285,
+            "std": 3.862126800557378,
+            "min": 0.9141996502876282,
+            "max": 13.362942511836689
+          }
+        }
+      },
+      "n_kandidat_kontrol": 17
+    },
+    {
+      "id": "T04",
+      "label_ground_truth": 0,
+      "sumber_label": null,
+      "kategori": "Berita Fakta Peresmian Infrastruktur",
+      "teks_asli": "Presiden Joko Widodo didampingi jajaran menteri meresmikan pembukaan jalan tol Trans Jawa guna memangkas durasi distribusi logistik dan mempercepat pertumbuhan ekonomi daerah.",
+      "status_engine": "dinilai",
+      "status": "ok",
+      "masalah": [],
+      "n_variasi_total": 24,
+      "n_variasi_valid": 24,
+      "n_variasi_gagal": 0,
+      "teks_dinilai": "Presiden Joko Widodo didampingi jajaran menteri meresmikan pembukaan jalan tol Trans Jawa guna memangkas durasi distribusi logistik dan mempercepat pertumbuhan ekonomi daerah.",
+      "p_awal_hoax": 0.00615235169728597,
+      "p_awal_engine": 0.006152,
+      "p_awal_per_seed": [
+        0.009716644883155823,
+        0.003523527178913355,
+        0.0052168830297887325
+      ],
+      "selisih_baseline": 3.5169728596941285e-07,
+      "baseline_konsisten": true,
+      "votes_hoax": "0/3",
+      "label_prediksi": "TIDAK BERPOLA HOAKS",
+      "pred_model": 0,
+      "tokens_lime": [
+        {
+          "word": "memangkas",
+          "weight": -0.1664,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "Widodo",
+          "weight": -0.1485,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "didampingi",
+          "weight": -0.1425,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "ekonomi",
+          "weight": -0.1402,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "tol",
+          "weight": -0.1318,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "Presiden",
+          "weight": -0.1039,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "pembukaan",
+          "weight": -0.0899,
+          "influence": "KE_TIDAK_HOAKS"
+        },
+        {
+          "word": "jalan",
+          "weight": 0.0703,
+          "influence": "KE_HOAKS"
+        }
+      ],
+      "local_r2": 0.62236,
+      "diagnostik_lime": {
+        "local_r2": 0.62236,
+        "intercept": 0.74271,
+        "local_prediction": -0.1101
+      },
+      "num_samples_explanation": 200,
+      "kata_merah": [
+        "jalan"
+      ],
+      "kata_hijau": [
+        "memangkas",
+        "Widodo"
+      ],
+      "ablasi_merah": {
+        "hapus_single_jalan": {
+          "p_setelah": 0.005700012358526389,
+          "p_setelah_per_seed": [
+            0.00922936201095581,
+            0.00333184702321887,
+            0.004538828041404486
+          ],
+          "delta_pt": -0.04523393387595807,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 3,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.3
+          },
+          "galat": null
+        }
+      },
+      "ablasi_hijau": {
+        "hapus_single_memangkas": {
+          "p_setelah": 0.009075525837639967,
+          "p_setelah_per_seed": [
+            0.013789528049528599,
+            0.006619373802095652,
+            0.006817675661295652
+          ],
+          "delta_pt": 0.29231741403539974,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 3,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.3
+          },
+          "galat": null
+        },
+        "hapus_single_Widodo": {
+          "p_setelah": 0.010453713747362295,
+          "p_setelah_per_seed": [
+            0.01720050536096096,
+            0.006465636659413576,
+            0.007694999221712351
+          ],
+          "delta_pt": 0.43013620500763255,
+          "n_kemunculan_terhapus": 1,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k1",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 2,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.2
+          },
+          "galat": null
+        },
+        "hapus_pasangan": {
+          "p_setelah": 0.016189432702958584,
+          "p_setelah_per_seed": [
+            0.025857441127300262,
+            0.011709199286997318,
+            0.01100165769457817
+          ],
+          "delta_pt": 1.0037081005672615,
+          "n_kemunculan_terhapus": 2,
+          "arah_sesuai": true,
+          "kontrol_pembanding": "k2",
+          "kontrol_setara": {
+            "n_setara_atau_lebih_kuat": 0,
+            "n_kontrol_valid": 10,
+            "proporsi": 0.0
+          },
+          "galat": null
+        }
+      },
+      "kontrol_acak": {
+        "k1": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "pertumbuhan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.005459184215093653,
+              "p_setelah_per_seed": [
+                0.00924454815685749,
+                0.003252684371545911,
+                0.003880320116877556
+              ],
+              "delta_pt": -0.0693167482192317,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "durasi"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.0087121717321376,
+              "p_setelah_per_seed": [
+                0.013464778661727905,
+                0.005501327104866505,
+                0.007170409429818392
+              ],
+              "delta_pt": 0.25598200348516303,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "dan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.010476270690560341,
+              "p_setelah_per_seed": [
+                0.015657290816307068,
+                0.00924508087337017,
+                0.006526440382003784
+              ],
+              "delta_pt": 0.4323918993274371,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "menteri"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.007416538583735625,
+              "p_setelah_per_seed": [
+                0.012532924301922321,
+                0.004056225065141916,
+                0.005660466384142637
+              ],
+              "delta_pt": 0.12641868864496555,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "pertumbuhan"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.005459184215093653,
+              "p_setelah_per_seed": [
+                0.00924454815685749,
+                0.003252684371545911,
+                0.003880320116877556
+              ],
+              "delta_pt": -0.0693167482192317,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "mempercepat"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.00434618031916519,
+              "p_setelah_per_seed": [
+                0.007204974070191383,
+                0.002532112877815962,
+                0.003301454009488225
+              ],
+              "delta_pt": -0.180617137812078,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "ekonomi"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.010228597093373537,
+              "p_setelah_per_seed": [
+                0.016223903745412827,
+                0.005966417025774717,
+                0.008495470508933067
+              ],
+              "delta_pt": 0.4076245396087567,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "Joko"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.007399730229129394,
+              "p_setelah_per_seed": [
+                0.01198265515267849,
+                0.004588080104440451,
+                0.005628455430269241
+              ],
+              "delta_pt": 0.12473785318434238,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "didampingi"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.01978807368626197,
+              "p_setelah_per_seed": [
+                0.033538833260536194,
+                0.012535177171230316,
+                0.013290210627019405
+              ],
+              "delta_pt": 1.3635721988976002,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "Presiden"
+              ],
+              "n_kemunculan_terhapus": 1,
+              "p_setelah": 0.006544816928605239,
+              "p_setelah_per_seed": [
+                0.010767290368676186,
+                0.0038303686305880547,
+                0.0050367917865514755
+              ],
+              "delta_pt": 0.03924652313192691,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": 0.24307230720296508,
+            "std": 0.44252415657763533,
+            "min": -0.180617137812078,
+            "max": 1.3635721988976002
+          }
+        },
+        "k2": {
+          "iterasi": [
+            {
+              "iterasi": 1,
+              "kata_dihapus": [
+                "dan",
+                "menteri"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.012699950020760298,
+              "p_setelah_per_seed": [
+                0.019997488707304,
+                0.0104190269485116,
+                0.007683334406465292
+              ],
+              "delta_pt": 0.6547598323474328,
+              "galat": null
+            },
+            {
+              "iterasi": 2,
+              "kata_dihapus": [
+                "meresmikan",
+                "distribusi"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.005838871545468767,
+              "p_setelah_per_seed": [
+                0.010031254962086678,
+                0.002545797498896718,
+                0.004939562175422907
+              ],
+              "delta_pt": -0.03134801518172026,
+              "galat": null
+            },
+            {
+              "iterasi": 3,
+              "kata_dihapus": [
+                "menteri",
+                "pembukaan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.008226765474925438,
+              "p_setelah_per_seed": [
+                0.013465913012623787,
+                0.003979407250881195,
+                0.007234976161271334
+              ],
+              "delta_pt": 0.20744137776394683,
+              "galat": null
+            },
+            {
+              "iterasi": 4,
+              "kata_dihapus": [
+                "jajaran",
+                "daerah"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.0040200861015667515,
+              "p_setelah_per_seed": [
+                0.006405796855688095,
+                0.002772703766822815,
+                0.0028817576821893454
+              ],
+              "delta_pt": -0.21322655957192183,
+              "galat": null
+            },
+            {
+              "iterasi": 5,
+              "kata_dihapus": [
+                "pembukaan",
+                "distribusi"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.005953948013484478,
+              "p_setelah_per_seed": [
+                0.008972988463938236,
+                0.0037232469767332077,
+                0.00516560859978199
+              ],
+              "delta_pt": -0.019840368380149177,
+              "galat": null
+            },
+            {
+              "iterasi": 6,
+              "kata_dihapus": [
+                "menteri",
+                "daerah"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.006889106861005227,
+              "p_setelah_per_seed": [
+                0.0114684347063303,
+                0.0045431265607476234,
+                0.0046557593159377575
+              ],
+              "delta_pt": 0.07367551637192574,
+              "galat": null
+            },
+            {
+              "iterasi": 7,
+              "kata_dihapus": [
+                "logistik",
+                "pembukaan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.006930631430198749,
+              "p_setelah_per_seed": [
+                0.010797242633998394,
+                0.0040741912089288235,
+                0.005920460447669029
+              ],
+              "delta_pt": 0.07782797329127789,
+              "galat": null
+            },
+            {
+              "iterasi": 8,
+              "kata_dihapus": [
+                "daerah",
+                "pembukaan"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.005649004752437274,
+              "p_setelah_per_seed": [
+                0.008537337183952332,
+                0.0036781001836061478,
+                0.004731576889753342
+              ],
+              "delta_pt": -0.05033469448486958,
+              "galat": null
+            },
+            {
+              "iterasi": 9,
+              "kata_dihapus": [
+                "guna",
+                "Presiden"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.012397813300291697,
+              "p_setelah_per_seed": [
+                0.02022954262793064,
+                0.009615980088710785,
+                0.0073479171842336655
+              ],
+              "delta_pt": 0.6245461603005726,
+              "galat": null
+            },
+            {
+              "iterasi": 10,
+              "kata_dihapus": [
+                "dan",
+                "durasi"
+              ],
+              "n_kemunculan_terhapus": 2,
+              "p_setelah": 0.01414176852752765,
+              "p_setelah_per_seed": [
+                0.020543895661830902,
+                0.012433880940079689,
+                0.00944752898067236
+              ],
+              "delta_pt": 0.798941683024168,
+              "galat": null
+            }
+          ],
+          "statistik_delta_pt": {
+            "n_valid": 10,
+            "n_gagal": 0,
+            "mean": 0.21224429054806632,
+            "std": 0.35126635262365863,
+            "min": -0.21322655957192183,
+            "max": 0.798941683024168
+          }
+        }
+      },
+      "n_kandidat_kontrol": 19
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 """
-uji_kesetiaan_lime.py (v5.3) — Pengujian Kesetiaan LIME (Faithfulness Benchmark).
+uji_kesetiaan_lime.py (v5.4) — Pengujian Kesetiaan LIME (Faithfulness Benchmark).
 
 Ringkasan desain:
   * Skor P(hoaks) = rerata seed dari backend.seed_probs_each (matriks n_teks x n_seed),
@@ -15,6 +15,8 @@ Ringkasan desain:
   * Ablasi sah hanya bila seluruh jenis kata target ditemukan dan skor terukur.
     Delta nol setelah penghapusan yang sah tetap merupakan hasil pengukuran.
   * Kontrol memakai kombinasi unik; target menyesuaikan jumlah kombinasi tersedia.
+  * Hash skrip/korpus dan versi paket mencatat identitas eksperimen. Timer tahap
+    membungkus panggilan yang sama, tanpa mengubah skor maupun konfigurasi model.
 
 Pemakaian:
   python uji_kesetiaan_lime.py --probe   # probe adapter + alur sintetis, tanpa model
@@ -28,13 +30,16 @@ import math
 import time
 import random
 import platform
+import hashlib
+from importlib import metadata as impmeta
 from datetime import datetime
 from itertools import combinations
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-SCRIPT_VERSION = "5.3"
+SCRIPT_VERSION = "5.4"
 N_KONTROL = 10
 PANJANG_MIN_KATA = 3
 LABEL_MAP = {"BERPOLA HOAKS": 1, "TIDAK BERPOLA HOAKS": 0}  # selain ini -> None
@@ -343,11 +348,15 @@ def turunkan_metadata(pen, konfig, seeds, diag):
 # Satu kasus uji
 # ----------------------------------------------------------------------------------
 def uji_kasus(pen, penilai, item):
+    t_nilai = time.perf_counter()
     res = pen.nilai(item["teks"], explain=True, debug=True)
+    waktu_nilai = time.perf_counter() - t_nilai
     base = {"id": item["id"], "label_ground_truth": item["label_ground_truth"],
             "sumber_label": item.get("sumber_label"), "status_label": item.get("status_label"),
             "kategori": item["kategori"],
-            "teks_asli": item["teks"], "status_engine": res.get("status")}
+            "teks_asli": item["teks"], "status_engine": res.get("status"),
+            "waktu_nilai_dtk": round(waktu_nilai, 6),
+            "waktu_baseline_dtk": None, "waktu_variasi_dtk": None}
 
     if not res.get("success"):
         return {**base, "status": "ditolak",
@@ -361,7 +370,9 @@ def uji_kasus(pen, penilai, item):
 
     t_dinilai = res["teks_dinilai"]
     p0_engine = float(res["debug"]["mean_prob_hoax"])
+    t_baseline = time.perf_counter()
     p0 = penilai.skor([t_dinilai])[0]
+    base["waktu_baseline_dtk"] = round(time.perf_counter() - t_baseline, 6)
     if p0 is None:
         return {**base, "status": "pengukuran_gagal", "teks_dinilai": t_dinilai,
                 "alasan": f"baseline gagal diukur: {penilai.galat.get(t_dinilai)}"}
@@ -401,9 +412,11 @@ def uji_kasus(pen, penilai, item):
             kontrol[k].append((it + 1, list(pilih), teks, n))
 
     # Tiga kelompok skor terpisah: kegagalan satu kelompok tidak menghapus kelompok lain.
+    t_variasi = time.perf_counter()
     penilai.skor([v[0] for v in varian.values()])
     for k in (1, 2):
         penilai.skor([c[2] for c in kontrol[k]])
+    base["waktu_variasi_dtk"] = round(time.perf_counter() - t_variasi, 6)
     P = lambda t: penilai.cache[t]
 
     kontrol_out, delta_kontrol = {}, {}
@@ -518,6 +531,9 @@ def probe_adapter():
     hasil = {}
     hasil["status_kontrol_lengkap_ok"] = tentukan_status(5, 5, True, n_ablasi_efektif=2, n_kontrol_lengkap=True)[0] == "ok"
     hasil["status_tanpa_kontrol_info_ok"] = tentukan_status(5, 5, True)[0] == "ok"
+    hasil["kapitalisasi_hapus_persis"] = hapus_kata("Viral viral VIRAL viral", "viral") == ("Viral VIRAL", 2)
+    hasil["kapitalisasi_tak_cocok"] = hapus_kata("viral", "Viral") == ("viral", 0)
+    hasil["kapitalisasi_kontrol_terpisah"] = kata_unik("Viral viral VIRAL", set()) == ["Viral", "viral", "VIRAL"]
     hasil["status_tanpa_ablasi_efektif"] = tentukan_status(5, 5, True, n_ablasi_efektif=0)[0] == "hasil_parsial"
     hasil["status_kontrol_tak_lengkap"] = tentukan_status(5, 5, True, n_kontrol_lengkap=False)[0] == "hasil_parsial"
 
@@ -641,6 +657,13 @@ def _probe_alur_inti():
     h["alur_ditolak"] = kt["status"] == "ditolak" and kt["alasan"] == "di luar domain" \
         and kt["status_engine"] == "ditolak_gerbang" and not punya_data(kt)
     h["alur_lime_gagal"] = jalankan(lime_gagal=True)["status"] == "lime_gagal"
+    h["waktu_tahap_terukur"] = all(_valid(k[n]) and k[n] >= 0 for n in
+        ("waktu_nilai_dtk", "waktu_baseline_dtk", "waktu_variasi_dtk"))
+    h["waktu_tahap_penolakan_tidak_dibuat_nol"] = (_valid(kt["waktu_nilai_dtk"])
+        and kt["waktu_baseline_dtk"] is None and kt["waktu_variasi_dtk"] is None)
+    gagal_lime = jalankan(lime_gagal=True)
+    h["waktu_tahap_lime_gagal_tersimpan"] = (_valid(gagal_lime["waktu_nilai_dtk"])
+        and gagal_lime["waktu_baseline_dtk"] is None and gagal_lime["waktu_variasi_dtk"] is None)
 
     kosong = jalankan(tokens=[{"word": "viral", "weight": 0.0}])
     h["alur_tanpa_ablasi_parsial"] = kosong["status"] == "hasil_parsial" and kosong["n_ablasi_valid"] == 0
@@ -727,6 +750,17 @@ def _probe_alur_sintetis():
         KONFIG_MANUAL.update(simpan)
 
 
+def versi_paket(nama):
+    try:
+        return impmeta.version(nama)
+    except impmeta.PackageNotFoundError:
+        return None
+
+
+def sha256_bytes(b):
+    return hashlib.sha256(b).hexdigest()
+
+
 # ----------------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------------
@@ -742,8 +776,14 @@ def main():
     import src.ml.inference as modul
     from src.ml.inference import get_predictor, MODEL_NAME, SEEDS
 
-    t_mulai = time.time()
+    t_mulai = time.perf_counter()
+    # Snapshot identitas sebelum pekerjaan panjang, agar edit berikutnya tidak
+    # mengubah identitas sumber yang dicatat pada akhir benchmark.
+    sha_skrip = sha256_bytes(Path(__file__).read_bytes())
+    sha_korpus = sha256_bytes(json.dumps(KORPUS_UJI, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+    t_awal_muat = time.perf_counter()
     pen = get_predictor()
+    t_muat = time.perf_counter() - t_awal_muat
     penilai = Penilai(pen.backend, len(SEEDS))
     audit = getattr(pen.backend, "audit", {}) or {}
 
@@ -774,7 +814,7 @@ def main():
                       f"kontrol {a['kontrol_pembanding']}: "
                       f"{c['n_setara_atau_lebih_kuat']}/{c['n_kontrol_valid']} setara/lebih kuat")
 
-    durasi = time.time() - t_mulai
+    durasi = time.perf_counter() - t_mulai
     konfig = deteksi_konfigurasi(pen, modul)  # setelah kasus berjalan: explainer lazy sudah dibuat
     diag_contoh = next((k["diagnostik_lime"] for k in kasus if k.get("diagnostik_lime")), {})
     meta_cfg = turunkan_metadata(pen, konfig, SEEDS, diag_contoh)
@@ -788,6 +828,13 @@ def main():
         print("PERINGATAN: payload LIME tidak memuat local_pred; abs_local_error tidak dapat dihitung.")
 
     metadata = {
+        "sha256_skrip": sha_skrip,
+        "sha256_korpus": sha_korpus,
+        "versi_paket": {n: versi_paket(n) for n in
+                        ("numpy", "pandas", "lime", "scikit-learn", "torch", "transformers")},
+        "perangkat": str(getattr(pen.backend, "device", "tidak diketahui")),
+        "waktu_muat_model_dtk": round(t_muat, 6),
+        "urutan_kasus": [it["id"] for it in KORPUS_UJI],
         "script_version": SCRIPT_VERSION, "waktu_eksekusi": datetime.now().isoformat(timespec="seconds"),
         "durasi_detik": round(durasi, 2), "python": platform.python_version(),
         "model_name": MODEL_NAME, "n_seed": len(SEEDS),
@@ -809,6 +856,11 @@ def main():
                              "(maksimal N_KONTROL per k), bukan p-value atau uji signifikansi.",
         "catatan_ablasi": "Ablasi sah bila seluruh jenis kata target terhapus dan skor terukur. "
                           "Delta nol yang sah tetap dilaporkan; ablasi tidak sah memiliki delta null.",
+        "catatan_waktu": "waktu_nilai_dtk mencakup validasi, klasifikasi, dan LIME; bukan LIME murni. "
+                         "waktu_baseline_dtk mengukur verifikasi skor asli, waktu_variasi_dtk "
+                         "mengukur pemberian skor ablasi/kontrol termasuk cache. Tahap yang belum "
+                         "dijalankan bernilai null. durasi_detik mencakup persiapan dan benchmark, "
+                         "tanpa probe dan ekspor hasil.",
         "catatan_pelaporan": "Hanya kasus berstatus 'ok' untuk tabel utama; status lain dilaporkan terpisah.",
     }
 
@@ -820,7 +872,10 @@ def main():
     baris = []
     for k in kasus:
         b = {"id": k["id"], "status": k["status"], "status_engine": k.get("status_engine"),
-             "label_peneliti": k["label_ground_truth"], "status_label": k.get("status_label")}
+             "label_peneliti": k["label_ground_truth"], "status_label": k.get("status_label"),
+             "waktu_nilai_dtk": k.get("waktu_nilai_dtk"),
+             "waktu_baseline_dtk": k.get("waktu_baseline_dtk"),
+             "waktu_variasi_dtk": k.get("waktu_variasi_dtk")}
         if punya_data(k):
             pm = k["ablasi_merah"].get("hapus_pasangan") or {}
             ph = k["ablasi_hijau"].get("hapus_pasangan") or {}

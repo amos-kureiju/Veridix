@@ -190,7 +190,7 @@ def proporsi_setara(delta_ablasi, deltas_kontrol, arah):
 # ----------------------------------------------------------------------------------
 # Status kasus
 # ----------------------------------------------------------------------------------
-def tentukan_status(n_total, n_valid, baseline_konsisten):
+def tentukan_status(n_total, n_valid, baseline_konsisten, n_ablasi_efektif=None, n_kontrol_lengkap=None):
     """Prioritas: pengukuran_gagal > baseline_tidak_konsisten > hasil_parsial > ok.
     Daftar `masalah` memuat semua alasan yang berlaku."""
     masalah = []
@@ -200,12 +200,16 @@ def tentukan_status(n_total, n_valid, baseline_konsisten):
         masalah.append("baseline berbeda dari engine")
     if 0 < n_valid < n_total:
         masalah.append(f"{n_total - n_valid} dari {n_total} variasi gagal diukur")
+    if n_ablasi_efektif is not None and n_ablasi_efektif == 0:
+        masalah.append("tidak ada ablasi yang efektif (tidak menghapus kata)")
+    if n_kontrol_lengkap is not None and n_kontrol_lengkap:
+        masalah.append("kontrol acak tidak lengkap (tidak semua iterasi berhasil diukur)")
 
     if n_total == 0 or n_valid == 0:
         status = "pengukuran_gagal"
     elif not baseline_konsisten:
         status = "baseline_tidak_konsisten"
-    elif n_valid < n_total:
+    elif n_valid < n_total or any(("ablasi efektif" in m or "kontrol pembanding" in m) for m in masalah):
         status = "hasil_parsial"
     else:
         status = "ok"
@@ -382,11 +386,13 @@ def uji_kasus(pen, penilai, item):
     for k in (1, 2):
         if len(kandidat) < k:
             continue
+        from itertools import combinations
         rng = random.Random(f"{item['id']}_k{k}_salt")
-        for it in range(N_KONTROL):
-            pilih = rng.sample(kandidat, k)
-            teks, n = hapus_daftar(t_dinilai, pilih)
-            kontrol[k].append((it + 1, pilih, teks, n))
+        semua = list(combinations(kandidat, k))
+        rng.shuffle(semua)
+        for it, pilih in enumerate(semua[:N_KONTROL]):   # tanpa pengulangan kombinasi
+            teks, n = hapus_daftar(t_dinilai, list(pilih))
+            kontrol[k].append((it + 1, list(pilih), teks, n))
 
     # Tiga kelompok skor terpisah: kegagalan satu kelompok tidak menghapus kelompok lain.
     penilai.skor([v[0] for v in varian.values()])
@@ -425,7 +431,16 @@ def uji_kasus(pen, penilai, item):
     n_total = len(nilai_variasi)
     n_valid = sum(1 for x in nilai_variasi if _valid(x))
     baseline_ok = selisih_baseline <= TOLERANSI_BASELINE
-    status, masalah = tentukan_status(n_total, n_valid, baseline_ok)
+    ablasi_efektif = [a for ab in (ab_m, ab_h) for a in ab.values()
+                      if a["n_kemunculan_terhapus"] > 0 and _valid(a["delta_pt"])]
+    kontrol_lengkap = all(
+        kontrol_out.get(f"k{k}", {}).get("statistik_delta_pt", {}).get("n_valid", 0) >= 1
+        for k in (1, 2)
+        if (k == 1 and (merah or hijau)) or (k == 2 and (len(merah) >= 2 or len(hijau) >= 2))
+    )
+    status, masalah = tentukan_status(n_total, n_valid, baseline_ok,
+                                      n_ablasi_efektif=len(ablasi_efektif),
+                                      n_kontrol_lengkap=kontrol_lengkap)
 
     return {**base, "status": status, "masalah": masalah,
             "n_variasi_total": n_total, "n_variasi_valid": n_valid,
@@ -456,6 +471,8 @@ class _BackendTiruan:
 
 def probe_adapter():
     hasil = {}
+    hasil["status_tanpa_ablasi_efektif"] = tentukan_status(5, 5, True, n_ablasi_efektif=0)[0] == "hasil_parsial"
+    hasil["status_kontrol_tak_lengkap"] = tentukan_status(5, 5, True, n_kontrol_lengkap=False)[0] == "hasil_parsial"
 
     p = Penilai(_BackendTiruan(lambda t: [[0.1, 0.5, 0.9]] * len(t)), 3)
     hasil["rerata_3_seed"] = abs(p.skor(["a"])[0] - 0.5) < 1e-12

@@ -1,5 +1,5 @@
 """
-uji_kesetiaan_lime.py (v5, final) — Pengujian Kesetiaan LIME (Faithfulness Benchmark).
+uji_kesetiaan_lime.py (v5.3) — Pengujian Kesetiaan LIME (Faithfulness Benchmark).
 
 Ringkasan desain:
   * Skor P(hoaks) = rerata seed dari backend.seed_probs_each (matriks n_teks x n_seed),
@@ -12,6 +12,9 @@ Ringkasan desain:
   * Variasi diskor dalam tiga kelompok (ablasi, kontrol k=1, kontrol k=2) sehingga kegagalan
     satu kelompok tidak menghapus kelompok lain (dasar status hasil_parsial).
   * Proporsi kontrol setara/lebih kuat bersifat deskriptif, bukan p-value.
+  * Ablasi sah hanya bila seluruh jenis kata target ditemukan dan skor terukur.
+    Delta nol setelah penghapusan yang sah tetap merupakan hasil pengukuran.
+  * Kontrol memakai kombinasi unik; target menyesuaikan jumlah kombinasi tersedia.
 
 Pemakaian:
   python uji_kesetiaan_lime.py --probe   # probe adapter + alur sintetis, tanpa model
@@ -26,11 +29,12 @@ import time
 import random
 import platform
 from datetime import datetime
+from itertools import combinations
 
 import numpy as np
 import pandas as pd
 
-SCRIPT_VERSION = "5.2"
+SCRIPT_VERSION = "5.3"
 N_KONTROL = 10
 PANJANG_MIN_KATA = 3
 LABEL_MAP = {"BERPOLA HOAKS": 1, "TIDAK BERPOLA HOAKS": 0}  # selain ini -> None
@@ -201,15 +205,17 @@ def tentukan_status(n_total, n_valid, baseline_konsisten, n_ablasi_efektif=None,
     if 0 < n_valid < n_total:
         masalah.append(f"{n_total - n_valid} dari {n_total} variasi gagal diukur")
     if n_ablasi_efektif is not None and n_ablasi_efektif == 0:
-        masalah.append("tidak ada ablasi yang efektif (tidak menghapus kata)")
-    if n_kontrol_lengkap is not None and n_kontrol_lengkap:
-        masalah.append("kontrol acak tidak lengkap (tidak semua iterasi berhasil diukur)")
+        masalah.append("tidak ada ablasi sah dengan skor terukur")
+    if n_kontrol_lengkap is False:
+        masalah.append("kontrol pembanding tidak lengkap atau tidak tersedia")
 
     if n_total == 0 or n_valid == 0:
         status = "pengukuran_gagal"
     elif not baseline_konsisten:
         status = "baseline_tidak_konsisten"
-    elif n_valid < n_total or any(("ablasi efektif" in m or "kontrol pembanding" in m) for m in masalah):
+    elif (n_valid < n_total
+          or n_ablasi_efektif == 0
+          or n_kontrol_lengkap is False):
         status = "hasil_parsial"
     else:
         status = "ok"
@@ -379,6 +385,7 @@ def uji_kasus(pen, penilai, item):
     rencana += [(f"hapus_single_{w}", "hijau", [w]) for w in hijau]
     if len(hijau) >= 2:
         rencana.append(("hapus_pasangan", "hijau", hijau))
+    kata_target = {(kel, nama): ws for nama, kel, ws in rencana}
     varian = {(kel, nama): hapus_daftar(t_dinilai, ws) for nama, kel, ws in rencana}
 
     kandidat = kata_unik(t_dinilai, set(merah + hijau))
@@ -386,7 +393,6 @@ def uji_kasus(pen, penilai, item):
     for k in (1, 2):
         if len(kandidat) < k:
             continue
-        from itertools import combinations
         rng = random.Random(f"{item['id']}_k{k}_salt")
         semua = list(combinations(kandidat, k))
         rng.shuffle(semua)
@@ -416,12 +422,26 @@ def uji_kasus(pen, penilai, item):
             if k_ != kel:
                 continue
             d = delta_pt(P(teks), p0)
+            ws = kata_target[(kel, nama)]
+            tidak_ditemukan = [w for w in ws if hapus_kata(t_dinilai, w)[1] == 0]
+            alasan = []
+            if tidak_ditemukan:
+                alasan.append("kata target tidak ditemukan: " + ", ".join(tidak_ditemukan))
+            if len(set(ws)) != len(ws):
+                alasan.append("jenis kata target berulang")
+            if n == 0:
+                alasan.append("tidak ada kemunculan kata yang terhapus")
+            if d is None:
+                alasan.append("skor ablasi tidak berhasil diukur")
+            sah = not alasan
             k_pembanding = 2 if nama == "hapus_pasangan" else 1
             out[nama] = {"p_setelah": P(teks), "p_setelah_per_seed": penilai.per_seed.get(teks),
-                         "delta_pt": d, "n_kemunculan_terhapus": n,
-                         "arah_sesuai": None if d is None else (d * arah) > 0,
+                         "kata_target": ws, "kata_tidak_ditemukan": tidak_ditemukan,
+                         "ablasi_valid": sah, "alasan_tidak_sah": "; ".join(alasan) or None,
+                         "delta_pt": d if sah else None, "n_kemunculan_terhapus": n,
+                         "arah_sesuai": (d * arah) > 0 if sah else None,
                          "kontrol_pembanding": f"k{k_pembanding}",
-                         "kontrol_setara": proporsi_setara(d, delta_kontrol.get(k_pembanding, []), arah),
+                         "kontrol_setara": proporsi_setara(d if sah else None, delta_kontrol.get(k_pembanding, []), arah),
                          "galat": penilai.galat.get(teks)}
         return out
 
@@ -431,16 +451,37 @@ def uji_kasus(pen, penilai, item):
     n_total = len(nilai_variasi)
     n_valid = sum(1 for x in nilai_variasi if _valid(x))
     baseline_ok = selisih_baseline <= TOLERANSI_BASELINE
-    ablasi_efektif = [a for ab in (ab_m, ab_h) for a in ab.values()
-                      if a["n_kemunculan_terhapus"] > 0 and _valid(a["delta_pt"])]
+    semua_ablasi = [a for ab in (ab_m, ab_h) for a in ab.values()]
+    ablasi_tidak_sah = [{"kelompok": kel, "nama": nama, "alasan": a["alasan_tidak_sah"]}
+                       for kel, ab in (("merah", ab_m), ("hijau", ab_h))
+                       for nama, a in ab.items() if not a["ablasi_valid"]]
+    ablasi_efektif = [a for a in semua_ablasi if a["ablasi_valid"]]
+    kontrol_rencana = {}
+    for k in (1, 2):
+        diperlukan = bool((k == 1 and (merah or hijau)) or (k == 2 and (len(merah) >= 2 or len(hijau) >= 2)))
+        tersedia = math.comb(len(kandidat), k)
+        target = min(N_KONTROL, tersedia) if diperlukan else 0
+        r = {
+            "diperlukan": diperlukan, "diminta": N_KONTROL if diperlukan else 0,
+            "kombinasi_tersedia": tersedia, "target": target,
+            "dihasilkan": len(kontrol[k]),
+            "n_mask_unik": len({tuple(sorted(c[1])) for c in kontrol[k]}),
+            "terukur": kontrol_out.get(f"k{k}", {}).get("statistik_delta_pt", {}).get("n_valid", 0),
+            "terbatas": diperlukan and tersedia < N_KONTROL,
+        }
+        r["lengkap"] = (not diperlukan or
+                        (target > 0 and r["dihasilkan"] == r["n_mask_unik"] == r["terukur"] == target))
+        kontrol_rencana[f"k{k}"] = r
     kontrol_lengkap = all(
-        kontrol_out.get(f"k{k}", {}).get("statistik_delta_pt", {}).get("n_valid", 0) >= 1
-        for k in (1, 2)
-        if (k == 1 and (merah or hijau)) or (k == 2 and (len(merah) >= 2 or len(hijau) >= 2))
+        r["lengkap"] for r in kontrol_rencana.values()
     )
     status, masalah = tentukan_status(n_total, n_valid, baseline_ok,
                                       n_ablasi_efektif=len(ablasi_efektif),
                                       n_kontrol_lengkap=kontrol_lengkap)
+    if ablasi_tidak_sah:
+        masalah.append(f"{len(ablasi_tidak_sah)} ablasi tidak sah; lihat rincian per ablasi")
+        if status == "ok":
+            status = "hasil_parsial"
 
     return {**base, "status": status, "masalah": masalah,
             "n_variasi_total": n_total, "n_variasi_valid": n_valid,
@@ -455,6 +496,10 @@ def uji_kasus(pen, penilai, item):
             "local_pred": local_pred, "abs_local_error": abs_local_error,
             "kata_merah": merah, "kata_hijau": hijau,
             "ablasi_merah": ab_m, "ablasi_hijau": ab_h,
+            "n_ablasi_total": len(semua_ablasi), "n_ablasi_valid": len(ablasi_efektif),
+            "n_ablasi_tidak_sah": len(ablasi_tidak_sah), "ablasi_tidak_sah": ablasi_tidak_sah,
+            "rencana_kontrol": kontrol_rencana, "kontrol_lengkap": kontrol_lengkap,
+            "kontrol_terbatas": any(r["terbatas"] for r in kontrol_rencana.values()),
             "kontrol_acak": kontrol_out, "n_kandidat_kontrol": len(kandidat)}
 
 
@@ -471,6 +516,8 @@ class _BackendTiruan:
 
 def probe_adapter():
     hasil = {}
+    hasil["status_kontrol_lengkap_ok"] = tentukan_status(5, 5, True, n_ablasi_efektif=2, n_kontrol_lengkap=True)[0] == "ok"
+    hasil["status_tanpa_kontrol_info_ok"] = tentukan_status(5, 5, True)[0] == "ok"
     hasil["status_tanpa_ablasi_efektif"] = tentukan_status(5, 5, True, n_ablasi_efektif=0)[0] == "hasil_parsial"
     hasil["status_kontrol_tak_lengkap"] = tentukan_status(5, 5, True, n_kontrol_lengkap=False)[0] == "hasil_parsial"
 
@@ -554,20 +601,22 @@ def _probe_alur_inti():
 
     class Pen:
         rule = "2 dari 3 seed"
-        def __init__(self, mode="normal", offset=0.0, tolak=False, lime_gagal=False, tanpa_local_pred=False):
+        def __init__(self, mode="normal", offset=0.0, tolak=False, lime_gagal=False, tanpa_local_pred=False,
+                     teks=TEKS, tokens=None):
             self.backend = Backend(mode)
             self._explainer = Explainer()  # privat, seperti aplikasi
             self.offset, self.tolak, self.lime_gagal = offset, tolak, lime_gagal
             self.tanpa_lp = tanpa_local_pred
+            self.teks, self.tokens = teks, TOKENS if tokens is None else tokens
 
         def nilai(self, teks, explain=True, debug=True):
             if self.tolak:
                 return {"success": False, "status": "ditolak_gerbang", "reason": "di luar domain"}
-            p_engine = float(np.mean(prob(TEKS))) + self.offset
+            p_engine = float(np.mean(prob(self.teks))) + self.offset
             return {"success": True, "status": "dinilai", "label": "BERPOLA HOAKS",
-                    "teks_dinilai": TEKS, "votes_hoax": 2, "debug": {"mean_prob_hoax": p_engine},
+                    "teks_dinilai": self.teks, "votes_hoax": 2, "debug": {"mean_prob_hoax": p_engine},
                     "explanation": {"explanation_available": not self.lime_gagal,
-                                    "tokens": [] if self.lime_gagal else TOKENS,
+                                    "tokens": [] if self.lime_gagal else self.tokens,
                                     "reason": "lime error" if self.lime_gagal else None,
                                     "num_samples": 500,
                                     "diagnostik": ({"local_r2": 0.9} if self.tanpa_lp
@@ -577,7 +626,7 @@ def _probe_alur_inti():
 
     def jalankan(**kw):
         pen = Pen(**kw)
-        return uji_kasus(pen, Penilai(pen.backend, 3), item)
+        return uji_kasus(pen, Penilai(pen.backend, 3), {**item, "teks": pen.teks})
 
     h = {}
     k = jalankan()
@@ -592,6 +641,36 @@ def _probe_alur_inti():
     h["alur_ditolak"] = kt["status"] == "ditolak" and kt["alasan"] == "di luar domain" \
         and kt["status_engine"] == "ditolak_gerbang" and not punya_data(kt)
     h["alur_lime_gagal"] = jalankan(lime_gagal=True)["status"] == "lime_gagal"
+
+    kosong = jalankan(tokens=[{"word": "viral", "weight": 0.0}])
+    h["alur_tanpa_ablasi_parsial"] = kosong["status"] == "hasil_parsial" and kosong["n_ablasi_valid"] == 0
+    hilang = jalankan(tokens=[{"word": "tidak_ada", "weight": 0.3}])
+    a = hilang["ablasi_merah"]["hapus_single_tidak_ada"]
+    h["ablasi_kata_hilang_tidak_dinilai"] = (hilang["status"] == "hasil_parsial"
+        and not a["ablasi_valid"] and a["delta_pt"] is None and a["arah_sesuai"] is None
+        and a["kontrol_setara"]["proporsi"] is None)
+    sebagian = jalankan(tokens=[{"word": "viral", "weight": 0.3}, {"word": "tidak_ada", "weight": 0.2}])
+    pasangan = sebagian["ablasi_merah"]["hapus_pasangan"]
+    h["pasangan_target_tidak_lengkap"] = (sebagian["status"] == "hasil_parsial"
+        and pasangan["n_kemunculan_terhapus"] == 1 and not pasangan["ablasi_valid"]
+        and pasangan["kata_tidak_ditemukan"] == ["tidak_ada"] and pasangan["delta_pt"] is None
+        and pasangan["kontrol_setara"]["proporsi"] is None and sebagian["n_ablasi_tidak_sah"] == 2)
+    nol = jalankan(tokens=[{"word": "berita", "weight": 0.1}])
+    a = nol["ablasi_merah"]["hapus_single_berita"]
+    h["delta_nol_tetap_sah"] = (nol["status"] == "ok" and a["ablasi_valid"]
+        and a["delta_pt"] == 0.0 and a["arah_sesuai"] is False and not nol["masalah"])
+    kecil = jalankan(teks="viral kabar", tokens=[{"word": "viral", "weight": 0.3}])
+    r = kecil["rencana_kontrol"]["k1"]
+    h["kontrol_target_sesuai_ketersediaan"] = (kecil["status"] == "ok" and kecil["kontrol_terbatas"]
+        and r["diminta"] == 10 and r["target"] == r["dihasilkan"] == r["terukur"] == r["n_mask_unik"] == 1)
+    kurang = jalankan(teks="viral curang kabar", tokens=TOKENS[:2])
+    h["kontrol_pasangan_tidak_tersedia"] = (kurang["status"] == "hasil_parsial"
+        and not kurang["kontrol_lengkap"] and kurang["rencana_kontrol"]["k2"]["target"] == 0
+        and kurang["n_ablasi_valid"] == 3)
+    h["kontrol_kombinasi_unik"] = all(r["dihasilkan"] == r["n_mask_unik"] for r in k["rencana_kontrol"].values())
+    h["ringkasan_ablasi_dan_kontrol_tersimpan"] = (k["n_ablasi_total"] == k["n_ablasi_valid"] == 6
+        and k["n_ablasi_tidak_sah"] == 0 and k["kontrol_lengkap"] and not k["masalah"])
+    h["hasil_json_tanpa_nan"] = bool(json.dumps([k, hilang, sebagian, nol, kecil, kurang], allow_nan=False))
 
     pen = Pen()
     md = turunkan_metadata(pen, deteksi_konfigurasi(pen, sys.modules[__name__]), [42, 123, 999], {})
@@ -714,6 +793,7 @@ def main():
         "model_name": MODEL_NAME, "n_seed": len(SEEDS),
         "audit_backend": audit, "jalur_skor": penilai.jalur,
         "n_kontrol_per_k": N_KONTROL, "toleransi_baseline": TOLERANSI_BASELINE,
+        "metode_kontrol": "kombinasi unik tanpa pengembalian; target=min(N_KONTROL, kombinasi tersedia)",
         **meta_cfg, "konfigurasi_terdeteksi": konfig,
         "n_teks_unik_dinilai": len(penilai.cache), "n_pengukuran_gagal": len(penilai.galat),
         "ringkasan_status": {s: sum(1 for k in kasus if k["status"] == s)
@@ -725,8 +805,10 @@ def main():
         "n_label_bersumber": sum(1 for it in KORPUS_UJI if it.get("sumber_label")),
         "catatan_label": "label_ground_truth = skenario berlabel peneliti; belum acuan independen "
                          "kecuali sumber_label terisi.",
-        "catatan_statistik": "kontrol_setara = hitungan deskriptif dari N_KONTROL kontrol acak, "
-                             "bukan p-value atau uji signifikansi.",
+        "catatan_statistik": "kontrol_setara = hitungan deskriptif dari kontrol yang berhasil diukur "
+                             "(maksimal N_KONTROL per k), bukan p-value atau uji signifikansi.",
+        "catatan_ablasi": "Ablasi sah bila seluruh jenis kata target terhapus dan skor terukur. "
+                          "Delta nol yang sah tetap dilaporkan; ablasi tidak sah memiliki delta null.",
         "catatan_pelaporan": "Hanya kasus berstatus 'ok' untuk tabel utama; status lain dilaporkan terpisah.",
     }
 
@@ -745,6 +827,10 @@ def main():
             k1, k2 = (k["kontrol_acak"].get(x, {}).get("statistik_delta_pt", {}) for x in ("k1", "k2"))
             b.update({
                 "masalah": "; ".join(k.get("masalah", [])), "n_variasi_gagal": k["n_variasi_gagal"],
+                "n_ablasi_total": k["n_ablasi_total"], "n_ablasi_valid": k["n_ablasi_valid"],
+                "n_ablasi_tidak_sah": k["n_ablasi_tidak_sah"],
+                "kontrol_lengkap": k["kontrol_lengkap"], "kontrol_terbatas": k["kontrol_terbatas"],
+                "rincian_ablasi_tidak_sah": json.dumps(k["ablasi_tidak_sah"], ensure_ascii=False),
                 "pred_model": k["pred_model"], "label_prediksi": k["label_prediksi"],
                 "p_awal_hoax": k["p_awal_hoax"], "baseline_konsisten": k["baseline_konsisten"],
                 "kata_merah": "|".join(k["kata_merah"]), "delta_pasang_merah_pt": pm.get("delta_pt"),
@@ -758,6 +844,10 @@ def main():
                 "num_samples": k.get("num_samples_explanation"),
                 "local_pred": k.get("local_pred"), "abs_local_error": k.get("abs_local_error"),
             })
+            for nama, rencana in k["rencana_kontrol"].items():
+                for kolom in ("diperlukan", "diminta", "kombinasi_tersedia", "target", "dihasilkan",
+                              "n_mask_unik", "terukur", "terbatas", "lengkap"):
+                    b[f"kontrol_{nama}_{kolom}"] = rencana[kolom]
         else:
             b["alasan"] = k.get("alasan")
         baris.append(b)

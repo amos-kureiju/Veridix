@@ -65,7 +65,7 @@
       "Paritas kandidat setelah fit di luar timer LIME; menambah durasi studi."
     ],
     "complete": false,
-    "elapsed_seconds": 1463.1995752999992
+    "elapsed_seconds": 1725.024849899999
   },
   "inputs": [
     {
@@ -1036,6 +1036,219 @@
       "rss_before_bytes": 1442205696,
       "rss_after_bytes": 1360834560,
       "order": 13
+    },
+    {
+      "id": "T02",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 18,
+          "word": "politik",
+          "weight": -0.0532167559107532
+        },
+        {
+          "feature_id": 15,
+          "word": "oligarki",
+          "weight": -0.025712363659256672
+        },
+        {
+          "feature_id": 2,
+          "word": "rahasia",
+          "weight": 0.02389647650652107
+        },
+        {
+          "feature_id": 1,
+          "word": "dokumen",
+          "weight": 0.02282032371207965
+        },
+        {
+          "feature_id": 9,
+          "word": "bantuan",
+          "weight": 0.02207293412073067
+        },
+        {
+          "feature_id": 0,
+          "word": "Terbongkar",
+          "weight": 0.020853994552067955
+        },
+        {
+          "feature_id": 4,
+          "word": "keuangan",
+          "weight": 0.020810169995228507
+        },
+        {
+          "feature_id": 5,
+          "word": "diam",
+          "weight": 0.016746929501912176
+        }
+      ],
+      "top_words": [
+        "politik",
+        "oligarki",
+        "rahasia",
+        "dokumen",
+        "bantuan"
+      ],
+      "local_r2": 0.42958825746216,
+      "local_prediction": 0.9764685980669994,
+      "abs_local_error": 0.005290245234205182,
+      "p_asli_hoax": 0.9711782733599345,
+      "fit_seconds": 16.773125300000174,
+      "parity_seconds": 76.07169050000084,
+      "parity": {
+        "n_teks": 200,
+        "max_abs_error": 1.1920928955078125e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1360834560,
+      "rss_after_bytes": 1362202624,
+      "order": 14
+    },
+    {
+      "id": "T02",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 18,
+          "word": "politik",
+          "weight": -0.04522097652493801
+        },
+        {
+          "feature_id": 1,
+          "word": "dokumen",
+          "weight": 0.03296404993796396
+        },
+        {
+          "feature_id": 0,
+          "word": "Terbongkar",
+          "weight": 0.03282034943348751
+        },
+        {
+          "feature_id": 5,
+          "word": "diam",
+          "weight": 0.02844800966624633
+        },
+        {
+          "feature_id": 15,
+          "word": "oligarki",
+          "weight": -0.021281941631588763
+        },
+        {
+          "feature_id": 3,
+          "word": "menteri",
+          "weight": 0.018602307852279253
+        },
+        {
+          "feature_id": 12,
+          "word": "demi",
+          "weight": -0.010468685301505075
+        },
+        {
+          "feature_id": 9,
+          "word": "bantuan",
+          "weight": 0.007741931977794253
+        }
+      ],
+      "top_words": [
+        "politik",
+        "dokumen",
+        "Terbongkar",
+        "diam",
+        "oligarki"
+      ],
+      "local_r2": 0.4540824292494505,
+      "local_prediction": 0.9753765789099448,
+      "abs_local_error": 0.004198226077150591,
+      "p_asli_hoax": 0.9711782733599345,
+      "fit_seconds": 15.875264100001004,
+      "parity_seconds": 76.23763599999984,
+      "parity": {
+        "n_teks": 200,
+        "max_abs_error": 1.7881393432617188e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1361072128,
+      "rss_after_bytes": 1360154624,
+      "order": 15
+    },
+    {
+      "id": "T02",
+      "padding": "fixed",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 18,
+          "word": "politik",
+          "weight": -0.04522097657473355
+        },
+        {
+          "feature_id": 1,
+          "word": "dokumen",
+          "weight": 0.03296405119175896
+        },
+        {
+          "feature_id": 0,
+          "word": "Terbongkar",
+          "weight": 0.03282035280207866
+        },
+        {
+          "feature_id": 5,
+          "word": "diam",
+          "weight": 0.02844800941835485
+        },
+        {
+          "feature_id": 15,
+          "word": "oligarki",
+          "weight": -0.02128194096088238
+        },
+        {
+          "feature_id": 3,
+          "word": "menteri",
+          "weight": 0.018602306349253868
+        },
+        {
+          "feature_id": 12,
+          "word": "demi",
+          "weight": -0.01046868680165514
+        },
+        {
+          "feature_id": 9,
+          "word": "bantuan",
+          "weight": 0.007741921139971385
+        }
+      ],
+      "top_words": [
+        "politik",
+        "dokumen",
+        "Terbongkar",
+        "diam",
+        "oligarki"
+      ],
+      "local_r2": 0.45408240431632596,
+      "local_prediction": 0.9753765736388484,
+      "abs_local_error": 0.004198300278913991,
+      "p_asli_hoax": 0.9711782733599345,
+      "fit_seconds": 76.81671619999906,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1359052800,
+      "rss_after_bytes": 1360592896,
+      "order": 16
     }
   ],
   "summary": [
@@ -1336,40 +1549,51 @@
       "padding": "fixed",
       "num_samples": 200,
       "n_direncanakan": 3,
-      "n_tercatat": 1,
-      "n_ok": 1,
+      "n_tercatat": 2,
+      "n_ok": 2,
       "n_gagal_atau_ditolak": 0,
       "lengkap": false,
-      "pairs": [],
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 6,
+          "n_same_sign": 6,
+          "sign_agreement": 1.0
+        }
+      ],
       "jaccard_top5": {
-        "n": 0,
-        "mean": null,
+        "n": 1,
+        "mean": 0.42857142857142855,
         "std": null,
-        "median": null
+        "median": 0.42857142857142855
       },
       "sign_agreement": {
-        "n": 0,
-        "mean": null,
+        "n": 1,
+        "mean": 1.0,
         "std": null,
-        "median": null
+        "median": 1.0
       },
       "local_r2": {
-        "n": 1,
-        "mean": 0.42958826219668755,
-        "std": null,
-        "median": 0.42958826219668755
+        "n": 2,
+        "mean": 0.44183533325650676,
+        "std": 0.017319973992143353,
+        "median": 0.44183533325650676
       },
       "abs_local_error": {
-        "n": 1,
-        "mean": 0.005290330090900852,
-        "std": null,
-        "median": 0.005290330090900852
+        "n": 2,
+        "mean": 0.004744315184907422,
+        "std": 0.0007721816853137799,
+        "median": 0.004744315184907422
       },
       "fit_seconds": {
-        "n": 1,
-        "mean": 78.11923509999906,
-        "std": null,
-        "median": 78.11923509999906
+        "n": 2,
+        "mean": 77.46797564999906,
+        "std": 0.9210199468136394,
+        "median": 77.46797564999906
       },
       "memenuhi_kriteria_jaccard": null
     },
@@ -1420,40 +1644,51 @@
       "padding": "dynamic",
       "num_samples": 200,
       "n_direncanakan": 3,
-      "n_tercatat": 0,
-      "n_ok": 0,
+      "n_tercatat": 2,
+      "n_ok": 2,
       "n_gagal_atau_ditolak": 0,
       "lengkap": false,
-      "pairs": [],
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 6,
+          "n_same_sign": 6,
+          "sign_agreement": 1.0
+        }
+      ],
       "jaccard_top5": {
-        "n": 0,
-        "mean": null,
+        "n": 1,
+        "mean": 0.42857142857142855,
         "std": null,
-        "median": null
+        "median": 0.42857142857142855
       },
       "sign_agreement": {
-        "n": 0,
-        "mean": null,
+        "n": 1,
+        "mean": 1.0,
         "std": null,
-        "median": null
+        "median": 1.0
       },
       "local_r2": {
-        "n": 0,
-        "mean": null,
-        "std": null,
-        "median": null
+        "n": 2,
+        "mean": 0.44183534335580527,
+        "std": 0.017319994970341344,
+        "median": 0.44183534335580527
       },
       "abs_local_error": {
-        "n": 0,
-        "mean": null,
-        "std": null,
-        "median": null
+        "n": 2,
+        "mean": 0.004744235655677886,
+        "std": 0.0007721741511389189,
+        "median": 0.004744235655677886
       },
       "fit_seconds": {
-        "n": 0,
-        "mean": null,
-        "std": null,
-        "median": null
+        "n": 2,
+        "mean": 16.32419470000059,
+        "std": 0.634883743083704,
+        "median": 16.32419470000059
       },
       "memenuhi_kriteria_jaccard": null
     },
@@ -1914,6 +2149,34 @@
       "fixed_seconds": 198.57513480000125,
       "dynamic_seconds": 29.286546600000293,
       "speed_ratio_fixed_over_dynamic": 6.780421656133375,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T02",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "fixed_seconds": 78.11923509999906,
+      "dynamic_seconds": 16.773125300000174,
+      "speed_ratio_fixed_over_dynamic": 4.657404848695565,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T02",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "fixed_seconds": 76.81671619999906,
+      "dynamic_seconds": 15.875264100001004,
+      "speed_ratio_fixed_over_dynamic": 4.838767765759198,
       "jaccard_top5": 1.0,
       "n_top_a": 5,
       "n_top_b": 5,

@@ -2,7 +2,7 @@
 
 <img src="frontend/public/logo.png" alt="Veridix Logo" width="160" />
 
-# 🛡️ Veridix — Deteksi Hoaks Politik Indonesia
+# 🛡️ Veridix — Deteksi Hoaks Politik Indonesia 
 
 ### IndoBERT + XAI + LIME
 

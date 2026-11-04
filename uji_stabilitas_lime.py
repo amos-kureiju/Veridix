@@ -10,10 +10,15 @@ durasi penelitian; waktu tersebut bukan biaya LIME aplikasi.
     python uji_stabilitas_lime.py --probe
     python uji_stabilitas_lime.py
     python uji_stabilitas_lime.py --padding compare --ids T01 T03 --samples 200
+    python uji_stabilitas_lime.py --resume hasil_parsial.json --plan-only
+    python uji_stabilitas_lime.py --resume hasil_parsial.json
 
 Hasil disimpan setelah setiap fit. Skrip tidak melatih model atau membuka lockbox.
+Resume mempertahankan hasil lama dan hanya menjalankan baseline fixed yang belum
+tercatat. Kandidat gagal tidak diulang otomatis dan toleransi tetap 1e-6.
 """
 import argparse
+import copy
 import hashlib
 import itertools
 import json
@@ -32,7 +37,9 @@ if str(ROOT) not in sys.path:
 
 from uji_kesetiaan_lime import KORPUS_UJI, GalatPengukuran, validasi_matriks, versi_paket
 
-VERSION = "1.0"
+VERSION = "1.1"
+METHOD_VERSION = "1.0"  # metode, ambang, dan backend eksperimen tetap
+LEGACY_SCRIPT_SHA256 = "e626acce002a416b19d195a4b15995f8df759854c031030a261e849634f31d41"
 TOP_K = 5
 TOLERANSI = 1e-6
 
@@ -53,8 +60,70 @@ def periksa_paritas(reference, candidate):
     b = validasi_matriks(candidate, len(a), 3)
     delta = float(np.max(np.abs(a - b))) if a.size else 0.0
     flips = int(np.count_nonzero((a >= 0.5) != (b >= 0.5)))
+    worst = None
+    if a.size:
+        row, seed = np.unravel_index(np.argmax(np.abs(a - b)), a.shape)
+        worst = {"row_index": int(row), "seed_index": int(seed),
+                 "reference_probability": float(a[row, seed]), "candidate_probability": float(b[row, seed])}
     return {"n_teks": len(a), "max_abs_error": delta, "n_keputusan_berubah": flips,
+            "n_probabilitas_melebihi_toleransi": int(np.count_nonzero(np.abs(a - b) > TOLERANSI)),
+            "worst_difference": worst,
             "toleransi": TOLERANSI, "lulus": delta <= TOLERANSI and flips == 0}
+
+
+def kunci_fit(fit):
+    return fit["id"], fit["padding"], fit["num_samples"], fit["seed_lime"]
+
+
+def rencana_fits(config):
+    plan = []
+    for case_id in config["ids"]:
+        for index, (samples, seed) in enumerate(itertools.product(config["samples"], config["seeds"])):
+            modes = config["padding"] if index % 2 == 0 else list(reversed(config["padding"]))
+            plan.extend((case_id, mode, samples, seed) for mode in modes)
+    return plan
+
+
+def sisa_resume(payload):
+    """Lanjutkan baseline saja; semua catatan lama, termasuk kegagalan, dipertahankan."""
+    plan = rencana_fits(payload["metadata"]["config"])
+    seen = set()
+    for fit in payload["fits"]:
+        key = kunci_fit(fit)
+        if key in seen or key not in plan:
+            raise ValueError("checkpoint memiliki percobaan duplikat atau di luar rencana")
+        seen.add(key)
+    return [key for key in plan if key[1] == "fixed" and key not in seen]
+
+
+def periksa_sumber_resume(payload, corpus):
+    """Resume hanya untuk implementasi/metode yang identitasnya dikenal."""
+    metadata = payload["metadata"]
+    if metadata.get("planned_fits") != len(rencana_fits(metadata["config"])):
+        raise ValueError("jumlah rencana checkpoint tidak sesuai konfigurasi")
+    if [p["id"] for p in payload["inputs"]] != metadata["config"]["ids"]:
+        raise ValueError("daftar input checkpoint tidak sesuai konfigurasi")
+    sha = lambda data: hashlib.sha256(data).hexdigest()
+    script_hash = sha(Path(__file__).read_bytes())
+    if metadata.get("sha256_script") not in (LEGACY_SCRIPT_SHA256, script_hash):
+        raise ValueError("skrip sumber checkpoint tidak dikenal; tinjau sebelum melanjutkan")
+    expected = {"sha256_inference": sha((ROOT / "src/ml/inference.py").read_bytes()),
+                "sha256_ablation_script": sha((ROOT / "uji_kesetiaan_lime.py").read_bytes()),
+                "sha256_corpus": sha(json.dumps(corpus, sort_keys=True, ensure_ascii=False).encode())}
+    if any(metadata.get(k) != v for k, v in expected.items()):
+        raise ValueError("kode inferensi/ablasi/korpus berbeda dari checkpoint")
+    if metadata.get("method_version", METHOD_VERSION) != METHOD_VERSION:
+        raise ValueError("metode eksperimen berbeda")
+    if any(f.get("parity", {}).get("toleransi") != TOLERANSI
+           for f in payload["fits"] if f.get("parity") is not None):
+        raise ValueError("toleransi checkpoint berbeda")
+    sisa_resume(payload)
+
+
+def periksa_runtime_resume(previous, current):
+    for key in ("audit_backend", "device", "model_seeds", "max_length", "batch_size", "torch_threads", "packages"):
+        if previous.get(key) != current.get(key):
+            raise ValueError(f"lingkungan resume berbeda: {key}")
 
 
 class BackendPaddingDinamis:
@@ -156,6 +225,9 @@ def perbandingan_padding(fits):
         key = dynamic["id"], dynamic["num_samples"], dynamic["seed_lime"]
         if key in fixed:
             baseline = fixed[key]
+            # Sesi berbeda dapat mempunyai beban mesin berbeda: jangan buat rasio silang.
+            if baseline.get("session_id") != dynamic.get("session_id"):
+                continue
             rows.append({"id": key[0], "num_samples": key[1], "seed_lime": key[2],
                          "fixed_seconds": baseline["fit_seconds"], "dynamic_seconds": dynamic["fit_seconds"],
                          "speed_ratio_fixed_over_dynamic": baseline["fit_seconds"] / dynamic["fit_seconds"]
@@ -225,8 +297,11 @@ def run_fit(prepared, mode, samples, seed, backend, reference, explainer_class):
             parity = periksa_paritas(reference.seed_probs_each(texts), measured)
             result["parity_seconds"] = time.perf_counter() - start_parity
             result["parity"] = parity
-            if not parity["lulus"]:
-                raise ParitasGagal("probabilitas/keputusan kandidat berbeda pada neighborhood aktual")
+            worst = parity["worst_difference"]
+            if worst is not None:
+                worst["text"] = texts[worst["row_index"]]
+                seeds = getattr(reference, "seeds", [])
+                worst["model_seed"] = seeds[worst["seed_index"]] if len(seeds) == 3 else None
         words = exp.domain_mapper.indexed_string
         for feature_id, coefficient in exp.local_exp[1]:
             weight = angka(coefficient)
@@ -240,6 +315,8 @@ def run_fit(prepared, mode, samples, seed, backend, reference, explainer_class):
         result["local_prediction"] = angka(getattr(exp, "local_pred", None))
         if result["local_prediction"] is not None:
             result["abs_local_error"] = abs(result["local_prediction"] - float(p_original))
+        if result["parity"] is not None and not result["parity"]["lulus"]:
+            raise ParitasGagal("probabilitas/keputusan kandidat berbeda pada neighborhood aktual")
         result["status"] = "ok"
     except Exception as exc:
         result["status"] = "paritas_gagal" if isinstance(exc, ParitasGagal) else "gagal"
@@ -290,11 +367,13 @@ def probe():
 def parser():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--probe", action="store_true", help="probe tanpa model dan tanpa berkas hasil")
-    p.add_argument("--ids", nargs="+", default=[c["id"] for c in KORPUS_UJI])
-    p.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3], help="seed explainer, bukan checkpoint")
-    p.add_argument("--samples", nargs="+", type=int, default=[200, 500])
-    p.add_argument("--padding", choices=("fixed", "dynamic", "compare"), default="fixed")
-    p.add_argument("--jaccard-threshold", type=float, default=0.6)
+    p.add_argument("--ids", nargs="+")
+    p.add_argument("--seeds", nargs="+", type=int, help="seed explainer, bukan checkpoint")
+    p.add_argument("--samples", nargs="+", type=int)
+    p.add_argument("--padding", choices=("fixed", "dynamic", "compare"))
+    p.add_argument("--jaccard-threshold", type=float)
+    p.add_argument("--resume", type=Path, help="lanjutkan fit fixed yang hilang; sumber tetap utuh")
+    p.add_argument("--plan-only", action="store_true", help="tampilkan rencana tanpa memuat model")
     return p
 
 
@@ -302,6 +381,24 @@ def main():
     arg_parser = parser()
     args = arg_parser.parse_args()
     known = {c["id"]: c for c in KORPUS_UJI}
+    source = None
+    source_bytes = None
+    if args.resume:
+        if any(v is not None for v in (args.ids, args.seeds, args.samples, args.padding, args.jaccard_threshold)):
+            arg_parser.error("--resume memakai konfigurasi sumber; jangan gabungkan dengan opsi konfigurasi")
+        source_bytes = args.resume.read_bytes()
+        source = json.loads(source_bytes)
+        cfg = source["metadata"]["config"]
+        args.ids, args.seeds, args.samples = cfg["ids"], cfg["seeds"], cfg["samples"]
+        args.jaccard_threshold = cfg["jaccard_threshold"]
+        modes = list(cfg["padding"])
+    else:
+        args.ids = args.ids or [c["id"] for c in KORPUS_UJI]
+        args.seeds = args.seeds or [1, 2, 3]
+        args.samples = args.samples or [200, 500]
+        args.padding = args.padding or "fixed"
+        args.jaccard_threshold = 0.6 if args.jaccard_threshold is None else args.jaccard_threshold
+        modes = ["fixed", "dynamic"] if args.padding == "compare" else [args.padding]
     for name, values in (("ids", args.ids), ("seeds", args.seeds), ("samples", args.samples)):
         if len(set(values)) != len(values):
             arg_parser.error(f"{name} tidak boleh berulang")
@@ -315,6 +412,19 @@ def main():
         return 0 if probe() else 1
     sha = lambda data: hashlib.sha256(data).hexdigest()
     corpus = [known[i] for i in args.ids]
+    config = {"ids": args.ids, "seeds": args.seeds, "samples": args.samples, "padding": modes,
+              "jaccard_threshold": args.jaccard_threshold}
+    if source is not None:
+        periksa_sumber_resume(source, corpus)
+    pending = sisa_resume(source) if source is not None else rencana_fits(config)
+    if args.plan_only:
+        print(f"{len(pending)} percobaan belum dijalankan" + (" (baseline fixed saja)" if source is not None else ""))
+        for case_id, mode, samples, seed in pending:
+            print(f"{case_id} {mode} n={samples} seed={seed}")
+        return 0
+    if source is not None and not pending:
+        print("Tidak ada percobaan fixed yang hilang; sumber tidak diubah.")
+        return 0
     identities = {"sha256_script": sha(Path(__file__).read_bytes()),
                   "sha256_inference": sha((ROOT / "src/ml/inference.py").read_bytes()),
                   "sha256_ablation_script": sha((ROOT / "uji_kesetiaan_lime.py").read_bytes()),
@@ -331,11 +441,8 @@ def main():
                 **{f"sha256_seed_{s}": h for s, h in EXPECTED_SHA256.items()}}
     if list(backend.seeds) != SEEDS or any(audit.get(k) != v for k, v in expected.items()):
         raise RuntimeError("Identitas tiga checkpoint/pipeline/revisi tidak sesuai baseline beku")
-    modes = ["fixed", "dynamic"] if args.padding == "compare" else [args.padding]
-    config = {"ids": args.ids, "seeds": args.seeds, "samples": args.samples, "padding": modes,
-              "jaccard_threshold": args.jaccard_threshold}
     prefix = ROOT / ("hasil_stabilitas_lime_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f"))
-    payload = {"metadata": {"script_version": VERSION, "started_at": started_at,
+    payload = {"metadata": {"script_version": VERSION, "method_version": METHOD_VERSION, "started_at": started_at,
                "config": config, "planned_fits": len(corpus) * len(args.seeds) * len(args.samples) * len(modes),
                **identities,
                "audit_backend": audit, "device": str(backend.device), "model_seeds": list(backend.seeds),
@@ -350,6 +457,17 @@ def main():
                          "RSS sebelum/sesudah fit bukan puncak memori.",
                          "Paritas kandidat setelah fit di luar timer LIME; menambah durasi studi."],
                "complete": False}, "inputs": [], "fits": []}
+    if source is not None:
+        periksa_runtime_resume(source["metadata"], payload["metadata"])
+        payload["fits"] = copy.deepcopy(source["fits"])
+        for fit in payload["fits"]:
+            fit.setdefault("session_id", args.resume.stem)
+        payload["resume_history"] = copy.deepcopy(source.get("resume_history", []))
+        payload["resume_history"].append({"source_path": str(args.resume.resolve()),
+            "source_sha256": sha(source_bytes), "source_script_sha256": source["metadata"]["sha256_script"],
+            "source_version": source["metadata"]["script_version"], "n_existing_fits": len(source["fits"])})
+        payload["metadata"].update({"resume_target_fits": len(pending), "resume_complete": False,
+                                    "resume_policy": "missing_fixed_only; recorded failures never retried"})
     dynamic = BackendPaddingDinamis(backend, MAX_LEN, BATCH)
     implementations = {"fixed": backend, "dynamic": dynamic}
     for item in corpus:
@@ -363,6 +481,16 @@ def main():
             prepared["p_asli_per_seed"] = prob[0].tolist()
             prepared["p_asli_hoax"] = float(prob.mean())
         payload["inputs"].append(prepared)
+    if source is not None:
+        if len(source["inputs"]) != len(payload["inputs"]):
+            raise ValueError("jumlah input berubah saat resume")
+        for previous, current in zip(source["inputs"], payload["inputs"]):
+            if (previous["id"], previous["status"], previous.get("teks_dinilai")) != (
+                    current["id"], current["status"], current.get("teks_dinilai")):
+                raise ValueError("masukan yang dipraproses berubah saat resume")
+            if current["status"] == "ok" and not periksa_paritas(
+                    [previous["p_asli_per_seed"]], [current["p_asli_per_seed"]])["lulus"]:
+                raise ValueError("probabilitas baseline berubah saat resume")
     simpan(payload, prefix)
     # Warm-up dan preflight; bukan bagian dari timer fit.
     short_probes = [p["teks_dinilai"] for p in payload["inputs"] if p["status"] == "ok"] + [""]
@@ -372,7 +500,7 @@ def main():
     try:
         baseline = np.concatenate([backend.seed_probs_each(group) for group in probe_groups], axis=0)
         validasi_matriks(baseline, sum(map(len, probe_groups)), 3)
-        if "dynamic" in modes:
+        if source is None and "dynamic" in modes:
             candidate = np.concatenate([dynamic.seed_probs_each(group) for group in probe_groups], axis=0)
             payload["parity_preflight"] = periksa_paritas(baseline, candidate)
             if not payload["parity_preflight"]["lulus"]:
@@ -385,22 +513,27 @@ def main():
         simpan(payload, prefix)
         print("Pemeriksaan awal gagal; lihat", prefix.with_suffix(".json"))
         return 1
-    for case in payload["inputs"]:
-        for index, (samples, seed) in enumerate(itertools.product(args.samples, args.seeds)):
-            # Selang-seling urutan untuk mengurangi bias warm-up/temperatur.
-            ordered = modes if index % 2 == 0 else list(reversed(modes))
-            for mode in ordered:
-                fit = run_fit(case, mode, samples, seed, implementations[mode], backend, LimeTextExplainer)
-                fit["order"] = len(payload["fits"]) + 1
-                payload["fits"].append(fit)
-                payload["metadata"]["elapsed_seconds"] = time.perf_counter() - start
-                simpan(payload, prefix)
-                print(f"{fit['order']}/{payload['metadata']['planned_fits']} {case['id']} {mode} "
-                      f"n={samples} seed={seed}: {fit['status']} | {fit['fit_seconds']} detik", flush=True)
-                if fit["status"] == "paritas_gagal":
-                    print("Kandidat dihentikan karena paritas gagal; hasil parsial tersimpan.")
-                    return 1
-    payload["metadata"]["complete"] = True
+    prepared_by_id = {case["id"]: case for case in payload["inputs"]}
+    full_plan = rencana_fits(config)
+    for step, (case_id, mode, samples, seed) in enumerate(pending, 1):
+        fit = run_fit(prepared_by_id[case_id], mode, samples, seed, implementations[mode], backend, LimeTextExplainer)
+        fit["order"] = len(payload["fits"]) + 1
+        fit["planned_order"] = full_plan.index((case_id, mode, samples, seed)) + 1
+        fit["session_id"] = prefix.name
+        payload["fits"].append(fit)
+        payload["metadata"]["elapsed_seconds"] = time.perf_counter() - start
+        simpan(payload, prefix)
+        print(f"{'Resume ' if source is not None else ''}{step}/{len(pending)} {case_id} {mode} "
+              f"n={samples} seed={seed}: {fit['status']} | {fit['fit_seconds']} detik", flush=True)
+        if fit["status"] == "paritas_gagal":
+            print("Kandidat dihentikan karena paritas gagal; hasil parsial tersimpan.")
+            return 1
+    payload["metadata"]["complete"] = len(payload["fits"]) == len(full_plan)
+    if source is not None:
+        payload["metadata"]["resume_complete"] = True
+    fixed_results = {kunci_fit(f): f for f in payload["fits"] if f["padding"] == "fixed"}
+    payload["metadata"]["baseline_fixed_complete"] = all(
+        key in fixed_results and fixed_results[key]["status"] == "ok" for key in full_plan if key[1] == "fixed")
     payload["metadata"]["elapsed_seconds"] = time.perf_counter() - start
     simpan(payload, prefix)
     rows = [{"id": r["id"], "padding": r["padding"], "samples": r["num_samples"], "n_ok": r["n_ok"],
@@ -408,6 +541,8 @@ def main():
              "fit_seconds": r["fit_seconds"]["median"]} for r in payload["summary"]]
     print(pd.DataFrame(rows).to_string(index=False))
     print("Tersimpan:", prefix.with_suffix(".json"), "dan", prefix.with_suffix(".csv"))
+    if source is not None:
+        print("Kelanjutan baseline selesai. Kegagalan kandidat lama tetap tercatat; compare belum disetujui.")
     return 0 if all(f["status"] == "ok" for f in payload["fits"]) else 1
 
 

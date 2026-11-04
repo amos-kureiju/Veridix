@@ -1,4 +1,7 @@
 """Regresi eksperimen LIME; backend tiruan, tanpa checkpoint, database, atau jaringan."""
+import copy
+import hashlib
+import json
 import unittest
 from types import SimpleNamespace
 
@@ -102,6 +105,7 @@ class TestDynamicPadding(unittest.TestCase):
 
 class ToyBackend:
     text = "Viral viral berita resmi politik pemerintah daerah nasional data kabar"
+    seeds = [42, 123, 999]
 
     def __init__(self, alter_neighbors=False):
         self.alter_neighbors = alter_neighbors
@@ -152,6 +156,97 @@ class TestStabilityFit(unittest.TestCase):
         self.assertGreater(result["parity"]["max_abs_error"], experiment.TOLERANSI)
         self.assertIsNotNone(result["fit_seconds"])
         self.assertIsNotNone(result["parity_seconds"])
+        self.assertTrue(result["coefficients"])
+        self.assertTrue(result["top_words"])
+        self.assertIsNotNone(result["local_r2"])
+        self.assertIsNotNone(result["abs_local_error"])
+        worst = result["parity"]["worst_difference"]
+        self.assertNotEqual(worst["text"], ToyBackend.text)
+        self.assertEqual(worst["model_seed"], ToyBackend.seeds[worst["seed_index"]])
+        self.assertAlmostEqual(abs(worst["reference_probability"] - worst["candidate_probability"]),
+                               result["parity"]["max_abs_error"])
+
+
+class TestResume(unittest.TestCase):
+    def fixture(self):
+        config = {"ids": ["T01", "T02", "T03", "T04"], "padding": ["fixed", "dynamic"],
+                  "samples": [200, 500], "seeds": [1, 2, 3], "jaccard_threshold": 0.6}
+        sha = lambda value: hashlib.sha256(value).hexdigest()
+        metadata = {"config": config, "script_version": "1.0", "planned_fits": 48, "complete": False,
+            "sha256_script": experiment.LEGACY_SCRIPT_SHA256,
+            "sha256_inference": sha((experiment.ROOT / "src/ml/inference.py").read_bytes()),
+            "sha256_ablation_script": sha((experiment.ROOT / "uji_kesetiaan_lime.py").read_bytes()),
+            "sha256_corpus": sha(json.dumps(experiment.KORPUS_UJI, sort_keys=True, ensure_ascii=False).encode())}
+        fits = [{"id": case_id, "padding": mode, "num_samples": samples, "seed_lime": seed,
+                 "status": "ok", "parity": None, "order": n + 1}
+                for n, (case_id, mode, samples, seed) in enumerate(experiment.rencana_fits(config)[:34])]
+        fits[-1].update(status="paritas_gagal", parity={"toleransi": 1e-6,
+            "max_abs_error": 1.0728836059570312e-6, "n_keputusan_berubah": 0, "lulus": False})
+        return {"metadata": metadata, "inputs": [{"id": i} for i in config["ids"]], "fits": fits}
+
+    def test_partial_34_plans_only_seven_missing_fixed_without_changing_history(self):
+        payload = self.fixture()
+        original = copy.deepcopy(payload)
+        experiment.periksa_sumber_resume(payload, experiment.KORPUS_UJI)
+        pending = experiment.sisa_resume(payload)
+        expected = [("T03", "fixed", 500, 3)] + [
+            ("T04", "fixed", samples, seed) for samples in (200, 500) for seed in (1, 2, 3)]
+        self.assertEqual(pending, expected)
+        self.assertEqual(payload, original)
+        self.assertEqual(sum(f["status"] == "ok" for f in payload["fits"]), 33)
+        self.assertNotIn(experiment.kunci_fit(payload["fits"][-1]), pending)
+        self.assertEqual(len(payload["fits"]) + len(pending), 41)
+
+    def test_duplicate_and_out_of_plan_records_are_rejected(self):
+        for change in ("duplicate", "outside"):
+            payload = self.fixture()
+            extra = copy.deepcopy(payload["fits"][0])
+            if change == "outside":
+                extra["seed_lime"] = 999
+            payload["fits"].append(extra)
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "duplikat|luar rencana"):
+                experiment.sisa_resume(payload)
+
+    def test_changed_source_identity_method_or_tolerance_is_rejected(self):
+        for key in ("sha256_script", "sha256_inference", "sha256_ablation_script", "sha256_corpus", "method_version"):
+            payload = self.fixture()
+            payload["metadata"][key] = "changed"
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                experiment.periksa_sumber_resume(payload, experiment.KORPUS_UJI)
+        payload = self.fixture()
+        payload["fits"][-1]["parity"]["toleransi"] = 1e-5
+        with self.assertRaisesRegex(ValueError, "toleransi"):
+            experiment.periksa_sumber_resume(payload, experiment.KORPUS_UJI)
+        for key in ("planned_fits", "inputs"):
+            payload = self.fixture()
+            if key == "planned_fits":
+                payload["metadata"][key] = 1
+            else:
+                payload[key].pop()
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                experiment.periksa_sumber_resume(payload, experiment.KORPUS_UJI)
+
+    def test_runtime_identity_requires_same_environment(self):
+        previous = {"audit_backend": {"seed": "abc"}, "device": "cpu", "model_seeds": [42, 123, 999],
+                    "max_length": 128, "batch_size": 32, "torch_threads": 8,
+                    "packages": {"torch": "example", "lime": "example"}}
+        experiment.periksa_runtime_resume(previous, copy.deepcopy(previous))
+        for key in previous:
+            current = copy.deepcopy(previous)
+            current[key] = "changed"
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, key):
+                experiment.periksa_runtime_resume(previous, current)
+
+    def test_speed_ratios_do_not_pair_different_sessions(self):
+        base = {"id": "T", "num_samples": 200, "seed_lime": 1, "status": "ok", "fit_seconds": 2.0,
+                "coefficients": [{"feature_id": 0, "word": "viral", "weight": .2}], "top_words": ["viral"]}
+        fixed = {**base, "padding": "fixed", "session_id": "old"}
+        dynamic = {**base, "padding": "dynamic", "session_id": "new", "fit_seconds": 1.0}
+        self.assertEqual(experiment.perbandingan_padding([fixed, dynamic]), [])
+        dynamic["session_id"] = "old"
+        result = experiment.perbandingan_padding([fixed, dynamic])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["speed_ratio_fixed_over_dynamic"], 2.0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,1933 @@
+{
+  "metadata": {
+    "script_version": "1.0",
+    "started_at": "2026-11-04T09:09:00.668335+07:00",
+    "config": {
+      "ids": [
+        "T01",
+        "T02",
+        "T03",
+        "T04"
+      ],
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "samples": [
+        200,
+        500
+      ],
+      "padding": [
+        "fixed",
+        "dynamic"
+      ],
+      "jaccard_threshold": 0.6
+    },
+    "planned_fits": 48,
+    "sha256_script": "e626acce002a416b19d195a4b15995f8df759854c031030a261e849634f31d41",
+    "sha256_inference": "a1e896d1f2fc37baa7537f7f7f4a1cffe0c6968fd58923c22ed3ddfd0f23a7d3",
+    "sha256_ablation_script": "4e6ec07007fc9f101e326cb7cd1c6a781aab9f4eee70a8e101eb1094d6012c9a",
+    "sha256_corpus": "c4e6c840c8beb6ace759fe6d8f9ebe725752914ccb93557da34174dce451e7be",
+    "audit_backend": {
+      "text_pipeline_sha256": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+      "base_revision": "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2",
+      "sha256_seed_42": "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+      "sha256_seed_123": "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+      "sha256_seed_999": "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3"
+    },
+    "device": "cpu",
+    "model_seeds": [
+      42,
+      123,
+      999
+    ],
+    "max_length": 128,
+    "batch_size": 32,
+    "torch_threads": 8,
+    "model_init_seconds": 9.491481699998985,
+    "packages": {
+      "numpy": "2.3.5",
+      "pandas": "3.0.6",
+      "lime": "0.2.0.1",
+      "scikit-learn": "1.9.1",
+      "torch": "2.14.0",
+      "transformers": "5.17.0",
+      "psutil": "7.2.2"
+    },
+    "notes": [
+      "Pilot empat skenario peneliti; bukan akurasi atau evaluasi lockbox.",
+      "LIME menjelaskan rerata P(hoaks) tiga seed, bukan aturan voting.",
+      "Galat lokal hanya pada teks asli; bukan kesetiaan heldout.",
+      "Jaccard 0.6 adalah kriteria eksploratif, bukan standar keandalan.",
+      "Kurang dari dua seed explainer tidak menghasilkan pengukuran stabilitas.",
+      "RSS sebelum/sesudah fit bukan puncak memori.",
+      "Paritas kandidat setelah fit di luar timer LIME; menambah durasi studi."
+    ],
+    "complete": false,
+    "elapsed_seconds": 1463.1995752999992
+  },
+  "inputs": [
+    {
+      "id": "T01",
+      "label_peneliti": 1,
+      "sumber_label": null,
+      "status_engine": "dinilai",
+      "status": "ok",
+      "reason": null,
+      "teks_dinilai": "Beredar kabar viral jutaan surat suara pemilu di gudang logistik Tanjung Priok sudah dicoblos nomor dua secara curang sebelum hari pencoblosan nasional dimulai.",
+      "p_asli_per_seed": [
+        0.9268959760665894,
+        0.9878396391868591,
+        0.9791770577430725
+      ],
+      "p_asli_hoax": 0.964637557665507
+    },
+    {
+      "id": "T02",
+      "label_peneliti": 1,
+      "sumber_label": null,
+      "status_engine": "dinilai",
+      "status": "ok",
+      "reason": null,
+      "teks_dinilai": "Terbongkar dokumen rahasia menteri keuangan diam-diam menyetujui pemotongan anggaran bantuan sosial rakyat demi mendanai proyek oligarki dan dinasti politik.",
+      "p_asli_per_seed": [
+        0.9667457938194275,
+        0.9780812859535217,
+        0.9687077403068542
+      ],
+      "p_asli_hoax": 0.9711782733599345
+    },
+    {
+      "id": "T03",
+      "label_peneliti": 0,
+      "sumber_label": null,
+      "status_engine": "dinilai",
+      "status": "ok",
+      "reason": null,
+      "teks_dinilai": "Kementerian Keuangan memastikan alokasi anggaran perlindungan sosial dan bantuan pangan tahun 2026 disalurkan secara transparan kepada pemerintah daerah penerima manfaat.",
+      "p_asli_per_seed": [
+        0.044695526361465454,
+        0.10364782810211182,
+        0.053063634783029556
+      ],
+      "p_asli_hoax": 0.06713566308220227
+    },
+    {
+      "id": "T04",
+      "label_peneliti": 0,
+      "sumber_label": null,
+      "status_engine": "dinilai",
+      "status": "ok",
+      "reason": null,
+      "teks_dinilai": "Presiden Joko Widodo didampingi jajaran menteri meresmikan pembukaan jalan tol Trans Jawa guna memangkas durasi distribusi logistik dan mempercepat pertumbuhan ekonomi daerah.",
+      "p_asli_per_seed": [
+        0.009716644883155823,
+        0.003523527178913355,
+        0.0052168830297887325
+      ],
+      "p_asli_hoax": 0.00615235169728597
+    }
+  ],
+  "fits": [
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.04284841245155588
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.034946677501190355
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.029102436375712464
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.02261664180482437
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.02124628777406571
+        },
+        {
+          "feature_id": 19,
+          "word": "hari",
+          "weight": -0.02001166211156265
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.015836804611823473
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.015131758996206189
+        }
+      ],
+      "top_words": [
+        "dicoblos",
+        "kabar",
+        "pemilu",
+        "logistik",
+        "dimulai"
+      ],
+      "local_r2": 0.43109947014833483,
+      "local_prediction": 0.9588018401930768,
+      "abs_local_error": 0.005835717472430169,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 48.358424600000944,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1348874240,
+      "rss_after_bytes": 1350406144,
+      "order": 1
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.04284838728166722
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.03494667446206661
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.02910244115568819
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.02261664373945373
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.02124628741890444
+        },
+        {
+          "feature_id": 19,
+          "word": "hari",
+          "weight": -0.02001165778046469
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.015836803312537492
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.015131761799216234
+        }
+      ],
+      "top_words": [
+        "dicoblos",
+        "kabar",
+        "pemilu",
+        "logistik",
+        "dimulai"
+      ],
+      "local_r2": 0.4310995326941409,
+      "local_prediction": 0.9588018340100981,
+      "abs_local_error": 0.005835803128268591,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 10.81501759999992,
+      "parity_seconds": 42.87683620000098,
+      "parity": {
+        "n_teks": 200,
+        "max_abs_error": 4.172325134277344e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1351282688,
+      "rss_after_bytes": 1345732608,
+      "order": 2
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.02367219959830072
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.02312811028290404
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.01939286879408567
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.01859620510116702
+        },
+        {
+          "feature_id": 20,
+          "word": "pencoblosan",
+          "weight": 0.018568756585123247
+        },
+        {
+          "feature_id": 11,
+          "word": "Priok",
+          "weight": -0.014802531181906936
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.014761851625833199
+        },
+        {
+          "feature_id": 7,
+          "word": "di",
+          "weight": -0.010329299974524683
+        }
+      ],
+      "top_words": [
+        "dimulai",
+        "dicoblos",
+        "kabar",
+        "suara",
+        "pencoblosan"
+      ],
+      "local_r2": 0.4094967254308627,
+      "local_prediction": 0.947673195232601,
+      "abs_local_error": 0.016964441905765737,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 7.662448700000823,
+      "parity_seconds": 37.248276299998906,
+      "parity": {
+        "n_teks": 200,
+        "max_abs_error": 2.980232238769531e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1356517376,
+      "rss_after_bytes": 1354227712,
+      "order": 3
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.023672205308180132
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.02312810919456308
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.019392868979886582
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.018596203663299556
+        },
+        {
+          "feature_id": 20,
+          "word": "pencoblosan",
+          "weight": 0.018568756742530328
+        },
+        {
+          "feature_id": 11,
+          "word": "Priok",
+          "weight": -0.014802524240285381
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.014761852988074963
+        },
+        {
+          "feature_id": 7,
+          "word": "di",
+          "weight": -0.01032930310368768
+        }
+      ],
+      "top_words": [
+        "dimulai",
+        "dicoblos",
+        "kabar",
+        "suara",
+        "pencoblosan"
+      ],
+      "local_r2": 0.4094967704421705,
+      "local_prediction": 0.9476731939639226,
+      "abs_local_error": 0.016964363701584384,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 36.96152970000003,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1384886272,
+      "rss_after_bytes": 1358118912,
+      "order": 4
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 200,
+      "seed_lime": 3,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.026202586785740292
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.026038453801422737
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.025566889487737814
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.022438477026265995
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.01677990814564046
+        },
+        {
+          "feature_id": 16,
+          "word": "secara",
+          "weight": 0.015249341856615018
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.013317900511237435
+        },
+        {
+          "feature_id": 18,
+          "word": "sebelum",
+          "weight": 0.012174386820177928
+        }
+      ],
+      "top_words": [
+        "dua",
+        "dicoblos",
+        "Beredar",
+        "logistik",
+        "kabar"
+      ],
+      "local_r2": 0.45129060173169744,
+      "local_prediction": 0.9597244402272831,
+      "abs_local_error": 0.0049131174382238685,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 41.69203820000075,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1358118912,
+      "rss_after_bytes": 1355128832,
+      "order": 5
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "seed_lime": 3,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.026202591723150016
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.026038447550923768
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.025566893747125268
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.02243848262560201
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.016779906492322676
+        },
+        {
+          "feature_id": 16,
+          "word": "secara",
+          "weight": 0.015249348306992412
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.013317897734725212
+        },
+        {
+          "feature_id": 18,
+          "word": "sebelum",
+          "weight": 0.012174394881707597
+        }
+      ],
+      "top_words": [
+        "dua",
+        "dicoblos",
+        "Beredar",
+        "logistik",
+        "kabar"
+      ],
+      "local_r2": 0.4512905694443996,
+      "local_prediction": 0.9597244336868893,
+      "abs_local_error": 0.004913203451477388,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 18.583319699999265,
+      "parity_seconds": 78.69012640000074,
+      "parity": {
+        "n_teks": 200,
+        "max_abs_error": 4.172325134277344e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1355145216,
+      "rss_after_bytes": 1348972544,
+      "order": 6
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.03330547863115374
+        },
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.024105329745254544
+        },
+        {
+          "feature_id": 20,
+          "word": "pencoblosan",
+          "weight": 0.023759457409536198
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.019326521243241617
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.019222278493139823
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.01660782009349557
+        },
+        {
+          "feature_id": 7,
+          "word": "di",
+          "weight": -0.015534039077899726
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.014817055518396124
+        }
+      ],
+      "top_words": [
+        "dicoblos",
+        "dua",
+        "pencoblosan",
+        "logistik",
+        "kabar"
+      ],
+      "local_r2": 0.38471088741717907,
+      "local_prediction": 0.9512242012511216,
+      "abs_local_error": 0.013413435887245084,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 45.51160399999935,
+      "parity_seconds": 195.27877079999962,
+      "parity": {
+        "n_teks": 500,
+        "max_abs_error": 2.980232238769531e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1352466432,
+      "rss_after_bytes": 1356095488,
+      "order": 7
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 500,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.033305481499271955
+        },
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.024105329113652017
+        },
+        {
+          "feature_id": 20,
+          "word": "pencoblosan",
+          "weight": 0.023759459948423843
+        },
+        {
+          "feature_id": 9,
+          "word": "logistik",
+          "weight": -0.019326520237535273
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.019222274086261704
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.016607818238508553
+        },
+        {
+          "feature_id": 7,
+          "word": "di",
+          "weight": -0.01553403746857924
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.01481705235207481
+        }
+      ],
+      "top_words": [
+        "dicoblos",
+        "dua",
+        "pencoblosan",
+        "logistik",
+        "kabar"
+      ],
+      "local_r2": 0.3847108767694578,
+      "local_prediction": 0.951224210666017,
+      "abs_local_error": 0.013413346999489928,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 132.05255639999996,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1441316864,
+      "rss_after_bytes": 1441841152,
+      "order": 8
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 500,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.025677322988793015
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.02462278296225424
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.023841833563371852
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.022168448654427984
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.02123073403949445
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.01764946790539924
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.01726631857725956
+        },
+        {
+          "feature_id": 18,
+          "word": "sebelum",
+          "weight": 0.013846826344149684
+        }
+      ],
+      "top_words": [
+        "kabar",
+        "dimulai",
+        "suara",
+        "Beredar",
+        "dicoblos"
+      ],
+      "local_r2": 0.37833609250570177,
+      "local_prediction": 0.9628057255987336,
+      "abs_local_error": 0.0018318320667733978,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 126.4777795000009,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1441845248,
+      "rss_after_bytes": 1472729088,
+      "order": 9
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "seed_lime": 2,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.025677326378638288
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.02462278291135015
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.023841838225353965
+        },
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.022168450689257557
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.021230731968872745
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.017649464717504885
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.017266322920046123
+        },
+        {
+          "feature_id": 18,
+          "word": "sebelum",
+          "weight": 0.013846827979972099
+        }
+      ],
+      "top_words": [
+        "kabar",
+        "dimulai",
+        "suara",
+        "Beredar",
+        "dicoblos"
+      ],
+      "local_r2": 0.3783361163035681,
+      "local_prediction": 0.9628057207010465,
+      "abs_local_error": 0.001831916437320169,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 22.744594400001006,
+      "parity_seconds": 112.513243899999,
+      "parity": {
+        "n_teks": 500,
+        "max_abs_error": 4.172325134277344e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1472737280,
+      "rss_after_bytes": 1366110208,
+      "order": 10
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "seed_lime": 3,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.02312052116221571
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.022565277279301663
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.022331036049949307
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.02003336277489213
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.014565435586526189
+        },
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.014382364231504548
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.014006756400762604
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.01326311799825589
+        }
+      ],
+      "top_words": [
+        "Beredar",
+        "pemilu",
+        "kabar",
+        "suara",
+        "dimulai"
+      ],
+      "local_r2": 0.3786169325953368,
+      "local_prediction": 0.9569738805749594,
+      "abs_local_error": 0.007663756563407342,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 29.286546600000293,
+      "parity_seconds": 184.51811540000017,
+      "parity": {
+        "n_teks": 500,
+        "max_abs_error": 4.76837158203125e-07,
+        "n_keputusan_berubah": 0,
+        "toleransi": 1e-06,
+        "lulus": true
+      },
+      "rss_before_bytes": 1440432128,
+      "rss_after_bytes": 1364250624,
+      "order": 11
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 500,
+      "seed_lime": 3,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 0,
+          "word": "Beredar",
+          "weight": -0.023120517143986878
+        },
+        {
+          "feature_id": 6,
+          "word": "pemilu",
+          "weight": 0.02256527339410689
+        },
+        {
+          "feature_id": 1,
+          "word": "kabar",
+          "weight": -0.022331030477542837
+        },
+        {
+          "feature_id": 5,
+          "word": "suara",
+          "weight": -0.020033360207494792
+        },
+        {
+          "feature_id": 22,
+          "word": "dimulai",
+          "weight": -0.01456542681219261
+        },
+        {
+          "feature_id": 15,
+          "word": "dua",
+          "weight": -0.014382358943858378
+        },
+        {
+          "feature_id": 13,
+          "word": "dicoblos",
+          "weight": 0.014006753670865502
+        },
+        {
+          "feature_id": 17,
+          "word": "curang",
+          "weight": 0.013263112166492242
+        }
+      ],
+      "top_words": [
+        "Beredar",
+        "pemilu",
+        "kabar",
+        "suara",
+        "dimulai"
+      ],
+      "local_r2": 0.3786169600068817,
+      "local_prediction": 0.9569738906598494,
+      "abs_local_error": 0.007663667005657571,
+      "p_asli_hoax": 0.964637557665507,
+      "fit_seconds": 198.57513480000125,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1442365440,
+      "rss_after_bytes": 1442205696,
+      "order": 12
+    },
+    {
+      "id": "T02",
+      "padding": "fixed",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "status": "ok",
+      "error": null,
+      "coefficients": [
+        {
+          "feature_id": 18,
+          "word": "politik",
+          "weight": -0.053216754940939984
+        },
+        {
+          "feature_id": 15,
+          "word": "oligarki",
+          "weight": -0.02571236115423694
+        },
+        {
+          "feature_id": 2,
+          "word": "rahasia",
+          "weight": 0.023896476129625834
+        },
+        {
+          "feature_id": 1,
+          "word": "dokumen",
+          "weight": 0.022820325065616494
+        },
+        {
+          "feature_id": 9,
+          "word": "bantuan",
+          "weight": 0.02207293284760476
+        },
+        {
+          "feature_id": 0,
+          "word": "Terbongkar",
+          "weight": 0.02085399538047223
+        },
+        {
+          "feature_id": 4,
+          "word": "keuangan",
+          "weight": 0.02081017342954036
+        },
+        {
+          "feature_id": 5,
+          "word": "diam",
+          "weight": 0.01674693161968576
+        }
+      ],
+      "top_words": [
+        "politik",
+        "oligarki",
+        "rahasia",
+        "dokumen",
+        "bantuan"
+      ],
+      "local_r2": 0.42958826219668755,
+      "local_prediction": 0.9764686034508353,
+      "abs_local_error": 0.005290330090900852,
+      "p_asli_hoax": 0.9711782733599345,
+      "fit_seconds": 78.11923509999906,
+      "parity_seconds": null,
+      "parity": null,
+      "rss_before_bytes": 1442205696,
+      "rss_after_bytes": 1360834560,
+      "order": 13
+    }
+  ],
+  "summary": [
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 3,
+      "n_ok": 3,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": true,
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 4,
+          "n_same_sign": 4,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 1,
+          "seed_b": 3,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 5,
+          "n_same_sign": 5,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 2,
+          "seed_b": 3,
+          "jaccard_top5": 0.25,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 3,
+          "n_same_sign": 3,
+          "sign_agreement": 1.0
+        }
+      ],
+      "jaccard_top5": {
+        "n": 3,
+        "mean": 0.36904761904761907,
+        "std": 0.1030982623552903,
+        "median": 0.42857142857142855
+      },
+      "sign_agreement": {
+        "n": 3,
+        "mean": 1.0,
+        "std": 0.0,
+        "median": 1.0
+      },
+      "local_r2": {
+        "n": 3,
+        "mean": 0.43062894744073427,
+        "std": 0.020900888191130458,
+        "median": 0.43109947014833483
+      },
+      "abs_local_error": {
+        "n": 3,
+        "mean": 0.00923773287074614,
+        "std": 0.006707340434391595,
+        "median": 0.005835717472430169
+      },
+      "fit_seconds": {
+        "n": 3,
+        "mean": 42.33733083333391,
+        "std": 5.725784249986394,
+        "median": 41.69203820000075
+      },
+      "memenuhi_kriteria_jaccard": false
+    },
+    {
+      "id": "T01",
+      "padding": "fixed",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 3,
+      "n_ok": 3,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": true,
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.25,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 4,
+          "n_same_sign": 4,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 1,
+          "seed_b": 3,
+          "jaccard_top5": 0.1111111111111111,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 5,
+          "n_same_sign": 5,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 2,
+          "seed_b": 3,
+          "jaccard_top5": 0.6666666666666666,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 7,
+          "n_same_sign": 7,
+          "sign_agreement": 1.0
+        }
+      ],
+      "jaccard_top5": {
+        "n": 3,
+        "mean": 0.34259259259259256,
+        "std": 0.2891202777036295,
+        "median": 0.25
+      },
+      "sign_agreement": {
+        "n": 3,
+        "mean": 1.0,
+        "std": 0.0,
+        "median": 1.0
+      },
+      "local_r2": {
+        "n": 3,
+        "mean": 0.3805546430940138,
+        "std": 0.003602142475246654,
+        "median": 0.3786169600068817
+      },
+      "abs_local_error": {
+        "n": 3,
+        "mean": 0.007636282023973632,
+        "std": 0.00579080603086482,
+        "median": 0.007663667005657571
+      },
+      "fit_seconds": {
+        "n": 3,
+        "mean": 152.36849023333403,
+        "std": 40.11309058093041,
+        "median": 132.05255639999996
+      },
+      "memenuhi_kriteria_jaccard": false
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 3,
+      "n_ok": 3,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": true,
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 4,
+          "n_same_sign": 4,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 1,
+          "seed_b": 3,
+          "jaccard_top5": 0.42857142857142855,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 5,
+          "n_same_sign": 5,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 2,
+          "seed_b": 3,
+          "jaccard_top5": 0.25,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 3,
+          "n_same_sign": 3,
+          "sign_agreement": 1.0
+        }
+      ],
+      "jaccard_top5": {
+        "n": 3,
+        "mean": 0.36904761904761907,
+        "std": 0.1030982623552903,
+        "median": 0.42857142857142855
+      },
+      "sign_agreement": {
+        "n": 3,
+        "mean": 1.0,
+        "std": 0.0,
+        "median": 1.0
+      },
+      "local_r2": {
+        "n": 3,
+        "mean": 0.4306289425231344,
+        "std": 0.020900895691064292,
+        "median": 0.4310995326941409
+      },
+      "abs_local_error": {
+        "n": 3,
+        "mean": 0.00923781616183724,
+        "std": 0.0067073360271390735,
+        "median": 0.005835803128268591
+      },
+      "fit_seconds": {
+        "n": 3,
+        "mean": 12.353595333333336,
+        "std": 5.6206558274621115,
+        "median": 10.81501759999992
+      },
+      "memenuhi_kriteria_jaccard": false
+    },
+    {
+      "id": "T01",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 3,
+      "n_ok": 3,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": true,
+      "pairs": [
+        {
+          "seed_a": 1,
+          "seed_b": 2,
+          "jaccard_top5": 0.25,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 4,
+          "n_same_sign": 4,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 1,
+          "seed_b": 3,
+          "jaccard_top5": 0.1111111111111111,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 5,
+          "n_same_sign": 5,
+          "sign_agreement": 1.0
+        },
+        {
+          "seed_a": 2,
+          "seed_b": 3,
+          "jaccard_top5": 0.6666666666666666,
+          "n_top_a": 5,
+          "n_top_b": 5,
+          "n_shared_nonzero": 7,
+          "n_same_sign": 7,
+          "sign_agreement": 1.0
+        }
+      ],
+      "jaccard_top5": {
+        "n": 3,
+        "mean": 0.34259259259259256,
+        "std": 0.2891202777036295,
+        "median": 0.25
+      },
+      "sign_agreement": {
+        "n": 3,
+        "mean": 1.0,
+        "std": 0.0,
+        "median": 1.0
+      },
+      "local_r2": {
+        "n": 3,
+        "mean": 0.3805546454386947,
+        "std": 0.0036021486622872297,
+        "median": 0.3786169325953368
+      },
+      "abs_local_error": {
+        "n": 3,
+        "mean": 0.007636369629324198,
+        "std": 0.005790808296375052,
+        "median": 0.007663756563407342
+      },
+      "fit_seconds": {
+        "n": 3,
+        "mean": 32.51424833333355,
+        "std": 11.721677584336046,
+        "median": 29.286546600000293
+      },
+      "memenuhi_kriteria_jaccard": false
+    },
+    {
+      "id": "T02",
+      "padding": "fixed",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 1,
+      "n_ok": 1,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 1,
+        "mean": 0.42958826219668755,
+        "std": null,
+        "median": 0.42958826219668755
+      },
+      "abs_local_error": {
+        "n": 1,
+        "mean": 0.005290330090900852,
+        "std": null,
+        "median": 0.005290330090900852
+      },
+      "fit_seconds": {
+        "n": 1,
+        "mean": 78.11923509999906,
+        "std": null,
+        "median": 78.11923509999906
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T02",
+      "padding": "fixed",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T02",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T02",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T03",
+      "padding": "fixed",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T03",
+      "padding": "fixed",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T03",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T03",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T04",
+      "padding": "fixed",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T04",
+      "padding": "fixed",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T04",
+      "padding": "dynamic",
+      "num_samples": 200,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    },
+    {
+      "id": "T04",
+      "padding": "dynamic",
+      "num_samples": 500,
+      "n_direncanakan": 3,
+      "n_tercatat": 0,
+      "n_ok": 0,
+      "n_gagal_atau_ditolak": 0,
+      "lengkap": false,
+      "pairs": [],
+      "jaccard_top5": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "sign_agreement": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "local_r2": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "abs_local_error": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "fit_seconds": {
+        "n": 0,
+        "mean": null,
+        "std": null,
+        "median": null
+      },
+      "memenuhi_kriteria_jaccard": null
+    }
+  ],
+  "padding_comparisons": [
+    {
+      "id": "T01",
+      "num_samples": 200,
+      "seed_lime": 1,
+      "fixed_seconds": 48.358424600000944,
+      "dynamic_seconds": 10.81501759999992,
+      "speed_ratio_fixed_over_dynamic": 4.471414322987445,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T01",
+      "num_samples": 200,
+      "seed_lime": 2,
+      "fixed_seconds": 36.96152970000003,
+      "dynamic_seconds": 7.662448700000823,
+      "speed_ratio_fixed_over_dynamic": 4.823722956865741,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T01",
+      "num_samples": 200,
+      "seed_lime": 3,
+      "fixed_seconds": 41.69203820000075,
+      "dynamic_seconds": 18.583319699999265,
+      "speed_ratio_fixed_over_dynamic": 2.243519396591041,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T01",
+      "num_samples": 500,
+      "seed_lime": 1,
+      "fixed_seconds": 132.05255639999996,
+      "dynamic_seconds": 45.51160399999935,
+      "speed_ratio_fixed_over_dynamic": 2.901514005087622,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T01",
+      "num_samples": 500,
+      "seed_lime": 2,
+      "fixed_seconds": 126.4777795000009,
+      "dynamic_seconds": 22.744594400001006,
+      "speed_ratio_fixed_over_dynamic": 5.560784126359066,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    },
+    {
+      "id": "T01",
+      "num_samples": 500,
+      "seed_lime": 3,
+      "fixed_seconds": 198.57513480000125,
+      "dynamic_seconds": 29.286546600000293,
+      "speed_ratio_fixed_over_dynamic": 6.780421656133375,
+      "jaccard_top5": 1.0,
+      "n_top_a": 5,
+      "n_top_b": 5,
+      "n_shared_nonzero": 8,
+      "n_same_sign": 8,
+      "sign_agreement": 1.0
+    }
+  ],
+  "parity_preflight": {
+    "n_teks": 6,
+    "max_abs_error": 2.384185791015625e-07,
+    "n_keputusan_berubah": 0,
+    "toleransi": 1e-06,
+    "lulus": true
+  },
+  "preflight_status": "ok"
+}

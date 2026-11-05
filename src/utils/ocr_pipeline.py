@@ -20,8 +20,9 @@ except ImportError:  # dijalankan sebagai skrip/uji mandiri
  
 logger = logging.getLogger(__name__)
  
-VERSI_PIPELINE = "1.0"
-FORMAT_DIIZINKAN = ("PNG", "JPEG", "MPO", "WEBP", "BMP")   # MPO = varian JPEG dari sebagian kamera ponsel
+VERSI_PIPELINE = "1.2"
+MIN_KARAKTER = 50
+FORMAT_DIIZINKAN = ("PNG", "JPEG", "MPO", "WEBP")  # MPO = varian JPEG dari sebagian kamera ponsel
  
 KATEGORI_OK = "OK"
 KATEGORI_INPUT = "TOLAK_INPUT"
@@ -45,7 +46,7 @@ def pesan_pengguna(kode):
         "INPUT_TIPE_TIDAK_DIDUKUNG": "Jenis masukan tidak didukung. Unggah berkas gambar.",
         "INPUT_KOSONG": "Berkas kosong.",
         "INPUT_UKURAN_BERKAS": f"Ukuran berkas melebihi {mb} MB. Kompres atau perkecil gambar.",
-        "INPUT_FORMAT_TIDAK_DIDUKUNG": "Format gambar tidak didukung. Gunakan PNG, JPEG, WebP, atau BMP.",
+        "INPUT_FORMAT_TIDAK_DIDUKUNG": "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WebP.",
         "INPUT_PIKSEL_BERLEBIH": f"Resolusi gambar terlalu besar (maksimal {juta:g} juta piksel). Perkecil resolusinya.",
         "INPUT_TIDAK_TERBACA": "Berkas bukan gambar yang dapat dibaca, atau rusak.",
         "INPUT_DITOLAK": "Gambar ditolak karena tidak memenuhi syarat masukan.",
@@ -66,6 +67,7 @@ def kebijakan(aturan=None, sambung_tanda_hubung=False):
         "max_bytes": ex.MAX_BYTES,
         "max_pixels": ex.MAX_PIXELS,
         "format_diizinkan": list(FORMAT_DIIZINKAN),
+        "min_karakter": MIN_KARAKTER,
         "max_width_resize": p["max_width"].default,
         "padding_px": p["padding_border"].default,
         "aturan_gerbang": dict(ex.ATURAN_AWAL, **(aturan or {})),
@@ -104,11 +106,6 @@ def inspeksi_unggahan(src):
             raise ex.GambarDitolak("Berkas kosong.", "INPUT_KOSONG")
         if len(data) > ex.MAX_BYTES:
             raise ex.GambarDitolak("Ukuran berkas gambar melebihi batas.", "INPUT_UKURAN_BERKAS")
-        try:
-            with open(p, "rb") as fh:
-                data = fh.read()
-        except OSError as e:
-            raise ex.GambarDitolak("Berkas tidak dapat dibaca.", "INPUT_TIDAK_TERBACA") from e
     elif isinstance(src, (bytes, bytearray)):
         data = bytes(src)
         if not data:
@@ -183,7 +180,7 @@ def proses_gambar(src, *, sambung_tanda_hubung=False, aturan=None, ocr_fn=None):
     """Proses satu gambar. Selalu mengembalikan dict laporan (tidak melempar untuk galat yang
     dapat diantisipasi). `ocr_fn(src) -> (lines, scores)` dapat disuntikkan untuk pengujian."""
     t0 = time.perf_counter()
-    h = _kerangka(aturan)
+    h = _kerangka(aturan, sambung_tanda_hubung)
  
     # 1. validasi unggahan
     t = time.perf_counter()
@@ -221,13 +218,17 @@ def proses_gambar(src, *, sambung_tanda_hubung=False, aturan=None, ocr_fn=None):
     h["teks_mentah"] = ex.join_lines(h["lines"])
     h["teks_bersih"] = bersihkan_teks_ocr(h["teks_mentah"], sambung_tanda_hubung)
     h["fitur"] = ex.fitur_kualitas(h["teks_bersih"], h["scores"])
-    alasan = ex.putuskan_berkode(h["fitur"], aturan)
-    h["durasi_detik"]["gerbang"] = round(time.perf_counter() - t, 4)
+    alasan = list(ex.putuskan_berkode(h["fitur"], aturan))
+    if len(h["teks_bersih"]) < MIN_KARAKTER and not any(k == "MUTU_TEKS_PENDEK" for k, _ in alasan):
+        alasan.append(("MUTU_TEKS_PENDEK",
+                       f"kurang dari {MIN_KARAKTER} karakter ({len(h['teks_bersih'])})"))
+    h["durasi_detik"]["kualitas"] = round(time.perf_counter() - t, 4)
+
+    # Bila ada alasan penolakan mutu (termasuk teks < 50 karakter), kembalikan KATEGORI_KUALITAS
     if alasan:
-        h["alasan"] = [{"kode": k, "pesan": p} for k, p in alasan]
-        pesan = "; ".join(dict.fromkeys(pesan_pengguna(k) for k, _ in alasan))
-        return _tutup(h, t0, KATEGORI_KUALITAS, alasan[0][0], pesan=pesan,
-                      detail="; ".join(p for _, p in alasan))
+        h["alasan"] = [{"kode": k, "pesan": d} for k, d in alasan]
+        return _tutup(h, t0, KATEGORI_KUALITAS, alasan[0][0], detail=alasan[0][1])
+
     return _tutup(h, t0, KATEGORI_OK, "OK")
  
  

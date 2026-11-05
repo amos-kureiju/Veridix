@@ -9,7 +9,17 @@ Fitur Unggulan:
 import os
 import io
 import re
+import math
 import tempfile
+import logging
+import threading
+
+logger = logging.getLogger(__name__)
+
+MAX_BYTES = 10 * 1024 * 1024        # 10 MB
+MAX_PIXELS = 40_000_000             # pembatas bom dekompresi
+
+_OCR_LOCK = threading.RLock()      # reentrant: ocr_lines() -> get_ocr() memakai kunci yang sama
 
 os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "0")
 os.environ.setdefault("FLAGS_use_mkldnn", "0")
@@ -21,72 +31,125 @@ except Exception:
 import numpy as np
 from PIL import Image, ImageOps
 
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS  # setelah impor PIL (hanya peringatan; batas tegas di _cek_piksel)
+
 OCR_KWARGS = dict(lang="id")
 _OCR = None
 
 
+class GambarDitolak(ValueError):
+    """Gambar ditolak sebelum pemrosesan berat (ukuran berkas / jumlah piksel)."""
+
+
+class GalatKeluaranOCR(Exception):
+    """Keluaran OCR tidak konsisten. Teks mentah dipertahankan untuk pemeriksaan."""
+    def __init__(self, pesan, teks_mentah=None):
+        super().__init__(pesan)
+        self.teks_mentah = list(teks_mentah or [])
+
+
+def _cek_piksel(size, tahap):
+    w, h = size
+    if w * h > MAX_PIXELS:
+        raise GambarDitolak(f"Jumlah piksel {tahap} ({w}x{h}) melebihi batas {MAX_PIXELS}.")
+
+
+def _daftar(x):
+    """Aman untuk list maupun ndarray (hindari `x or []` yang rancu pada array)."""
+    return [] if x is None else list(x)
+
+
 def get_ocr():
     global _OCR
-    if _OCR is None:
-        from paddleocr import PaddleOCR
-        _OCR = PaddleOCR(**OCR_KWARGS)
-    return _OCR
+    with _OCR_LOCK:
+        if _OCR is None:
+            from paddleocr import PaddleOCR
+            _OCR = PaddleOCR(**OCR_KWARGS)
+        return _OCR
 
 
 def reset_ocr():
     global _OCR
-    _OCR = None
+    with _OCR_LOCK:
+        _OCR = None
 
 
 def _to_path(src, max_width=1400, padding_border=15):
-    """
-    Menstandarkan input ke berkas PNG sementara dengan:
-      - Padding putih di sekeliling tepi (mencegah huruf pertama/terakhir terpotong).
-      - Pengecilan proporsional jika lebar > max_width (efisiensi latensi CPU).
-    """
-    if isinstance(src, (str, os.PathLike)):
-        img = Image.open(str(src))
-    elif isinstance(src, (bytes, bytearray)):
-        img = Image.open(io.BytesIO(bytes(src)))
-    elif isinstance(src, Image.Image):
-        img = src
-    elif isinstance(src, np.ndarray):
-        img = Image.fromarray(src)
-    else:
-        raise TypeError(f"Jenis masukan tidak didukung: {type(src)}")
+    """Standarkan masukan ke PNG sementara. Mengembalikan (path, True)."""
+    dibuka = None  # gambar yang dibuka fungsi ini; wajib ditutup
+    try:
+        if isinstance(src, (str, os.PathLike)):
+            if os.path.getsize(str(src)) > MAX_BYTES:
+                raise GambarDitolak("Ukuran berkas gambar melebihi batas.")
+            img = dibuka = Image.open(str(src))
+        elif isinstance(src, (bytes, bytearray)):
+            if len(src) > MAX_BYTES:
+                raise GambarDitolak("Ukuran gambar melebihi batas.")
+            img = dibuka = Image.open(io.BytesIO(bytes(src)))
+        elif isinstance(src, Image.Image):
+            img = src
+        elif isinstance(src, np.ndarray):
+            img = Image.fromarray(src)
+        else:
+            raise TypeError(f"Jenis masukan tidak didukung: {type(src)}")
 
-    img = img.convert("RGB")
+        _cek_piksel(img.size, "masukan")   # sebelum dekode/konversi (ukuran dibaca dari header)
 
-    # 1. Pengecilan resolusi proporsional jika terlalu besar
-    w, h = img.size
-    if w > max_width:
-        scale = max_width / float(w)
-        new_h = int(h * scale)
-        img = img.resize((max_width, new_h), Image.Resampling.LANCZOS)
+        # Orientasi EXIF (foto ponsel)
+        img = ImageOps.exif_transpose(img)
 
-    # 2. Tambahkan bantalan margin 15px agar teks mepet tepi tidak terpenggal OCR
-    if padding_border > 0:
-        img = ImageOps.expand(img, border=padding_border, fill="white")
+        # Transparansi: tempelkan di atas latar putih, bukan hitam
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            rgba = img.convert("RGBA")
+            latar = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+            img = Image.alpha_composite(latar, rgba).convert("RGB")
+        else:
+            img = img.convert("RGB")
 
-    fd, p = tempfile.mkstemp(suffix=".png")
-    os.close(fd)
-    img.save(p, format="PNG")
-    return p, True
+        w, h = img.size
+        if w > max_width:
+            skala = max_width / float(w)
+            img = img.resize((max_width, max(1, int(round(h * skala)))), Image.Resampling.LANCZOS)
+
+        # Padding menambah piksel (gambar tinggi-sempit bisa membesar drastis): cek SEBELUM expand
+        _cek_piksel((img.size[0] + 2 * padding_border, img.size[1] + 2 * padding_border), "akhir")
+        if padding_border > 0:
+            img = ImageOps.expand(img, border=padding_border, fill="white")
+
+        fd, p = tempfile.mkstemp(suffix=".png")
+        os.close(fd)
+        try:
+            img.save(p, format="PNG")
+        except Exception:
+            if os.path.exists(p):
+                os.remove(p)
+            raise
+        return p, True
+    finally:
+        if dibuka is not None:
+            dibuka.close()
 
 
 def ocr_lines(src):
-    """Daftar teks per baris dan skor kepercayaannya dari PaddleOCR 3.7.0."""
+    """Daftar teks per baris dan skor kepercayaan. Panjang keduanya selalu sama."""
     path, tmp = _to_path(src)
+    texts, scores = [], []
     try:
-        res = get_ocr().predict(path)
+        with _OCR_LOCK:
+            hasil = list(get_ocr().predict(path))
+        for r in hasil:
+            t = [str(x) for x in _daftar(r.get("rec_texts"))]
+            s = [float(x) for x in _daftar(r.get("rec_scores"))]
+            if len(t) != len(s):   # jangan buang teks diam-diam; nyatakan sebagai galat keluaran
+                raise GalatKeluaranOCR(
+                    f"jumlah teks ({len(t)}) tidak sama dengan jumlah skor ({len(s)})", texts + t)
+            texts += t
+            scores += s
     finally:
         if tmp and os.path.exists(path):
             os.remove(path)
-
-    texts, scores = [], []
-    for r in res:
-        texts += [str(t) for t in r.get("rec_texts", [])]
-        scores += [float(s) for s in r.get("rec_scores", [])]
+    if not all(math.isfinite(x) and 0.0 <= x <= 1.0 for x in scores):
+        raise GalatKeluaranOCR("skor OCR tidak valid (NaN/Inf atau di luar rentang 0-1)", texts)
     return texts, scores
 
 
@@ -104,8 +167,8 @@ def fitur_kualitas(text, scores, ambang_baris_rendah=0.60):
     return dict(
         n_kata=len(toks),
         n_baris=len(scores),
-        conf_rata2=float(np.mean(scores)) if scores else 0.0,
-        conf_min=float(np.min(scores)) if scores else 0.0,
+        conf_rata2=float(np.mean(scores)) if scores else None,
+        conf_min=float(np.min(scores)) if scores else None,
         share_baris_conf_rendah=float(np.mean([s < ambang_baris_rendah for s in scores])) if scores else 1.0,
         share_token_huruf_angka=(len(campur) / len(toks)) if toks else 0.0,
         n_pemenggalan_hubung=len(re.findall(r"\w- \w", text)),
@@ -124,8 +187,11 @@ def putuskan(f, aturan=None):
         alasan.append("tidak ada teks terbaca")
     elif f["n_kata"] < a["min_kata"]:
         alasan.append(f"teks terlalu pendek ({f['n_kata']} kata < {a['min_kata']})")
-    if f["n_kata"] > 0 and a["min_conf_rata2"] is not None and f["conf_rata2"] < a["min_conf_rata2"]:
-        alasan.append(f"kepercayaan OCR rendah ({f['conf_rata2']:.2f} < {a['min_conf_rata2']})")
+    if f["n_kata"] > 0 and a["min_conf_rata2"] is not None:
+        if f["conf_rata2"] is None:
+            alasan.append("kepercayaan OCR tidak tersedia")
+        elif not (f["conf_rata2"] >= a["min_conf_rata2"]):   # NaN juga ditolak
+            alasan.append(f"kepercayaan OCR rendah ({f['conf_rata2']:.2f} < {a['min_conf_rata2']})")
     if a["maks_share_baris_rendah"] is not None and f["share_baris_conf_rendah"] > a["maks_share_baris_rendah"]:
         alasan.append("terlalu banyak baris berkepercayaan rendah")
     if a["maks_share_token_huruf_angka"] is not None and f["share_token_huruf_angka"] > a["maks_share_token_huruf_angka"]:
@@ -148,8 +214,16 @@ def extract_text_from_image(src, sambung_tanda_hubung=False, aturan=None):
             scores=scores,
             fitur=f,
             dapat_dinilai=ok,
-            alasan=alasan
+            alasan=alasan,
+            teks_mentah=text
         )
+    except GambarDitolak as e:
+        return dict(success=False, message=str(e), text="", lines=[], scores=[], fitur=None,
+                    dapat_dinilai=False, alasan=["gambar ditolak"], teks_mentah="")
+    except GalatKeluaranOCR as e:
+        return dict(success=False, message=f"Keluaran OCR tidak konsisten: {e}", text="", lines=[],
+                    scores=[], fitur=None, dapat_dinilai=False,
+                    alasan=["keluaran OCR tidak konsisten"], teks_mentah=join_lines(e.teks_mentah))
     except Exception as e:
         return dict(
             success=False,
@@ -159,5 +233,6 @@ def extract_text_from_image(src, sambung_tanda_hubung=False, aturan=None):
             scores=[],
             fitur=None,
             dapat_dinilai=False,
-            alasan=["OCR gagal"]
+            alasan=["OCR gagal"],
+            teks_mentah=""
         )

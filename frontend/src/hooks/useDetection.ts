@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
-import type { DetectionResult, ExplanationResponse } from "@/types/detector";
+import type { DetectionResult, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
 
 // Timeout khusus LIME; timeout global apiClient (30 detik) tidak diubah
 const LIME_TIMEOUT_MS = 180000;
@@ -10,6 +10,10 @@ export function useDetection() {
     const [result, setResult] = useState<DetectionResult | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // State khusus OCR agar tidak mengganggu state deteksi model
+    const [ocrLoading, setOcrLoading] = useState<boolean>(false);
+    const [ocrError, setOcrError] = useState<string | null>(null);
+
     // State penjelasan LIME dipisah dari klasifikasi
     const [limeLoading, setLimeLoading] = useState<boolean>(false);
     const [limeError, setLimeError] = useState<string | null>(null);
@@ -18,7 +22,11 @@ export function useDetection() {
     const limeBusyRef = useRef(false);       // cegah permintaan LIME ganda
 
     // 1. Fungsi Deteksi Teks Langsung (klasifikasi cepat, tanpa LIME)
-    const detectText = async (text: string) => {
+    const detectText = async (
+        text: string,
+        inputType: InputSourceType = "TEXT",
+        imageUrl?: string | null
+    ) => {
         const gen = ++detectGenRef.current;
         setLoading(true);
         setError(null);
@@ -28,7 +36,11 @@ export function useDetection() {
         limeBusyRef.current = false;
         activeIdRef.current = null;            // respons LIME dari hasil sebelumnya akan diabaikan
         try {
-            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", { text });
+            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", {
+                text,
+                input_type: inputType,
+                image_url: imageUrl ?? null,
+            });
             if (gen !== detectGenRef.current) return null;   // ada analisis yang lebih baru
             activeIdRef.current = response.data?.data?.id ?? null;
             setResult(response.data);
@@ -90,29 +102,28 @@ export function useDetection() {
     };
 
     // 3. Fungsi Deteksi Gambar (tidak diubah; kontrak OCR dipisah sebagai pekerjaan tersendiri)
-    const detectImage = async (file: File) => {
-        setLoading(true);
-        setError(null);
+    const extractTextFromImage = async (file: File): Promise<OCRResponse | null> => {
+        setOcrLoading(true);
+        setOcrError(null);
         try {
             const formData = new FormData();
             formData.append("file", file);
 
-            const response = await apiClient.post<DetectionResult>("/api/v1/detect/image", formData, {
+            const response = await apiClient.post<OCRResponse>("/api/v1/detect/image", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
             });
-            setResult(response.data);
             return response.data;
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
             const errorMsg = getApiConnectionMessage(err) ?? (
                 typeof detail === "string" && detail ? detail : "Gagal memproses gambar OCR."
             );
-            setError(errorMsg);
+            setOcrError(errorMsg);
             return null;
         } finally {
-            setLoading(false);
+            setOcrLoading(false);
         }
     };
 
@@ -125,16 +136,21 @@ export function useDetection() {
         setLoading(false);
         setLimeLoading(false);
         setLimeError(null);
+        setOcrLoading(false);
+        setOcrError(null);
     };
 
     return {
         detectText,
-        detectImage,
+        extractTextFromImage,
+        detectImage: extractTextFromImage, // Alias untuk kompatibilitas kode lama
         requestExplanation,
         reset,
         loading,
         result,
         error,
+        ocrLoading,
+        ocrError,
         limeLoading,
         limeError,
     };

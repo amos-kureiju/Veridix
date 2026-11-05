@@ -239,7 +239,15 @@ async def extract_text_from_image_upload(
         )
 
     # 2. Baca isi berkas dengan pembatasan ukuran ketat
-    contents = await file.read(MAX_BYTES + 1)
+    try:
+        contents = await file.read(MAX_BYTES + 1)
+    except Exception as exc:
+        logger.exception("Gagal membaca berkas unggahan: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Gagal membaca data berkas unggahan."
+        )
+    
     if len(contents) > MAX_BYTES:
         mb = MAX_BYTES // (1024 * 1024)
         raise HTTPException(
@@ -257,6 +265,14 @@ async def extract_text_from_image_upload(
             detail="Terjadi kesalahan internal pada pemrosesan gambar."
         )
 
+    # Validasi segera sebelum menggunakan .get()
+    if not isinstance(h, dict):
+        logger.error("Keluaran pipeline tidak valid: %r", h)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
+        )
+
     # 4. Catat detail teknis ke log server jika ada kendala
     if h.get("detail_teknis"):
         logger.warning(
@@ -266,6 +282,28 @@ async def extract_text_from_image_upload(
             h.get("detail_teknis")
         )
 
+    # pengamat 1: Jika keluaran pipeline bernilai None dan bukan Edit
+    if not isinstance(h, dict):
+        logger.error("keluaran pipeline tidak valid: %s", h)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
+        )
+
+    kategori = h.get("kategori")
+    kode = h.get("kode")
+    pesan = h.get("pesan", "Gambar tidak dapat diproses.")
+
+    # Pengaman 2: Jika kategori OK tetapi teks bersih kosong atau hilang
+    if kategori == KATEGORI_OK:
+        teks_bersih = h.get("teks_bersih")
+        if not isinstance(teks_bersih, str) or not teks_bersih.strip():
+            logger.error("Pipeline mengembalikan OK tetapi teks bersih kosong: %r", h)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Keluaran OCR tidak konsisten (teks kosong terdeteksi)."
+            )
+        
     # 5. Pemetaan kategori & kode pipeline ke status HTTP
     kategori = h.get("kategori")
     kode = h.get("kode")

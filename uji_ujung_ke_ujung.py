@@ -25,21 +25,17 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MIN_KARAKTER_OCR = 50  # Sama dengan endpoint saat ini: diperiksa sebelum pembersihan.
+from src.utils.ocr_pipeline import (
+    KATEGORI_INPUT,
+    KATEGORI_KUALITAS,
+    KATEGORI_MESIN,
+    KATEGORI_OK,
+    MIN_KARAKTER,
+    proses_gambar,
+)
+
 TAHAP_GALAT = {"berkas_tidak_ada", "berkas_galat", "ocr_galat", "model_galat"}
 _pred = None
-
-
-def extract_text_from_image(contents):
-    # Modul OCR mengatur lingkungan dan memuat torch sebelum Paddle/model.
-    # Impor malas membuat --help dan impor modul uji tidak memuat mesin.
-    from src.utils.ocr_extractor import extract_text_from_image as extract
-    return extract(contents)
-
-
-def clean_ocr_artifacts(text):
-    from src.utils.text_preprocessor import clean_ocr_artifacts as clean
-    return clean(text)
 
 
 def angka(value, fmt="{:.3f}"):
@@ -64,67 +60,67 @@ def _galat(rec, tahap, exc):
 
 def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
     """Satu kasus selalu menjadi satu record; galat tidak menghentikan batch."""
-    rec = {"gambar": str(path), "tahap_akhir": None, "keputusan": None}
+    path_obj = Path(path)
+    rec = {"gambar": str(path_obj), "tahap_akhir": None, "keputusan": None}
     print("=" * 80)
-    print("Gambar:", path)
-    try:
-        with open(path, "rb") as source:
-            contents = source.read()
-    except FileNotFoundError as exc:
-        _galat(rec, "berkas_tidak_ada", exc)
-        rec["keputusan"] = "DILEWATI"
-        return rec
-    except OSError as exc:
-        return _galat(rec, "berkas_galat", exc)
+    print("Gambar:", path_obj)
 
+    # 1. Validasi keberadaan berkas sebelum memanggil pipeline
+    if not path_obj.is_file():
+        rec.update(tahap_akhir="berkas_tidak_ada", keputusan="DILEWATI", galat="Berkas tidak ditemukan.")
+        print("     ", rec["galat"])
+        return rec
+
+    # 2. Jalankan OCR Pipeline (serahkan jalur berkas agar dibaca dengan batas MAX_BYTES + 1)
     t0 = time.perf_counter()
     try:
-        raw = (ocr_fn or extract_text_from_image)(contents)
+        raw = (ocr_fn or proses_gambar)(path_obj)
         if not isinstance(raw, dict):
-            raise TypeError("Hasil OCR harus berupa dict.")
+            raise TypeError("Hasil OCR pipeline harus berupa dict.")
     except Exception as exc:
         return _galat(rec, "ocr_galat", exc)
     finally:
         rec["waktu_ocr_dtk"] = round(time.perf_counter() - t0, 3)
 
-    features = raw.get("fitur") if isinstance(raw.get("fitur"), dict) else {}
-    rec["fitur_ocr"] = features
-    # Kegagalan mesin berbeda dari OCR berhasil tetapi tidak layak dianalisis.
-    if not raw.get("success", False):
-        rec.update(tahap_akhir="ocr_galat", keputusan="GAGAL",
-                   alasan=raw.get("message") or "Mesin OCR gagal membaca gambar.")
-        print("     ", rec["alasan"])
-        return rec
+    # 3. Simpan seluruh rekaman awal sebelum filter penolakan
+    rec["kategori"] = raw.get("kategori")
+    rec["kode"] = raw.get("kode")
+    rec["alasan"] = raw.get("pesan")
+    rec["fitur_ocr"] = raw.get("fitur") if isinstance(raw.get("fitur"), dict) else {}
+    rec["teks_ocr_mentah"] = raw.get("teks_mentah", "")
+    rec["teks_bersih"] = raw.get("teks_bersih", "")
 
-    text = raw.get("text") or ""
-    if not isinstance(text, str):
-        return _galat(rec, "ocr_galat", TypeError("Teks OCR harus berupa string."))
-    text = text.strip()
-    rec["teks_ocr_mentah"] = text
-    print(f"OCR: {rec['waktu_ocr_dtk']:.1f} dtk | kata={features.get('n_kata', '-')} "
-          f"| conf rata2={angka(features.get('conf_rata2'))} | conf min={angka(features.get('conf_min'))}")
-    print("Teks OCR:", text[:300])
+    features = rec["fitur_ocr"]
+    print(
+        f"OCR: {rec['waktu_ocr_dtk']:.1f} dtk | kata={features.get('n_kata', '-')} "
+        f"| conf rata2={angka(features.get('conf_rata2'))} | kategori={rec['kategori']} ({rec['kode']})"
+    )
+    if rec["teks_bersih"]:
+        print("Teks Bersih:", rec["teks_bersih"][:300])
 
-    if not raw.get("dapat_dinilai", True):
-        reasons = raw.get("alasan") or raw.get("reason") or raw.get("message") or "Kualitas OCR tidak memadai."
-        if isinstance(reasons, (list, tuple)):
-            reasons = "; ".join(map(str, reasons))
-        rec.update(tahap_akhir="gerbang_ocr", keputusan="TIDAK DAPAT DINILAI", alasan=str(reasons))
+    # 4. Tangani penolakan pipeline (Model HANYA dipanggil jika KATEGORI_OK)
+    if rec["kategori"] == KATEGORI_INPUT:
+        rec.update(tahap_akhir="input_ditolak", keputusan="DITOLAK")
         print("KEPUTUSAN:", rec["keputusan"], "->", rec["alasan"])
         return rec
 
-    if len(text) < MIN_KARAKTER_OCR:
-        rec.update(tahap_akhir="teks_terlalu_pendek", keputusan="DITOLAK",
-                   alasan=f"kurang dari {MIN_KARAKTER_OCR} karakter ({len(text)})")
-        print("KEPUTUSAN: DITOLAK ->", rec["alasan"])
+    if rec["kategori"] == KATEGORI_KUALITAS:
+        rec.update(tahap_akhir="gerbang_kualitas", keputusan="TIDAK_LAYAK")
+        print("KEPUTUSAN:", rec["keputusan"], "->", rec["alasan"])
         return rec
 
-    try:
-        cleaned = clean_ocr_artifacts(text)
-        rec["teks_setelah_pembersihan"] = cleaned
-    except Exception as exc:
-        return _galat(rec, "ocr_galat", exc)
+    if rec["kategori"] == KATEGORI_MESIN:
+        rec.update(tahap_akhir="ocr_galat", keputusan="GAGAL")
+        print("KEPUTUSAN:", rec["keputusan"], "->", rec["alasan"])
+        return rec
 
+    if rec["kategori"] != KATEGORI_OK:
+        rec.update(tahap_akhir="ocr_galat", keputusan="GAGAL", alasan="Kategori pipeline tidak dikenal.")
+        print("KEPUTUSAN:", rec["keputusan"], "->", rec["alasan"])
+        return rec
+
+    # 5. Jalankan Evaluator Model (hanya jika kategori OK)
+    cleaned = rec["teks_bersih"]
     t_load = time.perf_counter()
     try:
         evaluator = (model_provider or model)()
@@ -143,20 +139,31 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
     finally:
         rec["waktu_model_dtk"] = round(time.perf_counter() - t_model, 3)
 
-    rec.update(tahap_akhir="model", keputusan=result.get("label"), status=result.get("status"),
-               votes_hoax=result.get("votes_hoax"), terpotong=result.get("terpotong"))
-    print(f"KEPUTUSAN: {rec['status']} | {rec['keputusan']} | suara hoaks={rec['votes_hoax']} "
-          f"| inferensi {rec['waktu_model_dtk']:.1f} dtk")
+    rec.update(
+        tahap_akhir="model",
+        keputusan=result.get("label"),
+        status=result.get("status"),
+        votes_hoax=result.get("votes_hoax"),
+        terpotong=result.get("terpotong"),
+    )
+    print(
+        f"KEPUTUSAN: {rec['status']} | {rec['keputusan']} | suara hoaks={rec['votes_hoax']} "
+        f"| inferensi {rec['waktu_model_dtk']:.1f} dtk"
+    )
+
     if not result.get("success"):
         rec["alasan"] = result.get("reason")
         print("     alasan:", rec["alasan"])
     else:
         rec["teks_dinilai"] = result.get("teks_dinilai")
         debug = result.get("debug") or {}
-        rec["debug_prob_per_seed"] = debug.get("prob_hoax_per_seed") if isinstance(debug, dict) else None
+        rec["debug_prob_per_seed"] = (
+            debug.get("prob_hoax_per_seed") if isinstance(debug, dict) else None
+        )
         print("     teks dinilai:", (rec["teks_dinilai"] or "")[:200])
         if lime:
             rec["explanation"] = result.get("explanation")
+
     return rec
 
 
@@ -191,7 +198,7 @@ def main(argv=None):
     report = {
         "waktu": now.isoformat(timespec="seconds"), "lime": args.lime,
         "mode": "fungsi_ocr_dan_model_tanpa_http_atau_database",
-        "min_karakter_ocr": MIN_KARAKTER_OCR, "total": len(results),
+        "min_karakter_ocr": MIN_KARAKTER, "total": len(results),
         "jumlah_galat": n_errors, "ringkasan": summary, "gambar": results,
     }
     print("=" * 80)

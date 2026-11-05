@@ -1,3 +1,25 @@
+export type InputSourceType = "TEXT" | "IMAGE";
+
+export interface OCRResultData {
+    extracted_text: string;
+    dapat_dinilai: boolean;
+    confidence: number | null;
+    character_count: number;
+    image_url?: string | null;
+    reason?: string | null;
+}
+
+export interface OCRResponse {
+    status: "success" | "error" | string;
+    message: string;
+    data?: OCRResultData;
+}
+
+export interface DetectionRequestPayload {
+    text: string;
+    input_type?: InputSourceType;
+    image_url?: string | null;
+}
 export interface LimeToken {
     word: string;
     weight: number;
@@ -12,6 +34,11 @@ export interface ExplanationData {
     num_samples?: number;
     catatan?: string;
     error?: string;
+    diagnostik?: {
+        local_r2?: number;
+        intercept?: number;
+        score?: number;
+    };
 }
 
 export interface ExplanationResponse {

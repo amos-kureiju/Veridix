@@ -18,9 +18,17 @@ from src.database.session import get_db
 from src.database.models import PredictionLog, User
 from src.core.auth_deps import get_current_user
 from src.ml.inference import predictor
-from src.utils.text_preprocessor import clean_ocr_artifacts
-from src.utils.ocr_extractor import extract_text_from_image
+from starlette.concurrency import run_in_threadpool
+
 from src.utils.political_guardrail import check_political_domain
+from src.utils.ocr_extractor import MAX_BYTES
+from src.utils.ocr_pipeline import (
+    proses_gambar,
+    KATEGORI_OK,
+    KATEGORI_INPUT,
+    KATEGORI_KUALITAS,
+    KATEGORI_MESIN,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -223,54 +231,89 @@ async def extract_text_from_image_upload(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
+    # 1. Filter awal tipe konten (MIME)
     if file.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Format file tidak didukung. Harap upload gambar JPEG, PNG, atau WEBP."
+            detail="Format file tidak didukung. Harap upload gambar PNG, JPEG, atau WebP."
         )
 
-    contents = await file.read()
-    ocr_raw = extract_text_from_image(contents)
-    if not ocr_raw.get("success", False):
+    # 2. Baca isi berkas dengan pembatasan ukuran ketat
+    contents = await file.read(MAX_BYTES + 1)
+    if len(contents) > MAX_BYTES:
+        mb = MAX_BYTES // (1024 * 1024)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ocr_raw.get("message", "Gagal mengekstrak teks dari gambar.")
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Ukuran berkas melebihi batas maksimal ({mb} MB)."
         )
 
-    dapat_dinilai = ocr_raw.get("dapat_dinilai", True)
-    alasan_penolakan = ocr_raw.get("alasan") or ocr_raw.get("reason")
+    # 3. Jalankan OCR via threadpool agar tidak memblokir async event-loop
+    try:
+        h = await run_in_threadpool(proses_gambar, contents)
+    except Exception:
+        logger.exception("Kegagalan tak terduga saat menjalankan pipeline OCR")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Terjadi kesalahan internal pada pemrosesan gambar."
+        )
 
-    if not dapat_dinilai:
+    # 4. Catat detail teknis ke log server jika ada kendala
+    if h.get("detail_teknis"):
+        logger.warning(
+            "OCR Pipeline [%s/%s]: %s",
+            h.get("kategori"),
+            h.get("kode"),
+            h.get("detail_teknis")
+        )
+
+    # 5. Pemetaan kategori & kode pipeline ke status HTTP
+    kategori = h.get("kategori")
+    kode = h.get("kode")
+    pesan = h.get("pesan", "Gambar tidak dapat diproses.")
+
+    if kategori == KATEGORI_INPUT:
+        status_code = (
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            if kode == "INPUT_UKURAN_BERKAS"
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=pesan)
+
+    if kategori == KATEGORI_KUALITAS:
+        # OCR berhasil membaca, tetapi mutu teks tidak memenuhi syarat analisis
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=alasan_penolakan or "Kualitas teks gambar tidak layak untuk dianalisis (buram atau teks tidak koheren)."
+            detail=pesan
         )
 
-    extracted_text = ocr_raw.get("text", "").strip()
-    if len(extracted_text) < 50:
+    if kategori == KATEGORI_MESIN:
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if kode == "MESIN_GAGAL"
+            else status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        raise HTTPException(status_code=status_code, detail=pesan)
+
+    if kategori != KATEGORI_OK:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Teks yang terdeteksi pada gambar kurang dari 50 karakter."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Kategori keluaran OCR tidak dikenal."
         )
 
-    fitur_dict = ocr_raw.get("fitur", {})
-    confidence_score = (
-        fitur_dict.get("conf_rata2")
-        if isinstance(fitur_dict, dict)
-        else ocr_raw.get("confidence")
-    )
-
-    cleaned_ocr_text = clean_ocr_artifacts(extracted_text)
+    # 6. Bangun respons dari teks yang sudah dibersihkan oleh pipeline
+    teks_bersih = h.get("teks_bersih", "")
+    fitur = h.get("fitur") or {}
+    confidence = fitur.get("conf_rata2")
 
     return OCRResponse(
         status="success",
-        message="Teks berhasil diekstrak. Silakan periksa atau sunting sebelum dianalisis.",
+        message=pesan,
         data=OCRResultData(
-            extracted_text=cleaned_ocr_text,
-            dapat_dinilai=dapat_dinilai,
-            confidence=confidence_score,
-            character_count=len(cleaned_ocr_text),
-            image_url=ocr_raw.get("image_url"),
-            reason=alasan_penolakan
+            extracted_text=teks_bersih,
+            dapat_dinilai=h.get("dapat_dinilai", True),
+            confidence=confidence,
+            character_count=len(teks_bersih),
+            image_url=None,
+            reason=None
         )
-    )
+    )   

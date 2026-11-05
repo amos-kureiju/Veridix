@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useDetection } from "@/hooks/useDetection";
 import { useHistory } from "@/hooks/useHistory";
+import type { InputSourceType } from "@/types/detector";
 
 import UserShell from "@/components/layout/UserShell";
 import HeaderStats from "@/components/layout/HeaderStats";
@@ -27,13 +28,17 @@ export default function Home() {
 
     const requireLogin = () => router.push("/auth/login");
 
-    const analyze = async (text: string) => {
+    const analyze = async (
+        text: string,
+        source: InputSourceType = "TEXT",
+        imageUrl?: string | null
+    ) => {
         if (!ready) return;
         if (!user) {
             requireLogin();
             return;
         }
-        const result = await d.detectText(text);
+        const result = await d.detectText(text, source, imageUrl);
         if (result) await Promise.all([history.reload(), refreshUser()]);
     };
 
@@ -61,13 +66,17 @@ export default function Home() {
             {/* Grid Formulir Input dan Hasil Deteksi */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
                 <div className="space-y-3 xl:sticky xl:top-24 xl:self-start">
+                    // GANTI DENGAN:
                     <NewsInputForm
                         loading={d.loading}
+                        ocrLoading={d.ocrLoading}
                         blocked={!ready}
                         loginRequired={isGuest}
                         onRequireLogin={requireLogin}
                         onAnalyze={analyze}
+                        onExtractImage={d.extractTextFromImage}
                     />
+                    {d.ocrError && <p role="alert" className="text-sm text-amber-600">{d.ocrError}</p>}
                     {d.error && <p role="alert" className="text-sm text-rose-600">{d.error}</p>}
                 </div>
                 <VerdictCard

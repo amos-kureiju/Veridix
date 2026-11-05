@@ -66,8 +66,8 @@ export default function Home() {
             {/* Grid Formulir Input dan Hasil Deteksi */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
                 <div className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-                    // GANTI DENGAN:
                     <NewsInputForm
+                        key={userId ?? "guest"}
                         loading={d.loading}
                         ocrLoading={d.ocrLoading}
                         blocked={!ready}
@@ -75,8 +75,8 @@ export default function Home() {
                         onRequireLogin={requireLogin}
                         onAnalyze={analyze}
                         onExtractImage={d.extractTextFromImage}
+                        ocrError={d.ocrError}
                     />
-                    {d.ocrError && <p role="alert" className="text-sm text-amber-600">{d.ocrError}</p>}
                     {d.error && <p role="alert" className="text-sm text-rose-600">{d.error}</p>}
                 </div>
                 <VerdictCard

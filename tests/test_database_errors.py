@@ -25,6 +25,13 @@ _model_stub = ModuleType("src.ml.inference")
 _model_stub.predictor = Mock(name="unused_predictor")
 _ocr_stub = ModuleType("src.utils.ocr_extractor")
 _ocr_stub.extract_text_from_image = Mock(name="unused_ocr")
+_ocr_stub.MAX_BYTES = 10 * 1024 * 1024
+_pipeline_stub = ModuleType("src.utils.ocr_pipeline")
+_pipeline_stub.proses_gambar = Mock(name="unused_ocr_pipeline")
+_pipeline_stub.KATEGORI_OK = "OK"
+_pipeline_stub.KATEGORI_INPUT = "TOLAK_INPUT"
+_pipeline_stub.KATEGORI_KUALITAS = "TOLAK_KUALITAS"
+_pipeline_stub.KATEGORI_MESIN = "GALAT_MESIN"
 
 
 @contextmanager
@@ -52,6 +59,7 @@ with patch.dict(os.environ, {
 }), temporary_modules({
     "src.ml.inference": _model_stub,
     "src.utils.ocr_extractor": _ocr_stub,
+    "src.utils.ocr_pipeline": _pipeline_stub,
 }):
     import main as api_main
     session_module = importlib.import_module("src.database.session")
@@ -93,6 +101,7 @@ class TestDatabaseErrorResponses(unittest.TestCase):
         self.client = TestClient(api_main.app, raise_server_exceptions=False)
         _model_stub.predictor.reset_mock()
         _ocr_stub.extract_text_from_image.reset_mock()
+        _pipeline_stub.proses_gambar.reset_mock()
 
     def tearDown(self):
         self.client.close()
@@ -102,6 +111,7 @@ class TestDatabaseErrorResponses(unittest.TestCase):
         _model_stub.predictor.assert_not_called()
         _model_stub.predictor.predict_and_explain.assert_not_called()
         _ocr_stub.extract_text_from_image.assert_not_called()
+        _pipeline_stub.proses_gambar.assert_not_called()
 
     def failed_login(self, error, origin=ALLOWED_ORIGINS[0]):
         self.db.reset_mock()

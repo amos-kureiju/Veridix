@@ -1,9 +1,23 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { isCancel } from "axios";
 import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
-import type { DetectionResult, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
+import { isUsableOCRResponse, persistentImageUrl } from "@/types/detector";
+import type { DetectionRequestPayload, DetectionResult, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
 
-// Timeout khusus LIME; timeout global apiClient (30 detik) tidak diubah
+// Timeout terpisah untuk OCR/LIME; apiClient tetap memakai 30 detik secara global.
 const LIME_TIMEOUT_MS = 180000;
+const OCR_TIMEOUT_MS = 180000;
+
+function ocrErrorMessage(error: unknown): string {
+    const response = (error as { response?: { status?: number; data?: { detail?: unknown } } } | null)?.response;
+    if (response?.status === 401) return "Sesi login berakhir. Silakan masuk kembali sebelum mengunggah gambar.";
+    const detail = response?.data?.detail;
+    const reasons = Array.isArray(detail)
+        ? detail.map(item => typeof item === "string" ? item : item?.msg)
+            .filter((item): item is string => typeof item === "string" && Boolean(item)).join("; ")
+        : typeof detail === "string" ? detail : null;
+    return getApiConnectionMessage(error) ?? (reasons || "Gagal memproses gambar OCR. Silakan coba lagi.");
+}
 
 export function useDetection() {
     const [loading, setLoading] = useState<boolean>(false);
@@ -20,6 +34,15 @@ export function useDetection() {
     const activeIdRef = useRef<string | null>(null); // ID hasil yang sedang tampil
     const detectGenRef = useRef(0);          // nomor generasi permintaan klasifikasi
     const limeBusyRef = useRef(false);       // cegah permintaan LIME ganda
+    const ocrGenRef = useRef(0);
+    const ocrAbortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => () => {
+        detectGenRef.current++;
+        activeIdRef.current = null;
+        ocrGenRef.current++;
+        ocrAbortRef.current?.abort();
+    }, []);
 
     // 1. Fungsi Deteksi Teks Langsung (klasifikasi cepat, tanpa LIME)
     const detectText = async (
@@ -36,11 +59,12 @@ export function useDetection() {
         limeBusyRef.current = false;
         activeIdRef.current = null;            // respons LIME dari hasil sebelumnya akan diabaikan
         try {
-            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", {
+            const payload: DetectionRequestPayload = {
                 text,
                 input_type: inputType,
-                image_url: imageUrl ?? null,
-            });
+                image_url: inputType === "IMAGE" ? persistentImageUrl(imageUrl) : null,
+            };
+            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", payload);
             if (gen !== detectGenRef.current) return null;   // ada analisis yang lebih baru
             activeIdRef.current = response.data?.data?.id ?? null;
             setResult(response.data);
@@ -101,8 +125,29 @@ export function useDetection() {
         }
     };
 
-    // 3. Fungsi Deteksi Gambar (tidak diubah; kontrak OCR dipisah sebagai pekerjaan tersendiri)
-    const extractTextFromImage = async (file: File): Promise<OCRResponse | null> => {
+    const cancelImageExtraction = () => {
+        ocrGenRef.current++;
+        ocrAbortRef.current?.abort();
+        ocrAbortRef.current = null;
+        setOcrLoading(false);
+        setOcrError(null);
+    };
+
+    // Ekstraksi hanya menghasilkan teks editor; verdict tetap melalui detectText.
+    const extractTextFromImage = async (file: File, externalSignal?: AbortSignal): Promise<OCRResponse | null> => {
+        ocrAbortRef.current?.abort();
+        const gen = ++ocrGenRef.current;
+        const controller = new AbortController();
+        ocrAbortRef.current = controller;
+        const cancelFromForm = () => {
+            if (gen === ocrGenRef.current) cancelImageExtraction();
+            else controller.abort();
+        };
+        if (externalSignal?.aborted) {
+            cancelFromForm();
+            return null;
+        }
+        externalSignal?.addEventListener("abort", cancelFromForm, { once: true });
         setOcrLoading(true);
         setOcrError(null);
         try {
@@ -110,20 +155,29 @@ export function useDetection() {
             formData.append("file", file);
 
             const response = await apiClient.post<OCRResponse>("/api/v1/detect/image", formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
+                headers: { "Content-Type": undefined },
+                signal: controller.signal,
+                timeout: OCR_TIMEOUT_MS,
             });
+            if (gen !== ocrGenRef.current || controller.signal.aborted) return null;
+            if (!isUsableOCRResponse(response.data)) {
+                const rejected = response.data?.data?.dapat_dinilai === false;
+                setOcrError(rejected && typeof response.data?.message === "string"
+                    ? response.data.message
+                    : "Respons pembacaan gambar tidak valid. Silakan unggah ulang gambar.");
+                return null;
+            }
             return response.data;
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
-            const errorMsg = getApiConnectionMessage(err) ?? (
-                typeof detail === "string" && detail ? detail : "Gagal memproses gambar OCR."
-            );
-            setOcrError(errorMsg);
+        } catch (error: unknown) {
+            if (gen !== ocrGenRef.current || controller.signal.aborted || isCancel(error)) return null;
+            setOcrError(ocrErrorMessage(error));
             return null;
         } finally {
-            setOcrLoading(false);
+            externalSignal?.removeEventListener("abort", cancelFromForm);
+            if (gen === ocrGenRef.current) {
+                ocrAbortRef.current = null;
+                setOcrLoading(false);
+            }
         }
     };
 
@@ -136,14 +190,13 @@ export function useDetection() {
         setLoading(false);
         setLimeLoading(false);
         setLimeError(null);
-        setOcrLoading(false);
-        setOcrError(null);
+        cancelImageExtraction();
     };
 
     return {
         detectText,
         extractTextFromImage,
-        detectImage: extractTextFromImage, // Alias untuk kompatibilitas kode lama
+        cancelImageExtraction,
         requestExplanation,
         reset,
         loading,

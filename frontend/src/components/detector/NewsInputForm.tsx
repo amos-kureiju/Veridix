@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
     FileText,
     Image as ImageIcon,
@@ -13,20 +13,24 @@ import {
     SlidersHorizontal,
     Edit3
 } from "lucide-react";
-import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
+import { getApiConnectionMessage } from "@/lib/apiClient";
 import type { InputSourceType, OCRResponse } from "@/types/detector";
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
 interface NewsInputFormProps {
     loading: boolean;
-    ocrLoading?: boolean;
+    ocrLoading: boolean;
+    ocrError?: string | null;
     blocked: boolean;
     loginRequired: boolean;
     onRequireLogin: () => void;
-    onAnalyze: (text: string, source: InputSourceType) => Promise<void>;
-    onExtractImage?: (file: File) => Promise<OCRResponse | null>;
+    onAnalyze: (text: string, source: InputSourceType, imageUrl?: string | null) => Promise<void>;
+    onExtractImage: (file: File, signal?: AbortSignal) => Promise<OCRResponse | null>;
 }
 
-export default function NewsInputForm({ loading, blocked, loginRequired, onRequireLogin, onAnalyze }: NewsInputFormProps) {
+export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, loginRequired, onRequireLogin, onAnalyze, onExtractImage }: NewsInputFormProps) {
     const [activeTab, setActiveTab] = useState<"text" | "image">("text");
     const [inputText, setInputText] = useState("");
     const [selectedIssue, setSelectedIssue] = useState("ALL");
@@ -34,10 +38,45 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
     // State untuk OCR
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [ocrLoading, setOcrLoading] = useState(false);
+    const [localOCRLoading, setLocalOCRLoading] = useState(false);
     const [ocrText, setOcrText] = useState("");
-    const [ocrError, setOcrError] = useState<string | null>(null);
+    const [localOCRError, setLocalOCRError] = useState<string | null>(null);
+    const [ocrAccepted, setOCRAccepted] = useState(false);
+    const [ocrFailed, setOCRFailed] = useState(false);
+    const [serverImageUrl, setServerImageUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const ocrGenerationRef = useRef(0);
+    const ocrAbortRef = useRef<AbortController | null>(null);
+    const ocrBusyRef = useRef(false);
+    const submitBusyRef = useRef(false);
+    const previewUrlRef = useRef<string | null>(null);
+    const readingImage = localOCRLoading || (Boolean(imageFile) && ocrLoading);
+    const imageError = localOCRError || (imageFile && ocrFailed ? ocrError : null) ||
+        (ocrFailed ? "Gagal membaca gambar. Coba unggah ulang gambar yang lebih jelas." : null);
+
+    useEffect(() => () => {
+        ocrGenerationRef.current++;
+        ocrAbortRef.current?.abort();
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    }, []);
+
+    const clearImage = () => {
+        ocrGenerationRef.current++;
+        ocrAbortRef.current?.abort();
+        ocrAbortRef.current = null;
+        ocrBusyRef.current = false;
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+        setImageFile(null);
+        setImagePreview(null);
+        setOcrText("");
+        setLocalOCRError(null);
+        setLocalOCRLoading(false);
+        setOCRAccepted(false);
+        setOCRFailed(false);
+        setServerImageUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
 
     // Kata kunci Guardrail Politik Indonesia
     const politicalKeywords = ["kpu", "dpr", "mpr", "presiden", "pemilu", "pilpres", "korupsi", "partai", "mk", "bansos", "menteri", "pemerintah", "bawaslu", "suara", "rekapitulasi"];
@@ -45,66 +84,101 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
     const isPoliticalDetected = politicalKeywords.some(kw => currentText.toLowerCase().includes(kw));
 
     const handleImageSelect = async (file: File) => {
-        if (blocked || loading || ocrLoading) return;
+        if (blocked || loading || ocrBusyRef.current) return;
         if (loginRequired) {
             onRequireLogin();
             return;
         }
 
-        // Bersihkan URL preview lama jika ada
-        if (imagePreview) URL.revokeObjectURL(imagePreview);
-
-        setOcrError(null);
+        setLocalOCRError(null);
+        setOcrText("");
+        setOCRAccepted(false);
+        setOCRFailed(false);
+        setServerImageUrl(null);
+        if (!IMAGE_TYPES.includes(file.type)) {
+            setLocalOCRError("Format gambar tidak didukung. Gunakan PNG, JPG, atau WEBP.");
+            return;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+            setLocalOCRError("Ukuran gambar terlalu besar. Batas unggahan adalah 10 MB.");
+            return;
+        }
+        if (file.size === 0) {
+            setLocalOCRError("Berkas gambar kosong. Pilih gambar lain.");
+            return;
+        }
+        const generation = ++ocrGenerationRef.current;
+        const controller = new AbortController();
+        ocrAbortRef.current = controller;
+        ocrBusyRef.current = true;
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        const preview = URL.createObjectURL(file);
+        previewUrlRef.current = preview;
         setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
-        setOcrLoading(true);
+        setImagePreview(preview);
+        setLocalOCRLoading(true);
 
         try {
-            // Gunakan onExtractImage dari props bila tersedia, fallback ke apiClient langsung
-            let extractedText = "";
-            if (onExtractImage) {
-                const res = await onExtractImage(file);
-                if (res?.data?.extracted_text) {
-                    extractedText = res.data.extracted_text;
-                }
-            } else {
-                const formData = new FormData();
-                formData.append("file", file);
-                const res = await apiClient.post<OCRResponse>("/api/v1/detect/image", formData, {
-                    headers: { "Content-Type": "multipart/form-data" },
-                });
-                extractedText = res.data?.data?.extracted_text || "";
+            const res = await onExtractImage(file, controller.signal);
+            if (generation !== ocrGenerationRef.current) return;
+            if (!res) {
+                setOCRFailed(true);
+                return;
             }
-            setOcrText(extractedText);
-        } catch (err: any) {
+            if (res.status !== "success" || res.data?.dapat_dinilai !== true ||
+                typeof res.data.extracted_text !== "string" || !res.data.extracted_text.trim()) {
+                const reason = res.data?.reason || (res.status !== "success" ? res.message : null);
+                setLocalOCRError(typeof reason === "string" && reason
+                    ? reason
+                    : "Hasil OCR belum layak dianalisis. Unggah gambar dengan teks yang lebih jelas.");
+                return;
+            }
+            setOcrText(res.data.extracted_text);
+            setOCRAccepted(true);
+            const imageUrl = res.data.image_url;
+            setServerImageUrl(typeof imageUrl === "string" &&
+                (/^https?:\/\//i.test(imageUrl) || (imageUrl.startsWith("/") && !imageUrl.startsWith("//")))
+                ? imageUrl : null);
+        } catch (err: unknown) {
+            if (generation !== ocrGenerationRef.current) return;
             setOcrText("");
-            const detail = err?.response?.data?.detail;
+            const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
             const errMsg = getApiConnectionMessage(err) ?? (
                 typeof detail === "string" && detail
                     ? detail
                     : "Gagal membaca gambar. Pastikan gambar jelas dan memenuhi ketentuan."
             );
-            setOcrError(errMsg);
+            setLocalOCRError(errMsg);
         } finally {
-            setOcrLoading(false);
+            if (generation === ocrGenerationRef.current) {
+                ocrBusyRef.current = false;
+                ocrAbortRef.current = null;
+                setLocalOCRLoading(false);
+            }
         }
     };
 
-    const handleSubmit = () => {
-        if (blocked || loading || ocrLoading) return;
+    const handleSubmit = async () => {
+        if (blocked || loading || readingImage || submitBusyRef.current) return;
         if (loginRequired) {
             onRequireLogin();
             return;
         }
+        if (activeTab === "image" && (!ocrAccepted || imageError)) return;
         const textToSend = activeTab === "text" ? inputText : ocrText;
         if (textToSend.trim().length < 30) {
-            alert("Teks berita minimal 30 karakter agar model IndoBERT dapat mendeteksi pola retorika secara akurat.");
+            alert("Masukkan naskah minimal 30 karakter. Kelayakan teks akan diperiksa sebelum analisis.");
             return;
         }
 
         // Teruskan teks yang sudah disunting bersama tipe sumber yang tepat
         const source: InputSourceType = activeTab === "image" ? "IMAGE" : "TEXT";
-        onAnalyze(textToSend.trim(), source);
+        submitBusyRef.current = true;
+        try {
+            await onAnalyze(textToSend.trim(), source, source === "IMAGE" ? serverImageUrl : null);
+        } finally {
+            submitBusyRef.current = false;
+        }
     };
 
     return (
@@ -142,7 +216,7 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                     <div className="flex items-center gap-1.5 text-xs font-medium">
                         {isPoliticalDetected ? (
                             <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Konteks Politik Valid
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Kata Kunci Politik Terdeteksi
                             </span>
                         ) : (
                             <span className="flex items-center gap-1 text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200/60">
@@ -198,7 +272,7 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                             {!imagePreview ? (
                                 <div
                                     onClick={() => {
-                                        if (blocked || loading) return;
+                                        if (blocked || loading || readingImage) return;
                                         if (loginRequired) onRequireLogin();
                                         else fileInputRef.current?.click();
                                     }}
@@ -209,13 +283,17 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                                         type="file"
                                         accept="image/png, image/jpeg, image/webp"
                                         className="hidden"
-                                        onChange={(e) => e.target.files?.[0] && handleImageSelect(e.target.files[0])}
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            e.target.value = "";
+                                            if (file) await handleImageSelect(file);
+                                        }}
                                     />
                                     <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100 shadow-xs">
                                         <UploadCloud className="w-6 h-6" />
                                     </div>
                                     <p className="text-xs font-bold text-slate-800">Unggah Tangkapan Layar Berita Medsos</p>
-                                    <p className="text-[11px] text-slate-400 mt-1">Mendukung format PNG, JPG, atau WEBP (Twitter/X, WhatsApp, Facebook)</p>
+                                    <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, atau WEBP, maksimal 10 MB (Twitter/X, WhatsApp, Facebook)</p>
                                 </div>
                             ) : (
                                 /* HUMAN-IN-THE-LOOP TEXT CORRECTION BOX */
@@ -225,22 +303,19 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                                             <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                                             <span className="text-xs font-semibold text-slate-700 truncate">{imageFile?.name}</span>
                                         </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (imagePreview) URL.revokeObjectURL(imagePreview);
-                                                    setImageFile(null);
-                                                    setImagePreview(null);
-                                                    setOcrText("");
-                                                    setOcrError(null);
-                                                    if (fileInputRef.current) fileInputRef.current.value = "";
-                                                }}
-                                                className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
-                                                title="Ganti gambar"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
+                                        <button
+                                            type="button"
+                                            onClick={clearImage}
+                                            disabled={blocked || loading}
+                                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
+                                            title="Ganti gambar"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
                                     </div>
+
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={imagePreview} alt="Pratinjau gambar yang diunggah" className="max-h-48 w-full rounded-xl border border-slate-200 object-contain" />
 
                                     <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-3.5 space-y-2">
                                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
@@ -248,24 +323,24 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                                             <span>Koreksi Hasil PaddleOCR (Human-in-the-Loop):</span>
                                         </div>
                                         <p className="text-[11px] text-emerald-800/80 leading-relaxed">
-                                            Sistem telah membaca teks dari gambar. Anda dapat mengedit nama tokoh atau angka yang kurang tepat sebelum dievaluasi IndoBERT:
+                                            {readingImage ? "Sedang membaca gambar. Tunggu sampai hasil OCR tersedia." : "Periksa dan sunting teks yang terbaca, terutama nama tokoh atau angka, sebelum dianalisis."}
                                         </p>
                                         <textarea
                                             rows={5}
                                             value={ocrText}
                                             onChange={(e) => setOcrText(e.target.value)}
-                                            placeholder={ocrLoading ? "Sedang mengekstrak teks dengan PaddleOCR..." : "Hasil teks akan muncul di sini..."}
-                                            disabled={ocrLoading}
+                                            placeholder={readingImage ? "Sedang mengekstrak teks dengan PaddleOCR..." : "Hasil teks akan muncul di sini..."}
+                                            disabled={readingImage || !ocrAccepted || loading || blocked}
                                             className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 shadow-2xs resize-none"
                                         />
-                                            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-                                                <span>{ocrText.length} karakter (Min. 30 karakter)</span>
-                                                {ocrLoading && (
-                                                    <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                                                        <RefreshCw className="w-3 h-3 animate-spin" /> Sedang membaca teks gambar...
-                                                    </span>
-                                                )}
-                                            </div>
+                                        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+                                            <span>{ocrText.trim().length} karakter (Min. 30 karakter)</span>
+                                            {readingImage && (
+                                                <span role="status" className="flex items-center gap-1 text-emerald-600 font-medium">
+                                                    <RefreshCw className="w-3 h-3 animate-spin" /> Sedang membaca teks gambar...
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -273,7 +348,7 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                     )}
 
                 </div>
-                {ocrError && <p role="alert" className="mt-3 text-xs text-rose-600">{ocrError}</p>}
+                {activeTab === "image" && imageError && <p role="alert" className="mt-3 text-xs text-rose-600">{imageError}</p>}
             </div>
 
             {/* 3. TOMBOL EKSEKUSI PIPELINE */}
@@ -285,7 +360,8 @@ export default function NewsInputForm({ loading, blocked, loginRequired, onRequi
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={loading || blocked || ocrLoading || (!loginRequired && currentText.trim().length < 30)}
+                    disabled={loading || blocked || readingImage || (!loginRequired &&
+                        (currentText.trim().length < 30 || (activeTab === "image" && (!ocrAccepted || Boolean(imageError)))))}
                     className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-xl shadow-xs transition"
                 >
                     {loading ? (

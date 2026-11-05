@@ -18,8 +18,10 @@ function load(relativePath, mocks = {}, globals = {}) {
     });
     const module = { exports: {} };
     vm.runInNewContext(outputText, {
-        module, exports: module.exports, process, console, AbortController, Event, FormData, URL,
-        require: name => Object.hasOwn(mocks, name) ? mocks[name] : frontendRequire(name),
+        module, exports: module.exports, process, console, AbortController, AbortSignal,
+        Event, FormData, URL, Blob, DOMException,
+        require: name => Object.hasOwn(mocks, name) ? mocks[name] :
+            name.startsWith('@/types/') ? load(name.slice(2) + '.ts', mocks, globals) : frontendRequire(name),
         ...globals,
     }, { filename });
     return module.exports;
@@ -58,6 +60,8 @@ function detectionHook(post) {
             if (!(slot in slots)) slots[slot] = { current: initial };
             return slots[slot];
         },
+        useCallback: callback => callback,
+        useEffect: () => {},
     };
     const { getApiConnectionMessage } = load('lib/apiClient.ts');
     const { useDetection } = load('hooks/useDetection.ts', {
@@ -77,9 +81,18 @@ function* elements(node) {
     }
 }
 
-function home(auth) {
+function home(auth, detectionState = {}) {
     const hooks = reactHooks();
-    const calls = { routes: [], history: [], detections: 0, reloads: 0, explanations: 0, resets: 0, profileRefreshes: 0 };
+    const calls = { routes: [], history: [], detections: 0, detectionPayloads: [], extractions: [],
+        reloads: 0, explanations: 0, resets: 0, profileRefreshes: 0 };
+    const extractImage = async (...args) => {
+        calls.extractions.push(args);
+        const extracted = 'KPU mengumumkan jadwal pemilu kepada seluruh warga Indonesia melalui pengumuman resmi.';
+        return { status: 'success', message: 'Teks tersedia.', data: {
+            extracted_text: extracted,
+            dapat_dinilai: true, confidence: 0.98, character_count: extracted.length,
+        } };
+    };
     const mocks = {
         react: hooks,
         'next/navigation': { useRouter: () => ({ push: route => calls.routes.push(route) }) },
@@ -89,10 +102,18 @@ function home(auth) {
         }) },
         '@/hooks/useDetection': { useDetection: () => ({
             loading: false, result: null, error: null,
-            detectText: async () => { calls.detections++; return { status: 'success' }; },
+            ocrLoading: false, ocrError: null,
+            detectText: async (...args) => {
+                calls.detections++;
+                calls.detectionPayloads.push(args);
+                return { status: 'success' };
+            },
+            extractTextFromImage: extractImage,
+            cancelImageExtraction: () => {},
             requestExplanation: async () => { calls.explanations++; },
             limeLoading: false, limeError: null,
             reset: () => { calls.resets++; },
+            ...detectionState,
         }) },
         '@/hooks/useHistory': { useHistory: enabled => {
             calls.history.push(enabled);
@@ -107,7 +128,7 @@ function home(auth) {
     const form = [...elements(tree)].find(node => node.type === 'detector/NewsInputForm');
     const card = [...elements(tree)].find(node => node.type === 'detector/VerdictCard');
     for (const effect of hooks.effects) effect();
-    return { tree, form: form.props, card: card.props, calls };
+    return { tree, formElement: form, form: form.props, card: card.props, calls, extractImage };
 }
 
 test('public homepage stays visible and never enables history before verified login', async () => {
@@ -151,6 +172,7 @@ test('guest analyze and image upload controls ask for login without API calls', 
         '@/lib/apiClient': { apiClient: { post: async () => { requests++; } } },
     }).default;
     const tree = Form({ loading: false, blocked: false, loginRequired: true,
+        ocrLoading: false, onExtractImage: async () => assert.fail('Guest OCR callback invoked'),
         onRequireLogin: () => loginPrompts++, onAnalyze: () => assert.fail('Guest analyzed') });
     const nodes = [...elements(tree)];
     const submit = nodes.filter(node => node.type === 'button').at(-1);
@@ -162,24 +184,63 @@ test('guest analyze and image upload controls ask for login without API calls', 
     assert.equal(requests, 0);
 });
 
-test('authenticated image upload uses the backend OCR endpoint and actual extracted text', async () => {
+test('authenticated image upload delegates once to the OCR hook and uses its extracted text', async () => {
     const hooks = reactHooks(['image']);
     const requests = [];
     const Form = load('components/detector/NewsInputForm.tsx', {
         react: hooks,
-        '@/lib/apiClient': { apiClient: { post: async (url, body) => {
-            requests.push({ url, body });
-            return { data: { data: { extracted_text: 'Teks hasil OCR dari gambar.' } } };
-        } } },
-    }, { URL: { createObjectURL: () => 'blob:test-preview' } }).default;
+        '@/lib/apiClient': { apiClient: { post: async () => assert.fail('Component bypassed OCR hook') } },
+    }, { URL: { createObjectURL: () => 'blob:test-preview', revokeObjectURL() {} } }).default;
+    const extracted = 'KPU mengumumkan jadwal pemilu kepada seluruh warga Indonesia melalui pengumuman resmi.';
     const tree = Form({ loading: false, blocked: false, loginRequired: false,
+        ocrLoading: false,
+        onExtractImage: async (file, signal) => {
+            requests.push({ file, signal });
+            return { status: 'success', message: 'Teks berhasil dibaca.', data: {
+                extracted_text: extracted, dapat_dinilai: true, confidence: 0.98,
+                character_count: extracted.length, image_url: null,
+            } };
+        },
         onRequireLogin: () => assert.fail('Unexpected login'), onAnalyze: async () => {} });
     const input = [...elements(tree)].find(node => node.type === 'input' && node.props.type === 'file');
-    await input.props.onChange({ target: { files: [new Blob(['image'], { type: 'image/png' })] } });
+    const file = Object.assign(new Blob(['image'], { type: 'image/png' }), { name: 'berita.png' });
+    await input.props.onChange({ target: { files: [file] } });
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, '/api/v1/detect/image');
-    assert.ok(requests[0].body.get('file'));
-    assert.ok(hooks.updates.some(update => update.value === 'Teks hasil OCR dari gambar.'));
+    assert.equal(requests[0].file, file);
+    assert.ok(hooks.updates.some(update => update.value === extracted));
+});
+
+test('homepage forwards edited IMAGE input and server image URL, then refreshes counts once', async () => {
+    const { tree, form, formElement, calls, extractImage } = home({
+        user: { id: 'account-A', name: 'Test User', role: 'USER' }, ready: true,
+    });
+    assert.equal(formElement.key, 'account-A');
+    assert.equal(form.onExtractImage, extractImage);
+    assert.equal(form.ocrLoading, false);
+    const edited = 'KPU mengoreksi jadwal pemilu dan meminta seluruh warga membaca pengumuman resmi terbaru.';
+    const imageUrl = 'https://images.example.test/saved-image.png';
+    await form.onAnalyze(edited, 'IMAGE', imageUrl);
+    assert.deepEqual(calls.detectionPayloads, [[edited, 'IMAGE', imageUrl]]);
+    assert.equal(calls.reloads, 1);
+    assert.equal(calls.profileRefreshes, 1);
+    const childrenText = JSON.stringify(tree, (_key, value) => typeof value === 'function' ? undefined : value);
+    assert.equal(childrenText.includes('// GANTI'), false, 'Implementation notes must not render as page text');
+    const other = home({ user: { id: 'account-B', role: 'USER' }, ready: true });
+    assert.notEqual(other.formElement.key, formElement.key, 'Account change must remount the input form');
+});
+
+test('homepage forwards independent OCR errors and does not refresh history for extraction alone', async () => {
+    const detail = 'Kualitas pembacaan teks rendah. Gunakan gambar yang lebih jelas.';
+    const { form, calls } = home({ user: { id: 'account-A', role: 'USER' }, ready: true }, {
+        ocrLoading: true, ocrError: detail,
+    });
+    assert.equal(form.ocrLoading, true);
+    assert.equal(form.ocrError, detail, 'OCR error must reach the image form independently of model errors');
+    await form.onExtractImage(new Blob(['image'], { type: 'image/png' }));
+    assert.equal(calls.extractions.length, 1);
+    assert.equal(calls.detections, 0);
+    assert.equal(calls.reloads, 0);
+    assert.equal(calls.profileRefreshes, 0);
 });
 
 test('history hook sends no request when disabled or without a token', async () => {

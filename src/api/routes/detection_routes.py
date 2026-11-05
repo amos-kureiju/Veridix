@@ -1,5 +1,6 @@
 import inspect
 import logging
+import math
 import threading
 from uuid import UUID
 
@@ -224,7 +225,7 @@ def explain_detection(
 
 
 # =====================================================================
-# JALUR B: EKSTRAKSI GAMBAR (PADDLEOCR)  -- tidak diubah
+# JALUR B: EKSTRAKSI GAMBAR MELALUI PIPELINE BERSAMA
 # =====================================================================
 @router.post("/image", response_model=OCRResponse)
 async def extract_text_from_image_upload(
@@ -242,7 +243,7 @@ async def extract_text_from_image_upload(
     try:
         contents = await file.read(MAX_BYTES + 1)
     except Exception as exc:
-        logger.exception("Gagal membaca berkas unggahan: %s", exc)
+        logger.error("Gagal membaca berkas unggahan (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Gagal membaca data berkas unggahan."
@@ -258,56 +259,39 @@ async def extract_text_from_image_upload(
     # 3. Jalankan OCR via threadpool agar tidak memblokir async event-loop
     try:
         h = await run_in_threadpool(proses_gambar, contents)
-    except Exception:
-        logger.exception("Kegagalan tak terduga saat menjalankan pipeline OCR")
+    except Exception as exc:
+        logger.error("Pipeline OCR mengalami galat (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Terjadi kesalahan internal pada pemrosesan gambar."
         )
 
-    # Validasi segera sebelum menggunakan .get()
+    # Kontrak diperiksa sebelum membaca metadata atau membentuk respons.
     if not isinstance(h, dict):
-        logger.error("Keluaran pipeline tidak valid: %r", h)
+        logger.error("Tipe keluaran pipeline OCR tidak valid: %s", type(h).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
         )
 
-    # 4. Catat detail teknis ke log server jika ada kendala
+    kategori = h.get("kategori")
+    kode = h.get("kode")
+    pesan = h.get("pesan")
+    if not isinstance(pesan, str) or not pesan.strip():
+        pesan = (
+            "Teks berhasil diekstrak. Silakan periksa atau sunting sebelum dianalisis."
+            if kategori == KATEGORI_OK else "Gambar tidak dapat diproses."
+        )
+
+    # Detail dan teks mentah tetap pada laporan pipeline; route hanya mencatat kode.
     if h.get("detail_teknis"):
         logger.warning(
-            "OCR Pipeline [%s/%s]: %s",
-            h.get("kategori"),
-            h.get("kode"),
-            h.get("detail_teknis")
+            "Pipeline OCR: kategori=%s kode=%s",
+            kategori if isinstance(kategori, str) else type(kategori).__name__,
+            kode if isinstance(kode, str) else "-",
         )
 
-    # pengamat 1: Jika keluaran pipeline bernilai None dan bukan Edit
-    if not isinstance(h, dict):
-        logger.error("keluaran pipeline tidak valid: %s", h)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
-        )
-
-    kategori = h.get("kategori")
-    kode = h.get("kode")
-    pesan = h.get("pesan", "Gambar tidak dapat diproses.")
-
-    # Pengaman 2: Jika kategori OK tetapi teks bersih kosong atau hilang
-    if kategori == KATEGORI_OK:
-        teks_bersih = h.get("teks_bersih")
-        if not isinstance(teks_bersih, str) or not teks_bersih.strip():
-            logger.error("Pipeline mengembalikan OK tetapi teks bersih kosong: %r", h)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Keluaran OCR tidak konsisten (teks kosong terdeteksi)."
-            )
-        
-    # 5. Pemetaan kategori & kode pipeline ke status HTTP
-    kategori = h.get("kategori")
-    kode = h.get("kode")
-    pesan = h.get("pesan", "Gambar tidak dapat diproses.")
+    # 4. Pemetaan kategori & kode pipeline ke status HTTP.
 
     if kategori == KATEGORI_INPUT:
         status_code = (
@@ -338,20 +322,38 @@ async def extract_text_from_image_upload(
             detail="Kategori keluaran OCR tidak dikenal."
         )
 
-    # 6. Bangun respons dari teks yang sudah dibersihkan oleh pipeline
-    teks_bersih = h.get("teks_bersih", "")
-    fitur = h.get("fitur") or {}
+    # 5. OK harus konsisten; ambang kualitas tetap menjadi tanggung jawab pipeline.
+    teks_bersih = h.get("teks_bersih")
+    fitur = h.get("fitur")
+    if (h.get("dapat_dinilai") is not True
+            or not isinstance(teks_bersih, str) or not teks_bersih.strip()
+            or not isinstance(fitur, dict)):
+        logger.error("Kontrak hasil OCR kategori OK tidak konsisten")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
+        )
     confidence = fitur.get("conf_rata2")
+    if confidence is not None and not (
+        not isinstance(confidence, bool) and isinstance(confidence, (int, float))
+        and 0.0 <= confidence <= 1.0 and math.isfinite(confidence)
+    ):
+        logger.error("Confidence hasil OCR tidak valid")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mesin OCR mengembalikan keluaran internal yang tidak valid."
+        )
 
+    # Gunakan teks pipeline apa adanya, tanpa pembersihan/gerbang kedua.
     return OCRResponse(
         status="success",
         message=pesan,
         data=OCRResultData(
             extracted_text=teks_bersih,
-            dapat_dinilai=h.get("dapat_dinilai", True),
+            dapat_dinilai=True,
             confidence=confidence,
             character_count=len(teks_bersih),
             image_url=None,
             reason=None
         )
-    )   
+    )

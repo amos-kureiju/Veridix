@@ -10,7 +10,7 @@ export interface OCRResultData {
 }
 
 export interface OCRResponse {
-    status: "success" | "error" | string;
+    status: string;
     message: string;
     data?: OCRResultData;
 }
@@ -19,6 +19,24 @@ export interface DetectionRequestPayload {
     text: string;
     input_type?: InputSourceType;
     image_url?: string | null;
+}
+
+export function isUsableOCRResponse(value: unknown): value is OCRResponse & { data: OCRResultData } {
+    if (!value || typeof value !== "object") return false;
+    const response = value as Partial<OCRResponse>;
+    const data = response.data;
+    return response.status === "success" && typeof response.message === "string" &&
+        Boolean(data) && data?.dapat_dinilai === true &&
+        typeof data.extracted_text === "string" && data.extracted_text.trim().length > 0 &&
+        Number.isInteger(data.character_count) && data.character_count === Array.from(data.extracted_text).length &&
+        (data.confidence === null || (typeof data.confidence === "number" &&
+            Number.isFinite(data.confidence) && data.confidence >= 0 && data.confidence <= 1));
+}
+
+export function persistentImageUrl(value?: string | null): string | null {
+    if (typeof value !== "string") return null;
+    const url = value.trim();
+    return /^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url) ? url : null;
 }
 export interface LimeToken {
     word: string;

@@ -1,8 +1,10 @@
 # Rencana optimasi OCR secara bertahap
 
-Tanggal pemeriksaan: 4 November 2026. Status: **rencana, belum diterapkan**.
+Tanggal pemeriksaan awal: 4 November 2026. Status: **arsip rencana awal**.
 
-Dokumen ini memetakan berkas, bagian kode, urutan perubahan, dan kriteria selesai. Pada pekerjaan ini hanya dokumen ini yang dibuat; kode aplikasi, skrip evaluasi, dependensi, dan database tidak diubah. OCR, model, dan koneksi database tidak dijalankan ulang.
+> Temuan, nomor baris, contoh kode, dan status di bawah menggambarkan pemeriksaan awal, bukan keadaan implementasi sekarang. Gunakan [PANDUAN_PENGUJIAN_OCR.md](PANDUAN_PENGUJIAN_OCR.md) untuk perintah, status verifikasi, dan kekurangan yang masih terbuka pada 6 November 2026. Contoh pemanggilan pembersihan lama di arsip ini tidak menjadi petunjuk implementasi saat ini; gunakan pipeline aktif.
+
+Dokumen ini memetakan berkas, bagian kode, urutan perubahan, dan kriteria selesai pada saat rencana disusun. Saat penyusunan awal hanya dokumen ini yang dibuat; kode aplikasi, skrip evaluasi, dependensi, dan database belum diubah dalam pekerjaan tersebut. OCR, model, dan koneksi database tidak dijalankan ulang saat itu.
 
 Alur sasaran: **unggah gambar → ekstraksi OCR → periksa/sunting teks → analisis model → verdict → riwayat**.
 
@@ -10,7 +12,7 @@ Alur sasaran: **unggah gambar → ekstraksi OCR → periksa/sunting teks → ana
 
 Nomor baris mengikuti kondisi saat dokumen dibuat. Setelah ada perubahan, gunakan nama fungsi sebagai acuan utama.
 
-| Temuan pada workspace saat ini | Lokasi |
+| Temuan pada pemeriksaan 4 November 2026 | Lokasi |
 |---|---|
 | Skrip masih mengimpor `ocr_paddle3` yang tidak ada di root | `uji_ujung_ke_ujung.py:9` |
 | Skrip meneruskan OCR mentah ke model, sedangkan endpoint membersihkannya terlebih dahulu | `uji_ujung_ke_ujung.py:30`; `src/api/routes/detection_routes.py:263` |
@@ -23,7 +25,7 @@ Nomor baris mengikuti kondisi saat dokumen dibuat. Setelah ada perubahan, gunaka
 | Hook `detectImage()` memperlakukan respons ekstraksi sebagai verdict | `frontend/src/hooks/useDetection.ts:93` |
 | Dependensi mencantumkan EasyOCR, belum PaddleOCR/PaddlePaddle | `requirements.txt` |
 
-Helper `src/utils/ocr_pipeline.py` dan laporan evaluasi yang disebut pada percakapan sebelumnya belum tersedia pada workspace yang diperiksa sekarang. Karena itu, dokumen ini tidak menganggap perubahan tersebut sudah diterapkan dan tidak memakai hasil sebelumnya sebagai baseline terverifikasi untuk kode saat ini.
+Pada pemeriksaan awal, helper `src/utils/ocr_pipeline.py` dan laporan evaluasi yang disebut pada percakapan sebelumnya belum tersedia pada workspace yang diperiksa. Karena itu, rencana awal ini tidak menganggap perubahan tersebut sudah diterapkan. Pipeline dan skrip evaluasi kini sudah tersedia; status pengujian terbarunya dicatat pada panduan pengujian.
 
 ## Aturan pengerjaan
 
@@ -200,8 +202,8 @@ Tes terisolasi yang direncanakan: `tests/test_detection_history_pipeline.py`, me
 
 Penolakan OCR masuk ledger evaluasi. Riwayat aplikasi saat ini baru dibuat ketika `/detect/text` berjalan; menampilkan semua unggahan tertolak di riwayat akan menjadi perubahan fitur tambahan.
 
-## Paket pertama yang dikerjakan berikutnya
+## Paket pertama pada rencana awal
 
-Mulai dari **langkah 1, `uji_ujung_ke_ujung.py` saja**: perbaiki impor, pisahkan OCR mentah/bersih, tunda pemuatan model, dan buat titik masuk yang dapat diuji. Periksa hasil langkah itu sebelum beralih ke dependensi atau mesin OCR. Tidak ada parameter pengenalan atau ambang yang diubah pada paket pertama.
+Rencana awal dimulai dari **langkah 1, `uji_ujung_ke_ujung.py` saja**: perbaiki impor, pisahkan OCR mentah/bersih, tunda pemuatan model, dan buat titik masuk yang dapat diuji. Hasil langkah itu diperiksa sebelum beralih ke dependensi atau mesin OCR. Tidak ada parameter pengenalan atau ambang yang direncanakan berubah pada paket pertama.
 
-Checklist seluruh langkah masih **belum dikerjakan**. Dokumen ini menjadi acuan urutan; hasil setiap putaran nantinya dicatat beserta berkas yang berubah, pengujian yang dijalankan, dan keputusan menerima atau membatalkan perubahan.
+Status seluruh langkah pada saat dokumen awal disusun adalah **belum dikerjakan**. Status tersebut tidak berlaku sebagai checklist implementasi sekarang. Untuk pekerjaan berikutnya, gunakan panduan pengujian dan catat hasil setiap putaran beserta berkas yang berubah, pengujian yang dijalankan, serta keputusan menerima atau membatalkan perubahan.

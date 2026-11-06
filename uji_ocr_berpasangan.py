@@ -50,8 +50,8 @@ def hitung_cer_wer(ref: str, hyp: str) -> Tuple[float, float, int, int]:
 
     Mengembalikan: (cer_persen, wer_persen, char_errors, word_errors)
     """
-    if not ref:
-        return (0.0 if not hyp else 100.0, 0.0 if not hyp else 100.0, len(hyp), len(hyp.split()))
+    if not ref or not ref.strip():
+        return (None, None, len(hyp), len(hyp.split()))
 
     # 1. CER (Level Karakter)
     char_ref = list(ref)
@@ -79,33 +79,25 @@ DATASET_PASANGAN_DEFAULT = [
         "id": "U01",
         "kategori": "teks_pendek",
         "gambar": "data/sample_probe.png",
-        "deskripsi": "Klaim sangat pendek (< 50 karakter), menguji gerbang penolakan mutu",
-        "transkripsi_manual": "Beredar kabar hoaks pemilu curang di Jakarta.",
+        "deskripsi": "Klaim sangat pendek (49 karakter), menguji gerbang penolakan mutu",
+        "transkripsi_manual": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
     },
     {
         "id": "U02",
         "kategori": "teks_panjang_jelas",
         "gambar": "data/sample_panjang.png",
         "deskripsi": "Teks resmi kebijakan pemerintah, cukup panjang dan tajam",
-        "transkripsi_manual": (
-            "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial pangan beras "
-            "tahun 2026 disalurkan tepat sasaran kepada masyarakat penerima manfaat secara transparan."
-        ),
+        "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
     },
 ]
 
 
 # PROSEDUR EVALUASI BERPASANGAN
-
-def evaluasi_satu_kasus(
-    kasus: Dict[str, Any],
-    evaluator: Any,
-    catat_latensi_pemanasan: bool = False
-) -> Dict[str, Any]:
+def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any, catat_latensi_pemanasan: bool = False) -> Dict[str, Any]:
     jalur_gambar = Path(kasus["gambar"])
     rec = {
-        "id": kasus["id"],
-        "kategori_kasus": kasus["kategori"],
+        "id": kasus.get("id", "UNKNOWN"),
+        "kategori_kasus": kasus.get("kategori", "tidak_ditentukan"),
         "deskripsi": kasus.get("deskripsi", ""),
         "jalur_gambar": str(jalur_gambar),
         "transkripsi_manual": kasus.get("transkripsi_manual", ""),
@@ -116,84 +108,82 @@ def evaluasi_satu_kasus(
         rec["keputusan_akhir"] = "DILEWATI_BERKAS_TIDAK_ADA"
         return rec
 
-    # 1. Jalankan Pipeline OCR
-    t0_ocr = time.perf_counter()
-    raw_ocr = proses_gambar(jalur_gambar)
-    durasi_ocr = round(time.perf_counter() - t0_ocr, 4)
+    try:
+        # 1. Jalankan Pipeline OCR
+        t0_ocr = time.perf_counter()
+        raw_ocr = proses_gambar(jalur_gambar)
+        durasi_ocr = round(time.perf_counter() - t0_ocr, 4)
 
-    rec["ocr"] = {
-        "kategori": raw_ocr.get("kategori"),
-        "kode": raw_ocr.get("kode"),
-        "pesan": raw_ocr.get("pesan"),
-        "daftar_alasan": raw_ocr.get("alasan", []),
-        "teks_mentah": raw_ocr.get("teks_mentah", ""),
-        "teks_bersih": raw_ocr.get("teks_bersih", ""),
-        "durasi_detik": durasi_ocr,
-        "identitas_berkas": raw_ocr.get("berkas"),
-        "fitur": raw_ocr.get("fitur"),
-    }
-
-    # 2. Hitung Metrik Akurasi Transkripsi (CER/WER)
-    ref = rec["transkripsi_manual"]
-    hyp = raw_ocr.get("teks_bersih", "")
-    cer, wer, char_err, word_err = hitung_cer_wer(ref, hyp)
-    rec["metrik_transkripsi"] = {
-        "cer_persen": cer,
-        "wer_persen": wer,
-        "char_errors": char_err,
-        "word_errors": word_err,
-        "karakter_ref": len(ref),
-        "kata_ref": len(ref.split()),
-        "karakter_hyp": len(hyp),
-        "kata_hyp": len(hyp.split()),
-    }
-
-    # 3. Prediksi Teks Asli (Ground Truth) melalui Model
-    t0_model_gt = time.perf_counter()
-    res_gt = evaluator.nilai(ref, explain=False, debug=True) if len(ref.strip()) >= 30 else None
-    durasi_model_gt = round(time.perf_counter() - t0_model_gt, 4) if res_gt else 0.0
-
-    rec["evaluasi_teks_asli"] = {
-        "status": res_gt.get("status") if res_gt else "tidak_dievaluasi_terlalu_pendek",
-        "label": res_gt.get("label") if res_gt else None,
-        "votes_hoax": res_gt.get("votes_hoax") if res_gt else None,
-        "seed_decisions": res_gt.get("seed_decisions") if res_gt else None,
-        "agreement_ratio": res_gt.get("agreement_ratio") if res_gt else None,
-        "durasi_detik": durasi_model_gt,
-    }
-
-    # 4. Prediksi Teks Hasil OCR (Hanya jika lolos gerbang mutu KATEGORI_OK)
-    if raw_ocr.get("kategori") == "OK" and raw_ocr.get("dapat_dinilai") is True:
-        t0_model_ocr = time.perf_counter()
-        res_ocr = evaluator.nilai(hyp, explain=False, debug=True)
-        durasi_model_ocr = round(time.perf_counter() - t0_model_ocr, 4)
-
-        rec["evaluasi_teks_ocr"] = {
-            "status": res_ocr.get("status"),
-            "label": res_ocr.get("label"),
-            "votes_hoax": res_ocr.get("votes_hoax"),
-            "seed_decisions": res_ocr.get("seed_decisions"),
-            "agreement_ratio": res_ocr.get("agreement_ratio"),
-            "durasi_detik": durasi_model_ocr,
+        kategori_ocr = raw_ocr.get("kategori")
+        rec["ocr"] = {
+            "kategori": kategori_ocr,
+            "kode": raw_ocr.get("kode"),
+            "pesan": raw_ocr.get("pesan"),
+            "daftar_alasan": raw_ocr.get("alasan", []),
+            "teks_mentah": raw_ocr.get("teks_mentah", ""),
+            "teks_bersih": raw_ocr.get("teks_bersih", ""),
+            "durasi_detik": durasi_ocr,
+            "identitas_berkas": raw_ocr.get("berkas"),
+            "fitur": raw_ocr.get("fitur"),
         }
 
-        # 5. Uji Konsistensi Keputusan Model
-        label_gt = res_gt.get("label") if res_gt else None
-        label_ocr = res_ocr.get("label")
-        rec["konsistensi"] = {
-            "label_sama": (label_gt == label_ocr) if label_gt else None,
-            "status_sama": (res_gt.get("status") == res_ocr.get("status")) if res_gt else None,
-            "selisih_votes": None,
+        # 2. Hitung CER/WER (hanya jika OCR sempat membaca teks; TOLAK_INPUT dan GALAT_MESIN bernilai None)
+        ref = rec["transkripsi_manual"]
+        hyp = raw_ocr.get("teks_bersih", "")
+
+        if kategori_ocr in ("TOLAK_INPUT", "GALAT_MESIN"):
+            rec["metrik_transkripsi"] = {
+                "tersedia": False,
+                "cer_persen": None,
+                "wer_persen": None,
+                "alasan": f"OCR tidak berjalan ({kategori_ocr}: {raw_ocr.get('kode')})"
+            }
+        else:
+            cer, wer, char_err, word_err = hitung_cer_wer(ref, hyp)
+            rec["metrik_transkripsi"] = {
+                "tersedia": cer is not None,
+                "cer_persen": cer,
+                "wer_persen": wer,
+                "char_errors": char_err,
+                "word_errors": word_err,
+            }
+
+        # 3. Prediksi Teks Asli (Ground Truth)
+        t0_model_gt = time.perf_counter()
+        res_gt = evaluator.nilai(ref, explain=False, debug=True) if len(ref.strip()) >= 30 else None
+        durasi_model_gt = round(time.perf_counter() - t0_model_gt, 4) if res_gt else 0.0
+
+        rec["evaluasi_teks_asli"] = {
+            "status": res_gt.get("status") if res_gt else "tidak_dievaluasi_terlalu_pendek",
+            "label": res_gt.get("label") if res_gt else None,
+            "votes_hoax": res_gt.get("votes_hoax") if res_gt else None,
+            "durasi_detik": durasi_model_gt,
         }
-        rec["keputusan_akhir"] = "SELESAI_DIEVALUASI"
-    else:
-        rec["evaluasi_teks_ocr"] = None
-        rec["konsistensi"] = {
-            "label_sama": None,
-            "status_sama": None,
-            "alasan": f"Teks OCR ditolak gerbang mutu ({raw_ocr.get('kode')})"
-        }
-        rec["keputusan_akhir"] = f"DITOLAK_{raw_ocr.get('kategori')}"
+
+        # 4. Prediksi Teks Hasil OCR (Hanya jika KATEGORI_OK dan dapat_dinilai is True)
+        if kategori_ocr == "OK" and raw_ocr.get("dapat_dinilai") is True:
+            t0_model_ocr = time.perf_counter()
+            res_ocr = evaluator.nilai(hyp, explain=False, debug=True)
+            durasi_model_ocr = round(time.perf_counter() - t0_model_ocr, 4)
+
+            rec["evaluasi_teks_ocr"] = {
+                "status": res_ocr.get("status"),
+                "label": res_ocr.get("label"),
+                "votes_hoax": res_ocr.get("votes_hoax"),
+                "durasi_detik": durasi_model_ocr,
+            }
+            rec["konsistensi"] = {
+                "label_sama": (res_gt.get("label") == res_ocr.get("label")) if res_gt else None,
+            }
+            rec["keputusan_akhir"] = "SELESAI_DIEVALUASI"
+        else:
+            rec["evaluasi_teks_ocr"] = None
+            rec["konsistensi"] = {"label_sama": None, "alasan": f"Teks ditolak ({raw_ocr.get('kode')})"}
+            rec["keputusan_akhir"] = f"DITOLAK_{kategori_ocr}"
+
+    except Exception as exc:
+        rec["keputusan_akhir"] = "GALAT_EKSEKUSI"
+        rec["galat"] = f"{type(exc).__name__}: {exc}"
 
     return rec
 
@@ -255,37 +245,57 @@ def main():
         res = evaluasi_satu_kasus(kasus, evaluator)
         hasil_kasus.append(res)
 
-        st_ocr = res.get("ocr", {}).get("kategori", "-")
-        cer_str = f"{res.get('metrik_transkripsi', {}).get('cer_persen', 0.0):.1f}%"
-        wer_str = f"{res.get('metrik_transkripsi', {}).get('wer_persen', 0.0):.1f}%"
+        st_ocr = str(res.get("ocr", {}).get("kategori") or res.get("keputusan_akhir") or "-")
+        met = res.get("metrik_transkripsi", {})
+        cer_str = f"{met['cer_persen']:.2f}%" if met.get("cer_persen") is not None else "null"
+        wer_str = f"{met['wer_persen']:.2f}%" if met.get("wer_persen") is not None else "null"
+
         lbl_gt = str(res.get("evaluasi_teks_asli", {}).get("label") or "-")
         lbl_ocr = str(res.get("evaluasi_teks_ocr", {}).get("label") if res.get("evaluasi_teks_ocr") else "DITOLAK")
         kons = str(res.get("konsistensi", {}).get("label_sama") if res.get("evaluasi_teks_ocr") else "-")
 
-        print(f"{kasus['id']:<5} | {kasus['kategori']:<20} | {st_ocr:<12} | {cer_str:<8} | {wer_str:<8} | {lbl_gt:<16} | {lbl_ocr:<16} | {kons}")
+        print(f"{res['id']:<5} | {res['kategori_kasus']:<20} | {st_ocr:<12} | {cer_str:<8} | {wer_str:<8} | {lbl_gt:<16} | {lbl_ocr:<16} | {kons}")
 
     # 3. Rekam Laporan Komprehensif Bab 4
     now = datetime.now(timezone(timedelta(hours=7)))
+
+    # Ambil aturan voting langsung dari evaluator.rule
+    aturan_aktif = (
+        getattr(evaluator, "rule", None)
+        or getattr(evaluator, "voting_rule", None)
+        or getattr(getattr(evaluator, "backend", None), "voting_rule", None)
+        or "unanimous_consensus"
+    )
+
+    # Hitung rata-rata hanya dari nilai valid (hindari 0.0 palsu jika kosong)
+    cer_valid = [
+        r["metrik_transkripsi"]["cer_persen"]
+        for r in hasil_kasus 
+        if r.get("ocr", {}).get("kategori") == "OK" and r.get("metrik_transkripsi", {}).get("cer_persen") is not None
+    ]
+    wer_valid = [
+        r["metrik_transkripsi"]["wer_persen"]
+        for r in hasil_kasus 
+        if r.get("ocr", {}).get("kategori") == "OK" and r.get("metrik_transkripsi", {}).get("wer_persen") is not None
+    ]
+
     laporan_final = {
         "metadata": {
             "waktu_eksekusi": now.isoformat(timespec="seconds"),
             "versi_pipeline": VERSI_PIPELINE,
             "hash_kebijakan": hash_kebijakan(),
-            "aturan_konsensus": getattr(getattr(evaluator, "backend", None), "voting_rule", "unanimous_consensus"),
+            "aturan_konsensus": aturan_aktif,
             "latensi_benchmark": latensi_benchmark,
         },
         "ringkasan": {
             "total_kasus": len(hasil_kasus),
             "diterima_ocr": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK"),
-            "ditolak_ocr": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") != "OK"),
-            "rata2_cer_diterima": round(
-                float(sum(r["metrik_transkripsi"]["cer_persen"] for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK") /
-                max(sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK"), 1)), 2
-            ),
-            "rata2_wer_diterima": round(
-                float(sum(r["metrik_transkripsi"]["wer_persen"] for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK") /
-                max(sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK"), 1)), 2
-            ),
+            "ditolak_kualitas": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "TOLAK_KUALITAS"),
+            "ditolak_input": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "TOLAK_INPUT"),
+            "galat_mesin": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "GALAT_MESIN"),
+            "berkas_tidak_ada": sum(1 for r in hasil_kasus if r.get("status_berkas") == "tidak_ditemukan"),
+            "rata2_cer_diterima": round(float(sum(cer_valid) / len(cer_valid)), 4) if cer_valid else None,
+            "rata2_wer_diterima": round(float(sum(wer_valid) / len(wer_valid)), 4) if wer_valid else None,
         },
         "hasil_evaluasi": hasil_kasus,
     }

@@ -1,0 +1,93 @@
+{
+  "waktu": "2026-11-06T10:02:07+07:00",
+  "versi_pipeline": "1.2",
+  "hash_kebijakan": "142b2c27d2f7d82693e3b6aa7a3ba3641e030d344d4acbd785d6c1a33adc140f",
+  "lime": false,
+  "mode": "fungsi_ocr_dan_model_tanpa_http_atau_database",
+  "min_karakter_ocr": 50,
+  "total": 2,
+  "jumlah_galat": 0,
+  "ringkasan": {
+    "gerbang_kualitas": 1,
+    "model": 1
+  },
+  "gambar": [
+    {
+      "gambar": "data\\sample_probe.png",
+      "tahap_akhir": "gerbang_kualitas",
+      "keputusan": "TIDAK_LAYAK",
+      "waktu_ocr_dtk": 42.251,
+      "identitas_berkas": {
+        "format": "PNG",
+        "lebar": 700,
+        "tinggi": 200,
+        "ukuran_byte": 2969,
+        "sha256": "882680f0c255d7732fb4828dbbc3155a120d6095e41cd9b1a7cf192d0fe27286"
+      },
+      "kategori": "TOLAK_KUALITAS",
+      "kode": "MUTU_TEKS_PENDEK",
+      "alasan": "Teks yang terbaca terlalu pendek untuk diverifikasi.",
+      "fitur_ocr": {
+        "n_kata": 6,
+        "n_baris": 1,
+        "conf_rata2": 0.9926714301109314,
+        "conf_min": 0.9926714301109314,
+        "share_baris_conf_rendah": 0.0,
+        "share_token_huruf_angka": 0.0,
+        "n_pemenggalan_hubung": 0
+      },
+      "teks_ocr_mentah": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+      "teks_bersih": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+      "durasi_detik_pipeline": {
+        "validasi": 0.0576,
+        "ocr": 42.1929,
+        "kualitas": 0.0003,
+        "total": 42.2509
+      }
+    },
+    {
+      "gambar": "data\\sample_panjang.png",
+      "tahap_akhir": "model",
+      "keputusan": "PERLU VERIFIKASI (SEED TIDAK SEPAKAT)",
+      "waktu_ocr_dtk": 3.671,
+      "identitas_berkas": {
+        "format": "PNG",
+        "lebar": 900,
+        "tinggi": 200,
+        "ukuran_byte": 3560,
+        "sha256": "f90ab5b42e1d9b0ad28a3d0a49fba8769ec07f3f0843eec4e9626dfa5f0879f9"
+      },
+      "kategori": "OK",
+      "kode": "OK",
+      "alasan": "Teks berhasil dibaca dan memenuhi syarat untuk diverifikasi.",
+      "fitur_ocr": {
+        "n_kata": 15,
+        "n_baris": 1,
+        "conf_rata2": 0.9869572520256042,
+        "conf_min": 0.9869572520256042,
+        "share_baris_conf_rendah": 0.0,
+        "share_token_huruf_angka": 0.0,
+        "n_pemenggalan_hubung": 0
+      },
+      "teks_ocr_mentah": "residen Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus te pat sasaran.",
+      "teks_bersih": "residen Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus te pat sasaran.",
+      "durasi_detik_pipeline": {
+        "validasi": 0.0097,
+        "ocr": 3.661,
+        "kualitas": 0.0001,
+        "total": 3.6711
+      },
+      "waktu_akses_model_dtk": 7.488,
+      "waktu_model_dtk": 0.999,
+      "status": "ambigu",
+      "votes_hoax": "2/3",
+      "terpotong": false,
+      "teks_dinilai": "residen Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus te pat sasaran.",
+      "debug_prob_per_seed": {
+        "42": 0.41532,
+        "123": 0.835396,
+        "999": 0.788995
+      }
+    }
+  ]
+}

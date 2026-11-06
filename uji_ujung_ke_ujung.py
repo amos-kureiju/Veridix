@@ -89,9 +89,13 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
     rec["kategori"] = raw.get("kategori")
     rec["kode"] = raw.get("kode")
     rec["alasan"] = raw.get("pesan")
+    rec["daftar_alasan"] = raw.get("alasan", [])
     rec["fitur_ocr"] = raw.get("fitur") if isinstance(raw.get("fitur"), dict) else {}
-    rec["teks_ocr_mentah"] = raw.get("teks_mentah", "")
-    rec["teks_bersih"] = raw.get("teks_bersih", "")
+    teks_mentah = raw.get("teks_mentah")
+    rec["teks_ocr_mentah"] = teks_mentah if isinstance(teks_mentah, str) else ""
+
+    teks_bersih = raw.get("teks_bersih")
+    rec["teks_bersih"] = teks_bersih if isinstance(teks_bersih, str) else ""
     rec["durasi_detik_pipeline"] = raw.get("durasi_detik", {})
 
     features = rec["fitur_ocr"]
@@ -99,6 +103,7 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
         f"OCR: {rec['waktu_ocr_dtk']:.1f} dtk | kata={features.get('n_kata', '-')} "
         f"| conf rata2={angka(features.get('conf_rata2'))} | kategori={rec['kategori']} ({rec['kode']})"
     )
+    # Aman dari TypeError karena rec["teks_bersih"] dijamin bertipe str
     if rec["teks_bersih"]:
         print("Teks Bersih:", rec["teks_bersih"][:300])
 
@@ -125,6 +130,12 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
 
     # 5. Jalankan Evaluator Model (hanya jika kategori OK)
     cleaned = rec["teks_bersih"]
+    if not isinstance(cleaned, str) or not cleaned.strip() or raw.get("dapat_dinilai") is not True:
+        return _galat(rec, "ocr_galat", ValueError("Keluaran OCR tidak konsisten (teks kosong, salah tipe, atau dapat_dinilai bukan True)."))
+
+    t_load = time.perf_counter()
+
+    cleaned = rec["teks_bersih"]
     t_load = time.perf_counter()
     try:
         evaluator = (model_provider or model)()
@@ -138,16 +149,29 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
         result = evaluator.nilai(cleaned, explain=lime, debug=True)
         if not isinstance(result, dict):
             raise TypeError("Hasil model harus berupa dict.")
+        
+        # Validasi kontrak model: harus memiliki status, dan jika sukses harus memiliki label
+        status_model = result.get("status")
+        is_success = result.get("success", False)
+        if not status_model or (is_success and not result.get("label")):
+            raise ValueError(f"Keluaran model rusak atau tidak lengkap: {result}")
     except Exception as exc:
         return _galat(rec, "model_galat", exc)
     finally:
         rec["waktu_model_dtk"] = round(time.perf_counter() - t_model, 3)
 
+    aturan_voting = (
+        result.get("voting_rule")
+        or getattr(getattr(evaluator, "backend", None), "voting_rule", "unanimous_consensus")
+    )
     rec.update(
         tahap_akhir="model",
         keputusan=result.get("label"),
         status=result.get("status"),
         votes_hoax=result.get("votes_hoax"),
+        seed_decisions=result.get("seed_decisions"),
+        agreement_ratio=result.get("agreement_ratio"),
+        aturan_konsensus=aturan_voting,
         terpotong=result.get("terpotong"),
     )
     print(
@@ -199,10 +223,12 @@ def main(argv=None):
     results = [process_image(path, lime=args.lime) for path in args.images]
     summary = dict(Counter(row["tahap_akhir"] for row in results))
     n_errors = sum(row["tahap_akhir"] in TAHAP_GALAT for row in results)
+    aturan_global = getattr(getattr(_pred, "backend", None), "voting_rule", "unanimous_consensus") if _pred else "unanimous_consensus"
     report = {
         "waktu": now.isoformat(timespec="seconds"),
         "versi_pipeline": VERSI_PIPELINE,
         "hash_kebijakan": hash_kebijakan(),
+        "aturan_konsensus": aturan_global,
         "lime": args.lime,
         "mode": "fungsi_ocr_dan_model_tanpa_http_atau_database",
         "min_karakter_ocr": MIN_KARAKTER,
@@ -211,6 +237,7 @@ def main(argv=None):
         "ringkasan": summary,
         "gambar": results,
     }
+    
     print("=" * 80)
     print("Ringkasan tahap akhir:", summary, f"| total gambar: {len(results)} | galat: {n_errors}")
     try:

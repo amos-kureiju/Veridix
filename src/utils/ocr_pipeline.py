@@ -63,6 +63,8 @@ def pesan_pengguna(kode):
  
 def kebijakan(aturan=None, sambung_tanda_hubung=False):
     p = inspect.signature(ex._to_path).parameters
+    # Ambil konfigurasi aktual mesin OCR dari modul ekstraktor
+    ocr_kwargs = dict(getattr(ex, "OCR_KWARGS", {}))
     return {
         "max_bytes": ex.MAX_BYTES,
         "max_pixels": ex.MAX_PIXELS,
@@ -73,6 +75,7 @@ def kebijakan(aturan=None, sambung_tanda_hubung=False):
         "aturan_gerbang": dict(ex.ATURAN_AWAL, **(aturan or {})),
         "sambung_tanda_hubung": bool(sambung_tanda_hubung),
         "versi_pipeline": VERSI_PIPELINE,
+        "konfigurasi_ocr": ocr_kwargs,
     }
 
 

@@ -29,11 +29,13 @@ def ocr_result(text=TEXT, clean_text=None, accepted=True, kode=None, pesan=None)
         "pesan": msg,
         "teks_mentah": text,
         "teks_bersih": cleaned,
-        "lines": [text],
+        "lines": [text] if isinstance(text, str) else [],
         "scores": [0.95],
-        "fitur": {"n_kata": len(cleaned.split()), "conf_rata2": 0.95, "conf_min": 0.95},
+        "fitur": {"n_kata": len(cleaned.split()) if isinstance(cleaned, str) else 0, "conf_rata2": 0.95, "conf_min": 0.95},
         "dapat_dinilai": accepted,
         "alasan": [] if accepted else [{"kode": kd, "pesan": msg}],
+        "berkas": {"format": "PNG", "lebar": 200, "tinggi": 100, "ukuran_byte": len(PAYLOAD), "sha256": "dummy-sha256"},
+        "durasi_detik": {"total": 0.12, "ocr": 0.08, "kualitas": 0.02},
     }
 
 
@@ -77,8 +79,10 @@ class TestOCRCLI(unittest.TestCase):
             "before = set(Path.cwd().iterdir()); "
             "import uji_ujung_ke_ujung as cli; "
             "assert callable(cli.main); "
-            "assert 'src.utils.ocr_extractor' not in sys.modules; "
+            "assert 'paddleocr' not in sys.modules; "
             "assert 'src.ml.inference' not in sys.modules; "
+            "assert sys.modules['src.utils.ocr_extractor']._OCR is None; "
+            "assert cli._pred is None; "
             "assert set(Path.cwd().iterdir()) == before"
         )
         completed = subprocess.run(
@@ -101,7 +105,7 @@ class TestOCRCLI(unittest.TestCase):
         self.assertEqual(row["keputusan"], "TIDAK_LAYAK")
         self.assertIn("kepercayaan", row["alasan"])
 
-    def test_accepted_ocr_uses_bytes_clean_text_and_requested_lime(self):
+    def test_accepted_ocr_uses_path_clean_text_and_requested_lime(self):
         raw = "| " + TEXT + " https://example.com/source ^"
         predictor = Mock()
         predictor.nilai.return_value = model_result(explanation={"explanation_available": True})
@@ -111,12 +115,21 @@ class TestOCRCLI(unittest.TestCase):
         extract.assert_called_once()
         provider.assert_called_once_with()
         predictor.nilai.assert_called_once_with(TEXT, explain=True, debug=True)
+
+        rep = self.report()
+        self.assertEqual(rep["versi_pipeline"], self.cli.VERSI_PIPELINE)
+        self.assertEqual(rep["hash_kebijakan"], self.cli.hash_kebijakan())
+
         row = self.report()["gambar"][0]
         self.assertEqual(row["teks_ocr_mentah"], raw)
         self.assertEqual(row["teks_bersih"], TEXT)
         self.assertEqual(row["teks_dinilai"], TEXT)
         self.assertEqual(row["status"], "dinilai")
         self.assertTrue(row["explanation"]["explanation_available"])
+
+        self.assertEqual(row["identitas_berkas"]["format"], "PNG")
+        self.assertEqual(row["identitas_berkas"]["sha256"], "dummy-sha256")
+        self.assertEqual(row["durasi_detik_pipeline"]["total"], 0.12)
 
     def test_raw_fifty_character_gate_matches_current_image_endpoint(self):
         text = "a b c d e f g h i j"
@@ -149,25 +162,35 @@ class TestOCRCLI(unittest.TestCase):
         final_image = self.folder / "final.png"
         for path in (unreadable, bad_model, final_image):
             path.write_bytes(PAYLOAD)
-        real_open = builtins.open
 
-        def open_with_read_failure(path, mode="r", *args, **kwargs):
-            if Path(path) == unreadable and mode == "rb":
-                raise PermissionError("fixture read failure")
-            return real_open(path, mode, *args, **kwargs)
+        # Mock proses_gambar: gagal baca pada unreadable, sukses pada yang lain
+        def mock_proses(target_path):
+            if Path(target_path) == unreadable:
+                return {
+                    "kategori": "TOLAK_INPUT",
+                    "kode": "INPUT_TIDAK_TERBACA",
+                    "pesan": "Berkas tidak dapat dibaca.",
+                    "teks_mentah": "",
+                    "teks_bersih": "",
+                    "dapat_dinilai": False,
+                }
+            return ocr_result()
 
         predictor = Mock()
         predictor.nilai.return_value = model_result()
-        with patch.object(self.cli, "proses_gambar", return_value=ocr_result()) as extract, patch.object(self.cli, "model", side_effect=[RuntimeError("fixture checkpoint failure"), predictor]), patch("builtins.open", side_effect=open_with_read_failure):
+        with patch.object(self.cli, "proses_gambar", side_effect=mock_proses) as extract, patch.object(self.cli, "model", side_effect=[RuntimeError("fixture checkpoint failure"), predictor]):
             exit_code = self.invoke(missing, unreadable, bad_model, final_image)
+
         self.assertEqual(exit_code, 1)
-        self.assertEqual(extract.call_count, 2)
+        # missing dicek lewat is_file() sehingga proses_gambar hanya dipanggil untuk 3 berkas yang ada
+        self.assertEqual(extract.call_count, 3)
         report = self.report()
         self.assertEqual(report["total"], 4)
         self.assertEqual(sum(report["ringkasan"].values()), 4)
-        self.assertEqual([row["tahap_akhir"] for row in report["gambar"]],
-                         ["berkas_tidak_ada", "berkas_galat", "model_galat", "model"])
-        self.assertIn("PermissionError", report["gambar"][1]["galat"])
+        self.assertEqual(
+            [row["tahap_akhir"] for row in report["gambar"]],
+            ["berkas_tidak_ada", "input_ditolak", "model_galat", "model"]
+        )
         self.assertIn("checkpoint", report["gambar"][2]["galat"])
         self.assertEqual(report["gambar"][3]["status"], "dinilai")
 
@@ -210,16 +233,33 @@ class TestOCRCLI(unittest.TestCase):
         provider.assert_not_called()
 
     def test_malformed_engine_contracts_are_recorded_as_failures(self):
-        for invalid in (None, []):
+        # 1. OCR mengembalikan keluaran rusak, teks kosong, salah tipe, atau penanda hilang
+        ocr_invalids = [
+            None,
+            [],
+            {"kategori": "OK", "kode": "OK", "teks_bersih": "", "dapat_dinilai": True},
+            {"kategori": "OK", "kode": "OK", "teks_bersih": 12345, "dapat_dinilai": True},
+            {"kategori": "OK", "kode": "OK", "teks_bersih": TEXT, "dapat_dinilai": None},
+        ]
+        for invalid in ocr_invalids:
             with self.subTest(engine="OCR", value=invalid), patch.object(self.cli, "proses_gambar", return_value=invalid), patch.object(self.cli, "model") as provider:
                 self.assertEqual(self.invoke(self.image), 1)
                 self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "ocr_galat")
                 provider.assert_not_called()
+
+        # 2. Model mengembalikan keluaran rusak, dict kosong, atau tanpa status/label
+        model_invalids = [
+            None,
+            [],
+            {},
+            {"success": True},
+        ]
+        for invalid in model_invalids:
             predictor = Mock()
             predictor.nilai.return_value = invalid
             with self.subTest(engine="model", value=invalid), patch.object(self.cli, "proses_gambar", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
                 self.assertEqual(self.invoke(self.image), 1)
-                self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "model_galat")
+                self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "model_galat")  
 
     def test_atomic_report_replacement_failure_preserves_old_report_and_cleans_temp(self):
         previous = b"previous complete report\n"

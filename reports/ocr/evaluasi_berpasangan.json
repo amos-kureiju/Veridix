@@ -1,0 +1,159 @@
+{
+  "metadata": {
+    "waktu_eksekusi": "2026-11-06T10:22:42+07:00",
+    "versi_pipeline": "1.2",
+    "hash_kebijakan": "bb81aca4be627e74db249bb9c3d2f1d679594e531e6f138705ad28c161ab7f2a",
+    "aturan_konsensus": "unanimous_consensus",
+    "latensi_benchmark": {
+      "berkas_uji": "data\\sample_probe.png",
+      "cold_start_dtk": 10.045,
+      "warm_start_dtk": 2.954,
+      "efisiensi_akselerasi": "3.4x lebih cepat pada warm state"
+    }
+  },
+  "ringkasan": {
+    "total_kasus": 2,
+    "diterima_ocr": 1,
+    "ditolak_ocr": 1,
+    "rata2_cer_diterima": 43.37,
+    "rata2_wer_diterima": 61.9
+  },
+  "hasil_evaluasi": [
+    {
+      "id": "U01",
+      "kategori_kasus": "teks_pendek",
+      "deskripsi": "Klaim sangat pendek (< 50 karakter), menguji gerbang penolakan mutu",
+      "jalur_gambar": "data\\sample_probe.png",
+      "transkripsi_manual": "Beredar kabar hoaks pemilu curang di Jakarta.",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "TOLAK_KUALITAS",
+        "kode": "MUTU_TEKS_PENDEK",
+        "pesan": "Teks yang terbaca terlalu pendek untuk diverifikasi.",
+        "daftar_alasan": [
+          {
+            "kode": "MUTU_TEKS_PENDEK",
+            "pesan": "teks terlalu pendek (6 kata < 10)"
+          }
+        ],
+        "teks_mentah": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+        "teks_bersih": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+        "durasi_detik": 3.4528,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 700,
+          "tinggi": 200,
+          "ukuran_byte": 2969,
+          "sha256": "882680f0c255d7732fb4828dbbc3155a120d6095e41cd9b1a7cf192d0fe27286"
+        },
+        "fitur": {
+          "n_kata": 6,
+          "n_baris": 1,
+          "conf_rata2": 0.9926714301109314,
+          "conf_min": 0.9926714301109314,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "cer_persen": 104.4444,
+        "wer_persen": 100.0,
+        "char_errors": 47,
+        "word_errors": 7,
+        "karakter_ref": 45,
+        "kata_ref": 7,
+        "karakter_hyp": 49,
+        "kata_hyp": 6
+      },
+      "evaluasi_teks_asli": {
+        "status": "ditolak",
+        "label": "TIDAK DAPAT DINILAI",
+        "votes_hoax": null,
+        "seed_decisions": null,
+        "agreement_ratio": null,
+        "durasi_detik": 0.0001
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "status_sama": null,
+        "alasan": "Teks OCR ditolak gerbang mutu (MUTU_TEKS_PENDEK)"
+      },
+      "keputusan_akhir": "DITOLAK_TOLAK_KUALITAS"
+    },
+    {
+      "id": "U02",
+      "kategori_kasus": "teks_panjang_jelas",
+      "deskripsi": "Teks resmi kebijakan pemerintah, cukup panjang dan tajam",
+      "jalur_gambar": "data\\sample_panjang.png",
+      "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial pangan beras tahun 2026 disalurkan tepat sasaran kepada masyarakat penerima manfaat secara transparan.",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "OK",
+        "kode": "OK",
+        "pesan": "Teks berhasil dibaca dan memenuhi syarat untuk diverifikasi.",
+        "daftar_alasan": [],
+        "teks_mentah": "residen Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus te pat sasaran.",
+        "teks_bersih": "residen Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus te pat sasaran.",
+        "durasi_detik": 4.1926,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 900,
+          "tinggi": 200,
+          "ukuran_byte": 3560,
+          "sha256": "f90ab5b42e1d9b0ad28a3d0a49fba8769ec07f3f0843eec4e9626dfa5f0879f9"
+        },
+        "fitur": {
+          "n_kata": 15,
+          "n_baris": 1,
+          "conf_rata2": 0.9869572520256042,
+          "conf_min": 0.9869572520256042,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "cer_persen": 43.3735,
+        "wer_persen": 61.9048,
+        "char_errors": 72,
+        "word_errors": 13,
+        "karakter_ref": 166,
+        "kata_ref": 21,
+        "karakter_hyp": 104,
+        "kata_hyp": 15
+      },
+      "evaluasi_teks_asli": {
+        "status": "ambigu",
+        "label": "PERLU VERIFIKASI (SEED TIDAK SEPAKAT)",
+        "votes_hoax": "2/3",
+        "seed_decisions": {
+          "42": 0,
+          "123": 1,
+          "999": 1
+        },
+        "agreement_ratio": null,
+        "durasi_detik": 1.0236
+      },
+      "evaluasi_teks_ocr": {
+        "status": "ambigu",
+        "label": "PERLU VERIFIKASI (SEED TIDAK SEPAKAT)",
+        "votes_hoax": "2/3",
+        "seed_decisions": {
+          "42": 0,
+          "123": 1,
+          "999": 1
+        },
+        "agreement_ratio": null,
+        "durasi_detik": 0.9906
+      },
+      "konsistensi": {
+        "label_sama": true,
+        "status_sama": true,
+        "selisih_votes": null
+      },
+      "keputusan_akhir": "SELESAI_DIEVALUASI"
+    }
+  ]
+}

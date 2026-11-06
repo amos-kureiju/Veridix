@@ -161,6 +161,7 @@ class TestOCRRoutes(unittest.TestCase):
                 self.assertTrue(response.json()["message"].strip())
 
     def test_technical_report_and_raw_text_are_not_logged_or_returned(self):
+        # 1. Kasus keluaran minimal (fitur & teks tidak lengkap): log aman, tidak crash, nilai None
         self.pipeline.return_value = dict(
             kategori=routes.KATEGORI_KUALITAS, kode="MUTU_CONF_RENDAH", pesan="Gambar kurang jelas.",
             detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER, laporan={"text": RAW_MARKER},
@@ -168,7 +169,26 @@ class TestOCRRoutes(unittest.TestCase):
         with self.assertLogs(routes.logger, level="WARNING") as logs:
             response = self.upload()
         self.assert_readable_error(response, 422)
-        self.assertNotIn(RAW_MARKER, "\n".join(logs.output))
+        log_minimal = "\n".join(logs.output)
+        self.assertNotIn(RAW_MARKER, log_minimal)
+        self.assertIn("karakter=None", log_minimal)
+        self.assertIn("kata=None", log_minimal)
+        self.assertIn("conf=None", log_minimal)
+
+        # 2. Kasus keluaran lengkap: metrik numerik tercatat tepat dan detail_teknis tetap tidak bocor
+        self.pipeline.return_value = dict(
+            kategori=routes.KATEGORI_KUALITAS, kode="MUTU_TEKS_PENDEK", pesan="Teks terlalu pendek.",
+            teks_bersih="Kutipan berita", fitur={"n_kata": 2, "conf_rata2": 0.88},
+            detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER,
+        )
+        with self.assertLogs(routes.logger, level="WARNING") as logs_lengkap:
+            response_lengkap = self.upload()
+        self.assert_readable_error(response_lengkap, 422)
+        log_lengkap_text = "\n".join(logs_lengkap.output)
+        self.assertNotIn(RAW_MARKER, log_lengkap_text)
+        self.assertIn("karakter=14", log_lengkap_text)
+        self.assertIn("kata=2", log_lengkap_text)
+        self.assertIn("conf=0.88", log_lengkap_text)
 
     def test_pipeline_runs_outside_the_event_loop_thread(self):
         threads = []

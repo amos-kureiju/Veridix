@@ -283,17 +283,14 @@ async def extract_text_from_image_upload(
             if kategori == KATEGORI_OK else "Gambar tidak dapat diproses."
         )
 
-    # Detail dan teks mentah tetap pada laporan pipeline; route hanya mencatat kode.
-    if h.get("detail_teknis"):
+    # 4. Pemetaan kategori & kode pipeline ke status HTTP (satu log per penolakan)
+
+    if kategori == KATEGORI_INPUT:
         logger.warning(
             "Pipeline OCR: kategori=%s kode=%s",
             kategori if isinstance(kategori, str) else type(kategori).__name__,
             kode if isinstance(kode, str) else "-",
         )
-
-    # 4. Pemetaan kategori & kode pipeline ke status HTTP.
-
-    if kategori == KATEGORI_INPUT:
         status_code = (
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
             if kode == "INPUT_UKURAN_BERKAS"
@@ -302,9 +299,30 @@ async def extract_text_from_image_upload(
         raise HTTPException(status_code=status_code, detail=pesan)
 
     if kategori == KATEGORI_KUALITAS:
-        # OCR berhasil membaca, tetapi mutu teks tidak memenuhi syarat analisis
+        # Ekstraksi tipe aman: fitur harus dict, teks_bersih harus str, jika kosong tuliskan None
+        raw_fitur = h.get("fitur")
+        fitur = raw_fitur if isinstance(raw_fitur, dict) else {}
+
+        raw_teks = h.get("teks_bersih")
+        n_karakter = len(raw_teks) if isinstance(raw_teks, str) else None
+
+        raw_kata = fitur.get("n_kata")
+        n_kata = raw_kata if isinstance(raw_kata, int) and not isinstance(raw_kata, bool) else None
+
+        raw_conf = fitur.get("conf_rata2")
+        conf = raw_conf if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool) else None
+
+        # Catat hanya metrik numerik; detail_teknis mentah DIHAPUS agar tidak bocor ke log
+        logger.warning(
+            "OCR Ditolak Mutu [%s]: karakter=%s, kata=%s, conf=%s",
+            kode if isinstance(kode, str) else "-",
+            n_karakter,
+            n_kata,
+            conf,
+        )
+
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=pesan
         )
 

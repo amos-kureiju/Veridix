@@ -18,13 +18,22 @@ TEXT = "Presiden dan pemerintah membahas kebijakan anggaran nasional bersama ang
 PAYLOAD = b"fixture-image-bytes\x00"
 
 
-def ocr_result(text=TEXT, accepted=True):
+def ocr_result(text=TEXT, clean_text=None, accepted=True, kode=None, pesan=None):
+    cleaned = clean_text if clean_text is not None else text
+    kategori = "OK" if accepted else "TOLAK_KUALITAS"
+    kd = kode or ("OK" if accepted else "MUTU_CONF_RENDAH")
+    msg = pesan or ("Teks berhasil dibaca." if accepted else "Kualitas kepercayaan OCR rendah.")
     return {
-        "success": True, "text": text, "lines": [text],
-        "scores": [0.95], "fitur": {"n_kata": len(text.split()),
-                                      "conf_rata2": 0.95, "conf_min": 0.95},
+        "kategori": kategori,
+        "kode": kd,
+        "pesan": msg,
+        "teks_mentah": text,
+        "teks_bersih": cleaned,
+        "lines": [text],
+        "scores": [0.95],
+        "fitur": {"n_kata": len(cleaned.split()), "conf_rata2": 0.95, "conf_min": 0.95},
         "dapat_dinilai": accepted,
-        "alasan": [] if accepted else ["kepercayaan OCR rendah"],
+        "alasan": [] if accepted else [{"kode": kd, "pesan": msg}],
     }
 
 
@@ -80,42 +89,44 @@ class TestOCRCLI(unittest.TestCase):
         self.assertEqual(completed.stdout, "")
 
     def test_quality_refusal_keeps_record_without_loading_model(self):
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider:
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider:
             exit_code = self.invoke(self.image)
         self.assertEqual(exit_code, 0)
         provider.assert_not_called()
         report = self.report()
         self.assertEqual(report["total"], 1)
-        self.assertEqual(report["ringkasan"], {"gerbang_ocr": 1})
+        self.assertEqual(report["ringkasan"], {"gerbang_kualitas": 1})
         row = report["gambar"][0]
         self.assertEqual(row["teks_ocr_mentah"], TEXT)
-        self.assertEqual(row["keputusan"], "TIDAK DAPAT DINILAI")
+        self.assertEqual(row["keputusan"], "TIDAK_LAYAK")
         self.assertIn("kepercayaan", row["alasan"])
 
     def test_accepted_ocr_uses_bytes_clean_text_and_requested_lime(self):
         raw = "| " + TEXT + " https://example.com/source ^"
         predictor = Mock()
         predictor.nilai.return_value = model_result(explanation={"explanation_available": True})
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result(raw)) as extract, patch.object(self.cli, "model", return_value=predictor) as provider:
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result(text=raw, clean_text=TEXT)) as extract, patch.object(self.cli, "model", return_value=predictor) as provider:
             exit_code = self.invoke(self.image, extra=("--lime",))
         self.assertEqual(exit_code, 0)
-        extract.assert_called_once_with(PAYLOAD)
+        extract.assert_called_once()
         provider.assert_called_once_with()
         predictor.nilai.assert_called_once_with(TEXT, explain=True, debug=True)
         row = self.report()["gambar"][0]
         self.assertEqual(row["teks_ocr_mentah"], raw)
-        self.assertEqual(row["teks_setelah_pembersihan"], TEXT)
+        self.assertEqual(row["teks_bersih"], TEXT)
         self.assertEqual(row["teks_dinilai"], TEXT)
         self.assertEqual(row["status"], "dinilai")
         self.assertTrue(row["explanation"]["explanation_available"])
 
     def test_raw_fifty_character_gate_matches_current_image_endpoint(self):
         text = "a b c d e f g h i j"
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result(text)), patch.object(self.cli, "model") as provider:
+        res = ocr_result(text=text, accepted=False, kode="MUTU_TEKS_PENDEK", pesan="kurang dari 50 karakter")
+        with patch.object(self.cli, "proses_gambar", return_value=res), patch.object(self.cli, "model") as provider:
             exit_code = self.invoke(self.image)
         self.assertEqual(exit_code, 0)
         provider.assert_not_called()
-        self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "teks_terlalu_pendek")
+        self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "gerbang_kualitas")
+        self.assertEqual(self.report()["gambar"][0]["keputusan"], "TIDAK_LAYAK")
 
     def test_model_refusal_is_preserved_as_normal_result(self):
         predictor = Mock()
@@ -123,7 +134,7 @@ class TestOCRCLI(unittest.TestCase):
             success=False, status="di_luar_domain", label="DI LUAR CAKUPAN",
             reason="Teks di luar topik politik.",
         )
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
             exit_code = self.invoke(self.image)
         self.assertEqual(exit_code, 0)
         row = self.report()["gambar"][0]
@@ -147,7 +158,7 @@ class TestOCRCLI(unittest.TestCase):
 
         predictor = Mock()
         predictor.nilai.return_value = model_result()
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result()) as extract, patch.object(self.cli, "model", side_effect=[RuntimeError("fixture checkpoint failure"), predictor]), patch("builtins.open", side_effect=open_with_read_failure):
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result()) as extract, patch.object(self.cli, "model", side_effect=[RuntimeError("fixture checkpoint failure"), predictor]), patch("builtins.open", side_effect=open_with_read_failure):
             exit_code = self.invoke(missing, unreadable, bad_model, final_image)
         self.assertEqual(exit_code, 1)
         self.assertEqual(extract.call_count, 2)
@@ -165,7 +176,7 @@ class TestOCRCLI(unittest.TestCase):
         second.write_bytes(PAYLOAD)
         predictor = Mock()
         predictor.nilai.side_effect = [ValueError("fixture backend failure"), model_result()]
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
             exit_code = self.invoke(self.image, second)
         self.assertEqual(exit_code, 1)
         self.assertEqual([r["tahap_akhir"] for r in self.report()["gambar"]], ["model_galat", "model"])
@@ -175,21 +186,24 @@ class TestOCRCLI(unittest.TestCase):
         third = self.folder / "third.png"
         second.write_bytes(PAYLOAD)
         third.write_bytes(PAYLOAD)
-        outputs = [{"success": False, "message": "fixture DLL failure"},
-                   RuntimeError("fixture OCR exception"), ocr_result(accepted=False)]
-        with patch.object(self.cli, "extract_text_from_image", side_effect=outputs), patch.object(self.cli, "model") as provider:
+        outputs = [
+            {"kategori": "GALAT_MESIN", "kode": "MESIN_GAGAL", "pesan": "fixture DLL failure"},
+            RuntimeError("fixture OCR exception"),
+            ocr_result(accepted=False)
+        ]
+        with patch.object(self.cli, "proses_gambar", side_effect=outputs), patch.object(self.cli, "model") as provider:
             exit_code = self.invoke(self.image, second, third)
         self.assertEqual(exit_code, 1)
         provider.assert_not_called()
         rows = self.report()["gambar"]
-        self.assertEqual([r["tahap_akhir"] for r in rows], ["ocr_galat", "ocr_galat", "gerbang_ocr"])
+        self.assertEqual([r["tahap_akhir"] for r in rows], ["ocr_galat", "ocr_galat", "gerbang_kualitas"])
         self.assertEqual([r["keputusan"] for r in rows[:2]], ["GAGAL", "GAGAL"])
         self.assertTrue(all("waktu_ocr_dtk" in r for r in rows))
 
     def test_report_write_failure_returns_failure(self):
         blocked = self.folder / "regular-file"
         blocked.write_bytes(b"keep")
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider:
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider:
             exit_code = self.invoke(self.image, output=blocked / "report.json")
         self.assertEqual(exit_code, 1)
         self.assertEqual(blocked.read_bytes(), b"keep")
@@ -197,20 +211,20 @@ class TestOCRCLI(unittest.TestCase):
 
     def test_malformed_engine_contracts_are_recorded_as_failures(self):
         for invalid in (None, []):
-            with self.subTest(engine="OCR", value=invalid), patch.object(self.cli, "extract_text_from_image", return_value=invalid), patch.object(self.cli, "model") as provider:
+            with self.subTest(engine="OCR", value=invalid), patch.object(self.cli, "proses_gambar", return_value=invalid), patch.object(self.cli, "model") as provider:
                 self.assertEqual(self.invoke(self.image), 1)
                 self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "ocr_galat")
                 provider.assert_not_called()
             predictor = Mock()
             predictor.nilai.return_value = invalid
-            with self.subTest(engine="model", value=invalid), patch.object(self.cli, "extract_text_from_image", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
+            with self.subTest(engine="model", value=invalid), patch.object(self.cli, "proses_gambar", return_value=ocr_result()), patch.object(self.cli, "model", return_value=predictor):
                 self.assertEqual(self.invoke(self.image), 1)
                 self.assertEqual(self.report()["gambar"][0]["tahap_akhir"], "model_galat")
 
     def test_atomic_report_replacement_failure_preserves_old_report_and_cleans_temp(self):
         previous = b"previous complete report\n"
         self.output.write_bytes(previous)
-        with patch.object(self.cli, "extract_text_from_image", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider, patch.object(self.cli.os, "replace", side_effect=PermissionError("fixture replace failure")):
+        with patch.object(self.cli, "proses_gambar", return_value=ocr_result(accepted=False)), patch.object(self.cli, "model") as provider, patch.object(self.cli.os, "replace", side_effect=PermissionError("fixture replace failure")):
             exit_code = self.invoke(self.image)
         self.assertEqual(exit_code, 1)
         self.assertEqual(self.output.read_bytes(), previous)
@@ -218,7 +232,7 @@ class TestOCRCLI(unittest.TestCase):
         provider.assert_not_called()
 
     def test_report_cannot_overwrite_input_image(self):
-        with patch.object(self.cli, "extract_text_from_image") as extract, patch.object(self.cli, "model") as provider:
+        with patch.object(self.cli, "proses_gambar") as extract, patch.object(self.cli, "model") as provider:
             try:
                 exit_code = self.invoke(self.image, output=self.image)
             except SystemExit as exc:

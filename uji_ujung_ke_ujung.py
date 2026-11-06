@@ -31,6 +31,8 @@ from src.utils.ocr_pipeline import (
     KATEGORI_MESIN,
     KATEGORI_OK,
     MIN_KARAKTER,
+    VERSI_PIPELINE,
+    hash_kebijakan,
     proses_gambar,
 )
 
@@ -83,12 +85,14 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
         rec["waktu_ocr_dtk"] = round(time.perf_counter() - t0, 3)
 
     # 3. Simpan seluruh rekaman awal sebelum filter penolakan
+    rec["identitas_berkas"] = raw.get("berkas")  # SHA-256, lebar, tinggi, ukuran byte, format
     rec["kategori"] = raw.get("kategori")
     rec["kode"] = raw.get("kode")
     rec["alasan"] = raw.get("pesan")
     rec["fitur_ocr"] = raw.get("fitur") if isinstance(raw.get("fitur"), dict) else {}
     rec["teks_ocr_mentah"] = raw.get("teks_mentah", "")
     rec["teks_bersih"] = raw.get("teks_bersih", "")
+    rec["durasi_detik_pipeline"] = raw.get("durasi_detik", {})
 
     features = rec["fitur_ocr"]
     print(
@@ -196,10 +200,16 @@ def main(argv=None):
     summary = dict(Counter(row["tahap_akhir"] for row in results))
     n_errors = sum(row["tahap_akhir"] in TAHAP_GALAT for row in results)
     report = {
-        "waktu": now.isoformat(timespec="seconds"), "lime": args.lime,
+        "waktu": now.isoformat(timespec="seconds"),
+        "versi_pipeline": VERSI_PIPELINE,
+        "hash_kebijakan": hash_kebijakan(),
+        "lime": args.lime,
         "mode": "fungsi_ocr_dan_model_tanpa_http_atau_database",
-        "min_karakter_ocr": MIN_KARAKTER, "total": len(results),
-        "jumlah_galat": n_errors, "ringkasan": summary, "gambar": results,
+        "min_karakter_ocr": MIN_KARAKTER,
+        "total": len(results),
+        "jumlah_galat": n_errors,
+        "ringkasan": summary,
+        "gambar": results,
     }
     print("=" * 80)
     print("Ringkasan tahap akhir:", summary, f"| total gambar: {len(results)} | galat: {n_errors}")

@@ -161,34 +161,86 @@ class TestOCRRoutes(unittest.TestCase):
                 self.assertTrue(response.json()["message"].strip())
 
     def test_technical_report_and_raw_text_are_not_logged_or_returned(self):
-        # 1. Kasus keluaran minimal (fitur & teks tidak lengkap): log aman, tidak crash, nilai None
+        # 1. Kasus keluaran minimal (fitur & teks hilang): tepat 1 log, metrik None, marker tidak bocor
         self.pipeline.return_value = dict(
             kategori=routes.KATEGORI_KUALITAS, kode="MUTU_CONF_RENDAH", pesan="Gambar kurang jelas.",
             detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER, laporan={"text": RAW_MARKER},
         )
-        with self.assertLogs(routes.logger, level="WARNING") as logs:
-            response = self.upload()
-        self.assert_readable_error(response, 422)
-        log_minimal = "\n".join(logs.output)
+        with self.assertLogs(routes.logger, level="WARNING") as logs_min:
+            response_min = self.upload()
+        self.assert_readable_error(response_min, 422)
+        self.assertEqual(len(logs_min.records), 1)
+        log_minimal = "\n".join(logs_min.output)
         self.assertNotIn(RAW_MARKER, log_minimal)
         self.assertIn("karakter=None", log_minimal)
         self.assertIn("kata=None", log_minimal)
         self.assertIn("conf=None", log_minimal)
 
-        # 2. Kasus keluaran lengkap: metrik numerik tercatat tepat dan detail_teknis tetap tidak bocor
+        # 2. Kasus metrik valid lengkap (kata=2, conf=0.88): tercatat tepat dan marker tidak bocor
         self.pipeline.return_value = dict(
             kategori=routes.KATEGORI_KUALITAS, kode="MUTU_TEKS_PENDEK", pesan="Teks terlalu pendek.",
             teks_bersih="Kutipan berita", fitur={"n_kata": 2, "conf_rata2": 0.88},
             detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER,
         )
-        with self.assertLogs(routes.logger, level="WARNING") as logs_lengkap:
-            response_lengkap = self.upload()
-        self.assert_readable_error(response_lengkap, 422)
-        log_lengkap_text = "\n".join(logs_lengkap.output)
-        self.assertNotIn(RAW_MARKER, log_lengkap_text)
-        self.assertIn("karakter=14", log_lengkap_text)
-        self.assertIn("kata=2", log_lengkap_text)
-        self.assertIn("conf=0.88", log_lengkap_text)
+        with self.assertLogs(routes.logger, level="WARNING") as logs_valid:
+            response_valid = self.upload()
+        self.assert_readable_error(response_valid, 422)
+        self.assertEqual(len(logs_valid.records), 1)
+        log_valid = "\n".join(logs_valid.output)
+        self.assertNotIn(RAW_MARKER, log_valid)
+        self.assertIn("karakter=14", log_valid)
+        self.assertIn("kata=2", log_valid)
+        self.assertIn("conf=0.88", log_valid)
+
+        # 3. Kasus kata negatif terisolasi (kata=-2, conf=0.88): kata menjadi None, conf tetap tercatat
+        self.pipeline.return_value = dict(
+            kategori=routes.KATEGORI_KUALITAS, kode="MUTU_CONF_RENDAH", pesan="Gambar kurang jelas.",
+            teks_bersih="abc", fitur={"n_kata": -2, "conf_rata2": 0.88},
+            detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER,
+        )
+        with self.assertLogs(routes.logger, level="WARNING") as logs_kata:
+            response_kata = self.upload()
+        self.assert_readable_error(response_kata, 422)
+        self.assertEqual(len(logs_kata.records), 1)
+        log_kata = "\n".join(logs_kata.output)
+        self.assertNotIn(RAW_MARKER, log_kata)
+        self.assertIn("karakter=3", log_kata)
+        self.assertIn("kata=None", log_kata)
+        self.assertIn("conf=0.88", log_kata)
+
+        # 4. Kasus conf tidak valid terisolasi (kata=2, conf=NaN / Inf / di luar [0,1]): kata tetap tercatat, conf menjadi None
+        for inv_conf in (float("nan"), float("inf"), 1.2, -0.1, "0.8", True):
+            with self.subTest(invalid_conf=inv_conf):
+                self.pipeline.return_value = dict(
+                    kategori=routes.KATEGORI_KUALITAS, kode="MUTU_CONF_RENDAH", pesan="Gambar kurang jelas.",
+                    teks_bersih="abc", fitur={"n_kata": 2, "conf_rata2": inv_conf},
+                    detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER,
+                )
+                with self.assertLogs(routes.logger, level="WARNING") as logs_conf:
+                    response_conf = self.upload()
+                self.assert_readable_error(response_conf, 422)
+                self.assertEqual(len(logs_conf.records), 1)
+                log_conf = "\n".join(logs_conf.output)
+                self.assertNotIn(RAW_MARKER, log_conf)
+                self.assertIn("karakter=3", log_conf)
+                self.assertIn("kata=2", log_conf)
+                self.assertIn("conf=None", log_conf)
+
+        # 5. Kasus nilai nol yang sah (teks kosong, kata=0, conf=0.0): dicatat sebagai 0 dan 0.0 (bukan None)
+        self.pipeline.return_value = dict(
+            kategori=routes.KATEGORI_KUALITAS, kode="MUTU_TIDAK_ADA_TEKS", pesan="Tidak ada teks.",
+            teks_bersih="", fitur={"n_kata": 0, "conf_rata2": 0.0},
+            detail_teknis=RAW_MARKER, teks_mentah=RAW_MARKER,
+        )
+        with self.assertLogs(routes.logger, level="WARNING") as logs_zero:
+            response_zero = self.upload()
+        self.assert_readable_error(response_zero, 422)
+        self.assertEqual(len(logs_zero.records), 1)
+        log_zero = "\n".join(logs_zero.output)
+        self.assertNotIn(RAW_MARKER, log_zero)
+        self.assertIn("karakter=0", log_zero)
+        self.assertIn("kata=0", log_zero)
+        self.assertIn("conf=0.0", log_zero)
 
     def test_pipeline_runs_outside_the_event_loop_thread(self):
         threads = []

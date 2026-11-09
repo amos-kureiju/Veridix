@@ -252,7 +252,7 @@ async def extract_text_from_image_upload(
     if len(contents) > MAX_BYTES:
         mb = MAX_BYTES // (1024 * 1024)
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"Ukuran berkas melebihi batas maksimal ({mb} MB)."
         )
 
@@ -292,27 +292,38 @@ async def extract_text_from_image_upload(
             kode if isinstance(kode, str) else "-",
         )
         status_code = (
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            status.HTTP_413_CONTENT_TOO_LARGE
             if kode == "INPUT_UKURAN_BERKAS"
             else status.HTTP_400_BAD_REQUEST
         )
         raise HTTPException(status_code=status_code, detail=pesan)
 
     if kategori == KATEGORI_KUALITAS:
-        # Ekstraksi tipe aman: fitur harus dict, teks_bersih harus str, jika kosong tuliskan None
         raw_fitur = h.get("fitur")
         fitur = raw_fitur if isinstance(raw_fitur, dict) else {}
 
         raw_teks = h.get("teks_bersih")
         n_karakter = len(raw_teks) if isinstance(raw_teks, str) else None
 
+        # n_kata: integer, bukan boolean, dan tidak boleh negatif
         raw_kata = fitur.get("n_kata")
-        n_kata = raw_kata if isinstance(raw_kata, int) and not isinstance(raw_kata, bool) else None
+        n_kata = (
+            raw_kata
+            if isinstance(raw_kata, int) and not isinstance(raw_kata, bool) and raw_kata >= 0
+            else None
+        )
 
+        # conf: angka, bukan boolean, rentang [0.0, 1.0], dan finite (bukan NaN / Inf)
         raw_conf = fitur.get("conf_rata2")
-        conf = raw_conf if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool) else None
+        conf = (
+            raw_conf
+            if not isinstance(raw_conf, bool)
+            and isinstance(raw_conf, (int, float))
+            and 0.0 <= raw_conf <= 1.0
+            and math.isfinite(raw_conf)
+            else None
+        )
 
-        # Catat hanya metrik numerik; detail_teknis mentah DIHAPUS agar tidak bocor ke log
         logger.warning(
             "OCR Ditolak Mutu [%s]: karakter=%s, kata=%s, conf=%s",
             kode if isinstance(kode, str) else "-",

@@ -169,18 +169,36 @@ def get_user_history(
         results = []
         for row in logs:
             fb_info = feedbacks_map.get(row.id)
+            
+            # 1. Normalisasi status: jika None atau spasi kosong, tandai 'tidak_diketahui'
+            raw_status = row.process_status
+            if raw_status is None or not str(raw_status).strip():
+                status_norm = "tidak_diketahui"
+            else:
+                status_norm = str(raw_status).strip().lower()
+
+            # 2. Hanya status 'dinilai' dan 'ambigu' yang berhak memiliki label vonis
+            if status_norm in ("dinilai", "ambigu"):
+                label_pola = row.pattern_label
+                prediction_display = row.pattern_label or "PERLU KONFIRMASI"
+                agreement = row.agreement_ratio
+            else:
+                # Status ditolak, di_luar_domain, error, tidak_diketahui, dll. TIDAK memiliki vonis
+                label_pola = None
+                prediction_display = None
+                agreement = None
+
             results.append({
                 "id": str(row.id),
                 "input_text": row.input_text,
-                "input_type": row.input_type,
+                "input_type": row.input_type or "TEXT",
                 "image_url": row.image_url,
                 "political_topic": row.political_topic or "Sosial Politik",
-                "process_status": row.process_status or "dinilai",
-                "pattern_label": row.pattern_label,
-                # Kompatibilitas untuk frontend lama yang masih membaca .prediction / .confidence_score
-                "prediction": row.pattern_label or "PERLU KONFIRMASI",
-                "agreement_ratio": row.agreement_ratio,
-                "confidence_score": row.agreement_ratio,
+                "process_status": status_norm,
+                "pattern_label": label_pola,
+                "prediction": prediction_display,
+                "agreement_ratio": agreement,
+                "confidence_score": agreement,
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "has_feedback": fb_info is not None,
                 "feedback": fb_info

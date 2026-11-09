@@ -36,6 +36,14 @@ def submit_feedback(
             detail="Anda hanya dapat memberikan feedback pada riwayat deteksi milik Anda sendiri."
         )
 
+    #2b. Validasi kelayakan Status: feedback hanya diterima jika model benar benar menilai teks
+    status_deteksi = str( detection.process_status or "").strip().lower()
+    if status_deteksi not in ("dinilai", "ambigu"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Feedback hanya dapat diajukan untuk hasil deteksi yang berhasil dinilai oleh model."
+        )
+
     # 3. Upsert Feedback
     existing_feedback = db.query(UserFeedback).filter(
         UserFeedback.detection_id == payload.detection_id,

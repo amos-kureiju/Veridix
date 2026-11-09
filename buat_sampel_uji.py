@@ -1,13 +1,12 @@
-# Menghasilkan 5 variasi gambar uji OCR
+"""buat_sampel_uji.py — Generator citra sintetis terisolasi dalam folder 'data/sintetis/'."""
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR = Path("data/sintetis")
 
-# Muat font Windows Arial yang tajam (dengan fallback aman)
+
 def dapatkan_font(ukuran=26):
     font_paths = [
         "C:/Windows/Fonts/arial.ttf",
@@ -25,100 +24,126 @@ def dapatkan_font(ukuran=26):
     except Exception:
         return ImageFont.load_default()
 
-font_utama = dapatkan_font(26)
-font_judul = dapatkan_font(30)
 
-print("=" * 75)
-print("MEMBUAT 5 SAMPEL GAMBAR UJI DI FOLDER 'data/'")
-print("=" * 75)
+def buat_semua_sampel():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    font_utama = dapatkan_font(26)
 
-# ---------------------------------------------------------------------
-# 1. SAMPEL TEKS PANJANG & JELAS (data/sample_panjang.png)
-# ---------------------------------------------------------------------
-p1 = DATA_DIR / "sample_panjang.png"
-img1 = Image.new("RGB", (900, 320), color=(255, 255, 255))
-draw1 = ImageDraw.Draw(img1)
+    print("=" * 75)
+    print(f"MEMBUAT CITRA UJI SINTETIS DI FOLDER '{DATA_DIR}'")
+    print("=" * 75)
 
-# Frame gaya tangkapan layar berita medsos
-draw1.rectangle([(20, 20), (880, 300)], outline=(220, 226, 230), width=2)
-draw1.rectangle([(30, 30), (870, 75)], fill=(240, 244, 248))
-draw1.text((45, 40), "[KUTIPAN RESMI PRESIDEN RI]", fill=(15, 30, 50), font=font_judul)
+    # 1. Sampel Teks Panjang (104 karakter persis sesuai acuan, TANPA banner judul)
+    p1 = DATA_DIR / "sample_panjang_sintetis.png"
+    img1 = Image.new("RGB", (900, 240), color=(255, 255, 255))
+    draw1 = ImageDraw.Draw(img1)
+    draw1.rectangle([(15, 15), (885, 225)], outline=(210, 215, 220), width=2)
 
-teks_panjang = (
-    "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial "
-    "tahun anggaran baru harus tepat sasaran."
-)
-baris1 = textwrap.wrap(teks_panjang, width=50)
-y_offset = 105
-for b in baris1:
-    draw1.text((45, y_offset), b, fill=(20, 20, 20), font=font_utama)
-    y_offset += 40
+    teks_panjang = (
+        "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial "
+        "tahun anggaran baru harus tepat sasaran."
+    )
+    baris1 = textwrap.wrap(teks_panjang, width=52)
+    y_offset = 55
+    for b in baris1:
+        draw1.text((35, y_offset), b, fill=(20, 20, 20), font=font_utama)
+        y_offset += 45
+    img1.save(p1, format="PNG")
+    print(f"[OK] 1. Teks Panjang Sintetis : {p1} (104 karakter, identik acuan)")
 
-img1.save(p1, format="PNG")
-print(f"[OK] 1. Teks Panjang Jelas   : {p1} (104 karakter)")
+    # 2. Sampel Teks Pendek (49 karakter, menguji penolakan mutu)
+    p2 = DATA_DIR / "sample_probe_sintetis.png"
+    img2 = Image.new("RGB", (850, 180), color=(255, 255, 255))
+    draw2 = ImageDraw.Draw(img2)
+    draw2.rectangle([(15, 15), (835, 165)], outline=(210, 215, 220), width=2)
+    draw2.text((35, 70), "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026", fill=(30, 30, 30), font=font_utama)
+    img2.save(p2, format="PNG")
+    print(f"[OK] 2. Teks Pendek Sintetis  : {p2} (49 karakter)")
 
-# ---------------------------------------------------------------------
-# 2. SAMPEL TEKS PENDEK (data/sample_probe.png)
-# ---------------------------------------------------------------------
-p2 = DATA_DIR / "sample_probe.png"
-img2 = Image.new("RGB", (850, 180), color=(255, 255, 255))
-draw2 = ImageDraw.Draw(img2)
-draw2.rectangle([(15, 15), (835, 165)], outline=(210, 215, 220), width=2)
+    # 3. Sampel Teks Buram (Blur 3.8px)
+    p3 = DATA_DIR / "sample_buram_sintetis.png"
+    img3 = Image.new("RGB", (850, 240), color=(248, 248, 248))
+    draw3 = ImageDraw.Draw(img3)
+    draw3.rectangle([(15, 15), (835, 225)], outline=(220, 220, 220), width=2)
+    teks_buram = (
+        "Rapat pleno rekapitulasi penghitungan suara pemilu "
+        "berlangsung secara tertutup di gedung bawaslu daerah."
+    )
+    y_offset = 55
+    for b in textwrap.wrap(teks_buram, width=48):
+        draw3.text((35, y_offset), b, fill=(80, 80, 80), font=font_utama)
+        y_offset += 45
+    img3_buram = img3.filter(ImageFilter.GaussianBlur(radius=3.8))
+    img3_buram.save(p3, format="PNG")
+    print(f"[OK] 3. Teks Buram Sintetis   : {p3} (menguji MUTU_CONF/BARIS_RENDAH)")
 
-teks_pendek = "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026"
-draw2.text((35, 70), teks_pendek, fill=(30, 30, 30), font=font_utama)
+    # 4. Sampel Tanpa Teks (Bentuk Geometris Murni)
+    p4 = DATA_DIR / "sample_tanpa_teks_sintetis.png"
+    img4 = Image.new("RGB", (600, 300), color=(235, 240, 245))
+    draw4 = ImageDraw.Draw(img4)
+    draw4.ellipse([(50, 50), (220, 220)], fill=(70, 130, 180), outline=(50, 100, 150), width=3)
+    draw4.rectangle([(280, 70), (520, 230)], fill=(200, 140, 80), outline=(170, 110, 60), width=3)
+    img4.save(p4, format="PNG")
+    print(f"[OK] 4. Tanpa Teks Sintetis   : {p4} (menguji MUTU_TIDAK_ADA_TEKS)")
 
-img2.save(p2, format="PNG")
-print(f"[OK] 2. Teks Pendek (<50 ch) : {p2} (49 karakter, menguji penolakan mutu)")
+    # 5. Sampel Format BMP Tidak Didukung
+    p5 = DATA_DIR / "sample_tidak_didukung.bmp"
+    img5 = Image.new("RGB", (500, 180), color=(255, 255, 255))
+    draw5 = ImageDraw.Draw(img5)
+    draw5.text((30, 70), "Berkas Gambar Format BMP", fill=(0, 0, 0), font=font_utama)
+    img5.save(p5, format="BMP")
+    print(f"[OK] 5. Format BMP Tidak Sah  : {p5} (menguji INPUT_FORMAT_TIDAK_DIDUKUNG)")
 
-# ---------------------------------------------------------------------
-# 3. SAMPEL BURAM / MUTU RENDAH (data/sample_buram.png)
-# ---------------------------------------------------------------------
-p3 = DATA_DIR / "sample_buram.png"
-img3 = Image.new("RGB", (800, 260), color=(248, 248, 248))
-draw3 = ImageDraw.Draw(img3)
+    print("=" * 75)
+    import json
+    manifest_data = [
+        {
+            "id": "S01",
+            "kategori": "teks_panjang_jelas",
+            "gambar": "data/sintetis/sample_panjang_sintetis.png",
+            "deskripsi": "Teks panjang 104 karakter persis acuan, menguji baseline OCR diterima",
+            "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran."
+        },
+        {
+            "id": "S02",
+            "kategori": "teks_pendek",
+            "gambar": "data/sintetis/sample_probe_sintetis.png",
+            "deskripsi": "Teks pendek 49 karakter, menguji penolakan mutu MUTU_TEKS_PENDEK",
+            "transkripsi_manual": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026"
+        },
+        {
+            "id": "S03",
+            "kategori": "buram",
+            "gambar": "data/sintetis/sample_buram_sintetis.png",
+            "deskripsi": "Teks kabur Gaussian blur 3.8px, menguji MUTU_CONF_RENDAH / MUTU_BARIS_RENDAH",
+            "transkripsi_manual": "Rapat pleno rekapitulasi penghitungan suara pemilu berlangsung secara tertutup di gedung bawaslu daerah."
+        },
+        {
+            "id": "S04",
+            "kategori": "tanpa_teks",
+            "gambar": "data/sintetis/sample_tanpa_teks_sintetis.png",
+            "deskripsi": "Grafis geometris abstrak tanpa teks, menguji MUTU_TIDAK_ADA_TEKS",
+            "transkripsi_manual": ""
+        },
+        {
+            "id": "S05",
+            "kategori": "format_tidak_didukung",
+            "gambar": "data/sintetis/sample_tidak_didukung.bmp",
+            "deskripsi": "Berkas Windows BMP, menguji penolakan masukan INPUT_FORMAT_TIDAK_DIDUKUNG",
+            "transkripsi_manual": "Berkas Gambar Format BMP"
+        }
+    ]
 
-teks_buram = (
-    "Rapat pleno rekapitulasi penghitungan suara pemilu "
-    "berlangsung secara tertutup di gedung bawaslu daerah."
-)
-baris3 = textwrap.wrap(teks_buram, width=45)
-y_offset = 50
-for b in baris3:
-    draw3.text((40, y_offset), b, fill=(90, 90, 90), font=font_utama)
-    y_offset += 40
+    manifest_path = DATA_DIR / "manifest.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest_data, f, indent=2, ensure_ascii=False)
+    print(f"[OK] 6. Manifest Pasangan     : {manifest_path} (5 kondisi uji lengkap)")
+    print("SELESAI: Berkas sintetis tersimpan tanpa menimpa baseline 'data/'")
 
-# Terapkan efek Gaussian Blur agresif agar teks kabur/sulit dibaca
-img3_buram = img3.filter(ImageFilter.GaussianBlur(radius=3.8))
-img3_buram.save(p3, format="PNG")
-print(f"[OK] 3. Teks Buram           : {p3} (menguji MUTU_CONF_RENDAH / MUTU_BARIS_RENDAH)")
 
-# ---------------------------------------------------------------------
-# 4. SAMPEL TANPA TEKS / GRAFIS KOSONG (data/sample_tanpa_teks.png)
-# ---------------------------------------------------------------------
-p4 = DATA_DIR / "sample_tanpa_teks.png"
-img4 = Image.new("RGB", (600, 300), color=(235, 240, 245))
-draw4 = ImageDraw.Draw(img4)
+def main():
+    buat_semua_sampel()
 
-# Buat bentuk geometris abstrak tanpa satu pun huruf atau angka
-draw4.ellipse([(50, 50), (220, 220)], fill=(70, 130, 180), outline=(50, 100, 150), width=3)
-draw4.rectangle([(280, 70), (520, 230)], fill=(200, 140, 80), outline=(170, 110, 60), width=3)
-draw4.polygon([(300, 260), (450, 40), (580, 260)], fill=(120, 180, 120))
 
-img4.save(p4, format="PNG")
-print(f"[OK] 4. Tanpa Teks           : {p4} (menguji penolakan MUTU_TIDAK_ADA_TEKS)")
-
-# ---------------------------------------------------------------------
-# 5. SAMPEL FORMAT TIDAK DIDUKUNG / BMP (data/sample_tidak_didukung.bmp)
-# ---------------------------------------------------------------------
-p5 = DATA_DIR / "sample_tidak_didukung.bmp"
-img5 = Image.new("RGB", (500, 200), color=(255, 255, 255))
-draw5 = ImageDraw.Draw(img5)
-draw5.text((30, 80), "Berkas Gambar Format BMP", fill=(0, 0, 0), font=font_utama)
-
-# Simpan dalam format Windows Bitmap (.bmp)
-img5.save(p5, format="BMP")
-print(f"[OK] 5. Format BMP Tidak Sah : {p5} (menguji penolakan INPUT_FORMAT_TIDAK_DIDUKUNG)")
-
-print("=" * 75)
-print("SELURUH BERKAS BERHASIL DIBUAT DAN SIAP DIUJI DI WEB!")
+if __name__ == "__main__":
+    main()

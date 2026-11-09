@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -200,8 +200,10 @@ def main():
     print("BENCHMARK EVALUASI BERPASANGAN: TRANSKRIPSI (CER/WER) & KONSISTENSI VONIS INDOBERT")
     print("=" * 105)
 
-    # Muat dataset
-    if args.dataset and args.dataset.is_file():
+    # Muat dataset (berikan galat eksplisit jika berkas yang diminta tidak ada)
+    if args.dataset:
+        if not args.dataset.is_file():
+            parser.error(f"Berkas manifest/dataset tidak ditemukan: {args.dataset}")
         with open(args.dataset, "r", encoding="utf-8") as f:
             dataset = json.load(f)
     else:

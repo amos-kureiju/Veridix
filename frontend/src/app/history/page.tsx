@@ -30,6 +30,44 @@ const isUncertainLabel = (v?: string | null) =>
 // Nilai tidak tersedia ditampilkan "—", bukan 0%
 const formatRatio = (v?: number | null) =>
     typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? `${(v * 100).toFixed(1)}%` : "—";
+const getVerdictDisplay = (item: HistoryItem) => {
+    const label = item.pattern_label || item.prediction;
+    if (label) {
+        const isHoax = isHoaxLabel(label);
+        const isFact = isFactLabel(label);
+        return {
+            text: label,
+            className: isHoax
+                ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                : isFact
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
+                    : "bg-amber-50 text-amber-600 border border-amber-200/60",
+            icon: isHoax ? XCircle : isFact ? CheckCircle : AlertTriangle,
+        };
+    }
+
+    // Jika pattern_label & prediction null (karena ditolak / di luar domain)
+    const st = (item.process_status || "").trim().toLowerCase();
+    if (st === "ditolak") {
+        return {
+            text: "DITOLAK",
+            className: "bg-slate-100 text-slate-600 border border-slate-200/80",
+            icon: XCircle,
+        };
+    }
+    if (st === "di_luar_domain") {
+        return {
+            text: "DI LUAR DOMAIN",
+            className: "bg-slate-100 text-slate-600 border border-slate-200/80",
+            icon: AlertTriangle,
+        };
+    }
+    return {
+        text: st ? st.toUpperCase() : "TIDAK DIKETAHUI",
+        className: "bg-slate-100 text-slate-500 border border-slate-200/80",
+        icon: AlertTriangle,
+    };
+};
 
 export default function HistoryPage() {
     // 1. Panggil useHistory HANYA jika sesi sudah selesai diperiksa dan user sudah login
@@ -257,39 +295,41 @@ export default function HistoryPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredData.map((item) => {
-                                    const label = item.pattern_label || item.prediction || "TIDAK ADA LABEL";
-                                    const isHoax = isHoaxLabel(label);
-                                    const isFact = isFactLabel(label);
-                                    const ratio = item.agreement_ratio ?? item.confidence_score ?? null;
+                                        filteredData.map((item) => {
+                                            const verdict = getVerdictDisplay(item);
+                                            const IconVerdict = verdict.icon;
+                                            const ratio = item.agreement_ratio ?? item.confidence_score ?? null;
 
-                                    return (
-                                        <tr key={item.id} className="hover:bg-slate-50/60 transition group">
-                                            <td className="py-3.5 px-4 font-medium text-slate-800 max-w-xs md:max-w-md truncate">
-                                                {item.input_text || item.full_text}
-                                            </td>
+                                            return (
+                                                <tr key={item.id} className="hover:bg-slate-50/60 transition group">
+                                                    {/* Kolom Teks Naskah dengan Penanda Sumber IMAGE */}
+                                                    <td className="py-3.5 px-4 font-medium text-slate-800 max-w-xs md:max-w-md">
+                                                        <div className="flex items-center gap-1.5">
+                                                            {item.input_type === "IMAGE" && (
+                                                                <span
+                                                                    className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                                    title="Sumber: Ekstraksi Gambar (OCR)"
+                                                                >
+                                                                    IMAGE
+                                                                </span>
+                                                            )}
+                                                            <span className="truncate">{item.input_text || item.full_text}</span>
+                                                        </div>
+                                                    </td>
 
-                                            <td className="py-3.5 px-4">
-                                                <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-medium border border-slate-200/60">
-                                                    {item.political_topic}
-                                                </span>
-                                            </td>
+                                                    <td className="py-3.5 px-4">
+                                                        <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-medium border border-slate-200/60">
+                                                            {item.political_topic}
+                                                        </span>
+                                                    </td>
 
-                                            <td className="py-3.5 px-4">
-                                                <span
-                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isHoax
-                                                        ? "bg-rose-50 text-rose-600 border border-rose-200/60"
-                                                        : isFact
-                                                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
-                                                            : "bg-amber-50 text-amber-600 border border-amber-200/60"
-                                                        }`}
-                                                >
-                                                    {isHoax && <XCircle className="w-3.5 h-3.5" />}
-                                                    {isFact && <CheckCircle className="w-3.5 h-3.5" />}
-                                                    {!isHoax && !isFact && <AlertTriangle className="w-3.5 h-3.5" />}
-                                                    {label}
-                                                </span>
-                                            </td>
+                                                    {/* Kolom Indikasi Pola / Status Transparan */}
+                                                    <td className="py-3.5 px-4">
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${verdict.className}`}>
+                                                            <IconVerdict className="w-3.5 h-3.5" />
+                                                            {verdict.text}
+                                                        </span>
+                                                    </td>
 
                                             <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
                                                 {formatRatio(ratio)}
@@ -365,9 +405,9 @@ export default function HistoryPage() {
 
                             <div className="grid grid-cols-2 gap-3 pt-1">
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
-                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Pola Terdeteksi:</span>
-                                    <span className="text-xs font-bold text-slate-800">{detailItem.pattern_label || detailItem.prediction || "—"}</span>
-                                </div>
+                                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Pola Terdeteksi / Status:</span>
+                                    <span className="text-xs font-bold text-slate-800">{getVerdictDisplay(detailItem).text}</span>
+                                </div>  
                                 <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200/60">
                                     <span className="text-[10px] text-slate-400 block font-semibold uppercase">Konsensus Model:</span>
                                     <span className="text-xs font-bold text-slate-800 font-mono">

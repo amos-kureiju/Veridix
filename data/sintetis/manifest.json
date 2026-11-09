@@ -1,0 +1,37 @@
+[
+  {
+    "id": "S01",
+    "kategori": "teks_panjang_jelas",
+    "gambar": "data/sintetis/sample_panjang_sintetis.png",
+    "deskripsi": "Teks panjang 104 karakter persis acuan, menguji baseline OCR diterima",
+    "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran."
+  },
+  {
+    "id": "S02",
+    "kategori": "teks_pendek",
+    "gambar": "data/sintetis/sample_probe_sintetis.png",
+    "deskripsi": "Teks pendek 49 karakter, menguji penolakan mutu MUTU_TEKS_PENDEK",
+    "transkripsi_manual": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026"
+  },
+  {
+    "id": "S03",
+    "kategori": "buram",
+    "gambar": "data/sintetis/sample_buram_sintetis.png",
+    "deskripsi": "Teks kabur Gaussian blur 3.8px, menguji MUTU_CONF_RENDAH / MUTU_BARIS_RENDAH",
+    "transkripsi_manual": "Rapat pleno rekapitulasi penghitungan suara pemilu berlangsung secara tertutup di gedung bawaslu daerah."
+  },
+  {
+    "id": "S04",
+    "kategori": "tanpa_teks",
+    "gambar": "data/sintetis/sample_tanpa_teks_sintetis.png",
+    "deskripsi": "Grafis geometris abstrak tanpa teks, menguji MUTU_TIDAK_ADA_TEKS",
+    "transkripsi_manual": ""
+  },
+  {
+    "id": "S05",
+    "kategori": "format_tidak_didukung",
+    "gambar": "data/sintetis/sample_tidak_didukung.bmp",
+    "deskripsi": "Berkas Windows BMP, menguji penolakan masukan INPUT_FORMAT_TIDAK_DIDUKUNG",
+    "transkripsi_manual": "Berkas Gambar Format BMP"
+  }
+]

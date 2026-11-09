@@ -1,0 +1,290 @@
+{
+  "metadata": {
+    "waktu_eksekusi": "2026-11-09T16:13:34+07:00",
+    "versi_pipeline": "1.2",
+    "hash_kebijakan": "bb81aca4be627e74db249bb9c3d2f1d679594e531e6f138705ad28c161ab7f2a",
+    "aturan_konsensus": "unanimous",
+    "latensi_benchmark": {
+      "berkas_uji": "data\\sintetis\\sample_panjang_sintetis.png",
+      "cold_start_dtk": 27.821,
+      "warm_start_dtk": 11.189,
+      "efisiensi_akselerasi": "2.5x lebih cepat pada warm state"
+    }
+  },
+  "ringkasan": {
+    "total_kasus": 5,
+    "diterima_ocr": 1,
+    "ditolak_kualitas": 3,
+    "ditolak_input": 1,
+    "galat_mesin": 0,
+    "berkas_tidak_ada": 0,
+    "rata2_cer_diterima": 0.0,
+    "rata2_wer_diterima": 0.0
+  },
+  "hasil_evaluasi": [
+    {
+      "id": "S01",
+      "kategori_kasus": "teks_panjang_jelas",
+      "deskripsi": "Teks panjang 104 karakter persis acuan, menguji baseline OCR diterima",
+      "jalur_gambar": "data\\sintetis\\sample_panjang_sintetis.png",
+      "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "OK",
+        "kode": "OK",
+        "pesan": "Teks berhasil dibaca dan memenuhi syarat untuk diverifikasi.",
+        "daftar_alasan": [],
+        "teks_mentah": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+        "teks_bersih": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+        "durasi_detik": 11.3127,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 900,
+          "tinggi": 240,
+          "ukuran_byte": 13572,
+          "sha256": "acd411b228c63c3ca78ad7517d4ff887959636e9963d67f015a89376b46a167c"
+        },
+        "fitur": {
+          "n_kata": 14,
+          "n_baris": 3,
+          "conf_rata2": 0.9999523361523946,
+          "conf_min": 0.9999237656593323,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "tersedia": true,
+        "cer_persen": 0.0,
+        "wer_persen": 0.0,
+        "char_errors": 0,
+        "word_errors": 0
+      },
+      "evaluasi_teks_asli": {
+        "status": "dinilai",
+        "label": "TIDAK BERPOLA HOAKS",
+        "votes_hoax": "0/3",
+        "durasi_detik": 2.0707
+      },
+      "evaluasi_teks_ocr": {
+        "status": "dinilai",
+        "label": "TIDAK BERPOLA HOAKS",
+        "votes_hoax": "0/3",
+        "durasi_detik": 1.839
+      },
+      "konsistensi": {
+        "label_sama": true
+      },
+      "keputusan_akhir": "SELESAI_DIEVALUASI"
+    },
+    {
+      "id": "S02",
+      "kategori_kasus": "teks_pendek",
+      "deskripsi": "Teks pendek 49 karakter, menguji penolakan mutu MUTU_TEKS_PENDEK",
+      "jalur_gambar": "data\\sintetis\\sample_probe_sintetis.png",
+      "transkripsi_manual": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "TOLAK_KUALITAS",
+        "kode": "MUTU_TEKS_PENDEK",
+        "pesan": "Teks yang terbaca terlalu pendek untuk diverifikasi.",
+        "daftar_alasan": [
+          {
+            "kode": "MUTU_TEKS_PENDEK",
+            "pesan": "teks terlalu pendek (6 kata < 10)"
+          }
+        ],
+        "teks_mentah": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+        "teks_bersih": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+        "durasi_detik": 6.8245,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 850,
+          "tinggi": 180,
+          "ukuran_byte": 7942,
+          "sha256": "622c4b5788abc3a569d8e1ef6569a3206550f11078676a90e1d6f6814702a5c6"
+        },
+        "fitur": {
+          "n_kata": 6,
+          "n_baris": 1,
+          "conf_rata2": 0.9999257326126099,
+          "conf_min": 0.9999257326126099,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "tersedia": true,
+        "cer_persen": 0.0,
+        "wer_persen": 0.0,
+        "char_errors": 0,
+        "word_errors": 0
+      },
+      "evaluasi_teks_asli": {
+        "status": "ditolak",
+        "label": "TIDAK DAPAT DINILAI",
+        "votes_hoax": null,
+        "durasi_detik": 0.0001
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "alasan": "Teks ditolak (MUTU_TEKS_PENDEK)"
+      },
+      "keputusan_akhir": "DITOLAK_TOLAK_KUALITAS"
+    },
+    {
+      "id": "S03",
+      "kategori_kasus": "buram",
+      "deskripsi": "Teks kabur Gaussian blur 3.8px, menguji MUTU_CONF_RENDAH / MUTU_BARIS_RENDAH",
+      "jalur_gambar": "data\\sintetis\\sample_buram_sintetis.png",
+      "transkripsi_manual": "Rapat pleno rekapitulasi penghitungan suara pemilu berlangsung secara tertutup di gedung bawaslu daerah.",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "TOLAK_KUALITAS",
+        "kode": "MUTU_TEKS_PENDEK",
+        "pesan": "Teks yang terbaca terlalu pendek untuk diverifikasi.",
+        "daftar_alasan": [
+          {
+            "kode": "MUTU_TEKS_PENDEK",
+            "pesan": "teks terlalu pendek (3 kata < 10)"
+          }
+        ],
+        "teks_mentah": "tunpaß p drans",
+        "teks_bersih": "tunpaß p drans",
+        "durasi_detik": 6.4452,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 850,
+          "tinggi": 240,
+          "ukuran_byte": 18292,
+          "sha256": "cb717041d5a38b1d162f5af76d97456b9615c5eaa2107aa260e3c7633b8bf67b"
+        },
+        "fitur": {
+          "n_kata": 3,
+          "n_baris": 1,
+          "conf_rata2": 0.7027648091316223,
+          "conf_min": 0.7027648091316223,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "tersedia": true,
+        "cer_persen": 89.4231,
+        "wer_persen": 100.0,
+        "char_errors": 93,
+        "word_errors": 13
+      },
+      "evaluasi_teks_asli": {
+        "status": "dinilai",
+        "label": "TIDAK BERPOLA HOAKS",
+        "votes_hoax": "0/3",
+        "durasi_detik": 1.8552
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "alasan": "Teks ditolak (MUTU_TEKS_PENDEK)"
+      },
+      "keputusan_akhir": "DITOLAK_TOLAK_KUALITAS"
+    },
+    {
+      "id": "S04",
+      "kategori_kasus": "tanpa_teks",
+      "deskripsi": "Grafis geometris abstrak tanpa teks, menguji MUTU_TIDAK_ADA_TEKS",
+      "jalur_gambar": "data\\sintetis\\sample_tanpa_teks_sintetis.png",
+      "transkripsi_manual": "",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "TOLAK_KUALITAS",
+        "kode": "MUTU_TEKS_PENDEK",
+        "pesan": "Teks yang terbaca terlalu pendek untuk diverifikasi.",
+        "daftar_alasan": [
+          {
+            "kode": "MUTU_TEKS_PENDEK",
+            "pesan": "teks terlalu pendek (1 kata < 10)"
+          }
+        ],
+        "teks_mentah": "□●",
+        "teks_bersih": "□●",
+        "durasi_detik": 6.1197,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 600,
+          "tinggi": 300,
+          "ukuran_byte": 2228,
+          "sha256": "4b121c82fafb2b42c4239fd659da34a072ccc1a1977b41b59ddf55acab9c58d3"
+        },
+        "fitur": {
+          "n_kata": 1,
+          "n_baris": 1,
+          "conf_rata2": 0.6403062343597412,
+          "conf_min": 0.6403062343597412,
+          "share_baris_conf_rendah": 0.0,
+          "share_token_huruf_angka": 0.0,
+          "n_pemenggalan_hubung": 0
+        }
+      },
+      "metrik_transkripsi": {
+        "tersedia": false,
+        "cer_persen": null,
+        "wer_persen": null,
+        "char_errors": 2,
+        "word_errors": 1
+      },
+      "evaluasi_teks_asli": {
+        "status": "tidak_dievaluasi_terlalu_pendek",
+        "label": null,
+        "votes_hoax": null,
+        "durasi_detik": 0.0
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "alasan": "Teks ditolak (MUTU_TEKS_PENDEK)"
+      },
+      "keputusan_akhir": "DITOLAK_TOLAK_KUALITAS"
+    },
+    {
+      "id": "S05",
+      "kategori_kasus": "format_tidak_didukung",
+      "deskripsi": "Berkas Windows BMP, menguji penolakan masukan INPUT_FORMAT_TIDAK_DIDUKUNG",
+      "jalur_gambar": "data\\sintetis\\sample_tidak_didukung.bmp",
+      "transkripsi_manual": "Berkas Gambar Format BMP",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "TOLAK_INPUT",
+        "kode": "INPUT_FORMAT_TIDAK_DIDUKUNG",
+        "pesan": "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WebP.",
+        "daftar_alasan": [],
+        "teks_mentah": "",
+        "teks_bersih": "",
+        "durasi_detik": 0.015,
+        "identitas_berkas": null,
+        "fitur": null
+      },
+      "metrik_transkripsi": {
+        "tersedia": false,
+        "cer_persen": null,
+        "wer_persen": null,
+        "alasan": "OCR tidak berjalan (TOLAK_INPUT: INPUT_FORMAT_TIDAK_DIDUKUNG)"
+      },
+      "evaluasi_teks_asli": {
+        "status": "tidak_dievaluasi_terlalu_pendek",
+        "label": null,
+        "votes_hoax": null,
+        "durasi_detik": 0.0
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "alasan": "Teks ditolak (INPUT_FORMAT_TIDAK_DIDUKUNG)"
+      },
+      "keputusan_akhir": "DITOLAK_TOLAK_INPUT"
+    }
+  ]
+}

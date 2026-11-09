@@ -146,7 +146,13 @@ class TestReportingIntegrity(unittest.TestCase):
 
         response = self.client.get("/api/v1/users/history", headers=self.memory.login("USER"))
         self.assertEqual(response.status_code, 200)
-        rows = {row["input_text"]: row for row in response.json()["data"]}
+        # 1. Tampung data list respons secara utuh
+        data = response.json()["data"]
+        # 2. Periksa anti-duplikasi: wajib tepat 3 item (sesuai data user) dan ID harus unik semua
+        self.assertEqual(len(data), 3)
+        self.assertEqual(len({item["id"] for item in data}), len(data))
+        # 3. Baru bentuk dictionary untuk memverifikasi nilai per baris
+        rows = {row["input_text"]: row for row in data}
         self.assertEqual(set(rows), {"unknown", "actual-zero", "known"})
         for field in ("agreement_ratio", "confidence_score"):
             self.assertIsNone(rows["unknown"][field])

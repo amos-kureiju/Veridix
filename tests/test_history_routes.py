@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 import unittest
 from uuid import uuid4
+from unittest.mock import patch
+from sqlalchemy.exc import SQLAlchemyError
 
 from tests import test_auth_roles as auth_fixture
 from src.database.models import PredictionLog, UserFeedback
@@ -22,7 +24,7 @@ class TestHistoryDetailRoutes(unittest.TestCase):
         # Gunakan komposisi fixture otentikasi resmi yang sama dengan test_reporting_integrity
         self.memory = auth_fixture.TestLoginRoles(methodName="runTest")
         self.memory.setUp()
-        self.client = self.memory.client
+        self.client = TestClient(self.memory.app, raise_server_exceptions=False)
 
         self.user_id = self.memory.ids["USER"]
         self.admin_id = self.memory.ids["ADMIN"]
@@ -260,6 +262,76 @@ class TestHistoryDetailRoutes(unittest.TestCase):
         log_id = self._create_prediction(self.user_id)
         res = self.client.delete(f"/api/v1/users/history/{log_id}")
         self.assertEqual(res.status_code, 401)
+
+    # 12. Menghapus kembali ID yang sudah terhapus menghasilkan 404
+    def test_delete_repeated_same_id_returns_404(self):
+        log_id = self._create_prediction(self.user_id)
+
+        # Hapus pertama: 200 OK
+        res1 = self.client.delete(f"/api/v1/users/history/{log_id}", headers=self.user_headers)
+        self.assertEqual(res1.status_code, 200)
+
+        # Hapus kedua kali pada ID yang sama: wajib 404
+        res2 = self.client.delete(f"/api/v1/users/history/{log_id}", headers=self.user_headers)
+        self.assertEqual(res2.status_code, 404)
+
+    # 13. Menghapus satu riwayat mempertahankan riwayat dan feedback pengguna lainnya
+    def test_delete_one_history_retains_other_histories_and_feedbacks(self):
+        log_a = self._create_prediction(self.user_id, input_text="Naskah A")
+        log_b = self._create_prediction(self.user_id, input_text="Naskah B")
+        fb_b_id = uuid4()
+
+        with self.memory.session_factory() as db:
+            fb_b = UserFeedback(
+                id=fb_b_id,
+                detection_id=log_b,
+                user_id=self.user_id,
+                is_agreed=True,
+                claimed_label="TIDAK BERPOLA HOAKS",
+                review_status="PENDING",
+            )
+            db.add(fb_b)
+            db.commit()
+
+        # Hapus log A
+        res = self.client.delete(f"/api/v1/users/history/{log_a}", headers=self.user_headers)
+        self.assertEqual(res.status_code, 200)
+
+        # Verifikasi log B dan feedback B tetap utuh
+        with self.memory.session_factory() as db:
+            self.assertIsNone(db.query(PredictionLog.id).filter(PredictionLog.id == log_a).first())
+            self.assertIsNotNone(db.query(PredictionLog.id).filter(PredictionLog.id == log_b).first())
+            self.assertIsNotNone(db.query(UserFeedback.id).filter(UserFeedback.id == fb_b_id).first())
+
+    # 14. Kegagalan commit() memicu rollback penuh (riwayat & feedback tidak terhapus sebagian)
+    def test_delete_rollback_on_commit_failure_preserves_both_log_and_feedback(self):
+        log_id = self._create_prediction(self.user_id)
+        fb_id = uuid4()
+
+        with self.memory.session_factory() as db:
+            fb = UserFeedback(
+                id=fb_id,
+                detection_id=log_id,
+                user_id=self.user_id,
+                is_agreed=True,
+                claimed_label="TIDAK BERPOLA HOAKS",
+                review_status="PENDING",
+            )
+            db.add(fb)
+            db.commit()
+
+        # Simulasikan kegagalan database saat commit dijalankan
+        with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError("Simulasi galat transaksi commit")):
+            res = self.client.delete(f"/api/v1/users/history/{log_id}", headers=self.user_headers)
+            # Re-raise SQLAlchemyError ditangkap sebagai HTTP 500 oleh handler aplikasi
+            self.assertEqual(res.status_code, 500)
+
+        # Verifikasi integritas: kedua data wajib tetap ada di database karena rollback
+        with self.memory.session_factory() as db:
+            self.assertIsNotNone(db.query(PredictionLog.id).filter(PredictionLog.id == log_id).first())
+            self.assertIsNotNone(db.query(UserFeedback.id).filter(UserFeedback.id == fb_id).first())
+
+
 
 
 if __name__ == "__main__":

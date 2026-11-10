@@ -337,6 +337,7 @@ def get_user_history_detail(
             detail="Detail riwayat tidak dapat dimuat saat ini. Silakan coba lagi."
         )
 
+
 @router.delete("/history/{history_id}")
 def delete_user_history(
     history_id: UUID,
@@ -345,35 +346,50 @@ def delete_user_history(
 ):
     """
     Menghapus satu riwayat deteksi beserta feedback terkait secara transaksional (atomik).
-    Hanya pemilik sah yang dapat menghapus (404 jika bukan pemilik atau tidak ditemukan).
-    Mengembalikan data: {"id": "<id-yang-dihapus>"} sesuai kontrak frontend.
+    Hanya mengambil ID (proyeksi kolom) untuk menghindari kegagalan skema kolom lama.
+    Menggunakan delete() kueri langsung dan meneruskan SQLAlchemyError ke handler global.
     """
     try:
-        # 1. Cari riwayat berdasarkan ID dan kepemilikan pengguna
-        log = (
-            db.query(PredictionLog)
+        # 1. Cari riwayat berdasarkan ID dan kepemilikan (hanya ambil kolom ID dengan kunci baris)
+        log_id_row = (
+            db.query(PredictionLog.id)
             .filter(
                 PredictionLog.id == history_id,
                 PredictionLog.user_id == current_user.id
             )
+            .with_for_update()
             .first()
         )
-        if not log:
+        if not log_id_row:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Riwayat deteksi tidak ditemukan."
             )
 
-        # 2. Hapus feedback terkait dalam transaksi yang sama
+        # 2. Hapus feedback terkait pengguna dalam transaksi yang sama
         db.query(UserFeedback).filter(
-            UserFeedback.detection_id == history_id
+            UserFeedback.detection_id == history_id,
+            UserFeedback.user_id == current_user.id
         ).delete(synchronize_session=False)
 
-        # 3. Hapus entri riwayat deteksi
-        deleted_id_str = str(log.id)
-        db.delete(log)
+        # 3. Hapus entri riwayat deteksi secara langsung tanpa memuat seluruh kolom objek
+        deleted_count = (
+            db.query(PredictionLog)
+            .filter(
+                PredictionLog.id == history_id,
+                PredictionLog.user_id == current_user.id
+            )
+            .delete(synchronize_session=False)
+        )
 
-        # 4. Komit tunggal atomik
+        if deleted_count != 1:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riwayat deteksi tidak ditemukan."
+            )
+
+        deleted_id_str = str(history_id)
         db.commit()
 
         return {
@@ -385,10 +401,7 @@ def delete_user_history(
         }
     except HTTPException:
         raise
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
+        # Rollback transaksi dan teruskan galat ke handler database global di main.py
         db.rollback()
-        logger.error("Gagal menghapus riwayat deteksi: %s", type(exc).__name__)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Gagal menghapus riwayat deteksi. Transaksi dibatalkan."
-        )
+        raise

@@ -5,18 +5,7 @@ Struktur:
   Penilai            : orkestrasi murni Python (validasi -> domain -> praproses -> suara per seed -> keputusan -> LIME).
                        Tidak butuh torch, jadi dapat diuji dengan backend tiruan.
   BackendIndoBERT    : satu model dasar + tiga keadaan terlatih (layer 8-11, pooler, kepala) yang ditukar per seed.
-                       Memuat hanya SATU salinan model dasar (memuat tiga sekaligus pernah menyebabkan 'bad allocation').
-
-Jaminan integritas (gagal keras, bukan diam-diam):
-  * SHA-256 tiap checkpoint harus sama dengan yang dicatat saat pelatihan (EXPECTED_SHA256),
-  * kunci checkpoint harus persis sama dengan parameter yang dilatih,
-  * text_pipeline.py harus sama dengan berkas beku, dan revisi model dasar harus sama,
-  * satu-satunya pengecualian: VERIDIX_ALLOW_UNVERIFIED=1 (untuk uji bobot lain; mencetak peringatan).
-
-Keluaran untuk pengguna TIDAK memuat probabilitas (model cenderung ekstrem walau salah); probabilitas hanya
-tersedia dengan debug=True. Aturan keputusan antar-seed adalah KANDIDAT dan belum dievaluasi: pilih dengan
-analisis_aturan_ensemble.py pada val, tulis di protokol, baru kunci.
-"""
+                       Memuat hanya SATU salinan model dasar (memuat tiga sekaligus pernah menyebabkan 'bad allocation'). """
 import hashlib
 import os
 import sys
@@ -205,16 +194,30 @@ class Penilai:
                                "Galat komputasi model (probabilitas memuat NaN/Inf, di luar [0,1], atau jumlah seed tidak sesuai).",
                                t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
+
         # 2. KEPUTUSAN BINER PER SEED: Murni 0 atau 1 sebelum pembulatan desimal
         seed_decisions = {s: int(probs[j] >= 0.5) for j, s in enumerate(self.backend.seeds)}
         votes = sum(seed_decisions.values())
         status, label = putuskan(votes, n_seeds, self.rule)
 
-        res = {"success": True, "status": status, "label": label, "votes_hoax": f"{votes}/{n_seeds}",
-               "decision_rule": self.rule, "seed_decisions": seed_decisions,
-               "sub_topik": topik, "istilah": terms, "teks_dinilai": x,
-               "terpotong": len(v["text"].split()) > MAX_WORDS,
-               "input_flags": v["flags"], "disclaimer": DISCLAIMER}
+        # 3. KONSENSUS ENSEMBLE: Kesepakatan mayoritas seed dengan presisi penuh
+        agreement_ratio = max(votes, n_seeds - votes) / n_seeds
+
+        res = {
+            "success": True,
+            "status": status,
+            "label": label,
+            "votes_hoax": f"{votes}/{n_seeds}",
+            "agreement_ratio": agreement_ratio,
+            "decision_rule": self.rule,
+            "seed_decisions": seed_decisions,
+            "sub_topik": topik,
+            "istilah": terms,
+            "teks_dinilai": x,
+            "terpotong": len(v["text"].split()) > MAX_WORDS,
+            "input_flags": v["flags"],
+            "disclaimer": DISCLAIMER,
+        }
         if explain:
             res["explanation"] = self._lime(x)
         if debug:

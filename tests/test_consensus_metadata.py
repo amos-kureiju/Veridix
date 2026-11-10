@@ -86,6 +86,46 @@ class TestConsensusMetadata(unittest.TestCase):
         self.assertEqual(res["status"], "ditolak")
         self.assertIsNone(res.get("agreement_ratio"))
 
+   # 7. Backend tidak boleh dipanggil sama sekali jika masukan ditolak sebelum model
+    def test_backend_not_called_when_text_rejected(self):
+        backend_mock = Mock()
+        penilai = Penilai(backend_mock)
+        res = penilai.nilai(
+            "Resep memasak rendang daging sapi yang empuk "
+            "dengan santan dan rempah khas Minang."
+        )
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "di_luar_domain")
+        backend_mock.seed_probs_each.assert_not_called()
+        self.assertIsNone(res.get("agreement_ratio"))
+
+    # 8. Ambang batas tepat 0.5 dianggap bernilai 1 (ke arah hoaks) sesuai aturan biner
+    def test_probability_exactly_point_five_threshold(self):
+        res = self._eval([0.5, 0.5, 0.5])
+        self.assertTrue(res["success"])
+        self.assertEqual(res["status"], "dinilai")
+        self.assertEqual(res["label"], "BERPOLA HOAKS")
+        self.assertEqual(res["votes_hoax"], "3/3")
+        self.assertEqual(res["agreement_ratio"], 1.0)
+
+    # 9. Anomali numerik (keluaran kosong atau NaN) ditolak tanpa rasio konsensus
+    def test_computation_anomalies_rejected_without_consensus(self):
+        backend_mock = Mock()
+        backend_mock.seeds = self.seeds
+        penilai = Penilai(backend_mock)
+
+        # Keluaran kosong
+        backend_mock.seed_probs_each.return_value = []
+        res_empty = penilai.nilai(self.valid_political_text)
+        self.assertFalse(res_empty["success"])
+        self.assertIsNone(res_empty.get("agreement_ratio"))
+
+        # Keluaran memuat NaN
+        backend_mock.seed_probs_each.return_value = np.array([[0.8, float("nan"), 0.9]])
+        res_nan = penilai.nilai(self.valid_political_text)
+        self.assertFalse(res_nan["success"])
+        self.assertIsNone(res_nan.get("agreement_ratio"))
+
 
 if __name__ == "__main__":
     unittest.main()

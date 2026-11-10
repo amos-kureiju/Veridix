@@ -24,7 +24,7 @@ class TestHistoryDetailRoutes(unittest.TestCase):
         # Gunakan komposisi fixture otentikasi resmi yang sama dengan test_reporting_integrity
         self.memory = auth_fixture.TestLoginRoles(methodName="runTest")
         self.memory.setUp()
-        self.client = TestClient(self.memory.app, raise_server_exceptions=False)
+        self.client = self.memory.client
 
         self.user_id = self.memory.ids["USER"]
         self.admin_id = self.memory.ids["ADMIN"]
@@ -321,10 +321,14 @@ class TestHistoryDetailRoutes(unittest.TestCase):
             db.commit()
 
         # Simulasikan kegagalan database saat commit dijalankan
-        with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError("Simulasi galat transaksi commit")):
-            res = self.client.delete(f"/api/v1/users/history/{log_id}", headers=self.user_headers)
-            # Re-raise SQLAlchemyError ditangkap sebagai HTTP 500 oleh handler aplikasi
-            self.assertEqual(res.status_code, 500)
+        failure = SQLAlchemyError("Simulasi galat transaksi commit")
+
+        with patch("sqlalchemy.orm.Session.commit", side_effect=failure) as commit_mock:
+            with self.assertRaises(SQLAlchemyError) as captured:
+                self.client.delete(f"/api/v1/users/history/{log_id}", headers=self.user_headers)
+
+        self.assertIs(captured.exception, failure)
+        commit_mock.assert_called_once_with()
 
         # Verifikasi integritas: kedua data wajib tetap ada di database karena rollback
         with self.memory.session_factory() as db:

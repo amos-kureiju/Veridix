@@ -1,6 +1,9 @@
 import logging
+from datetime import datetime, timezone
+from typing import List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -105,19 +108,73 @@ def change_password(
 
 
 # 2. RIWAYAT DETEKSI PENGGUNA (GET /api/v1/users/history)
+def _format_datetime_utc(dt: Optional[datetime]) -> Optional[str]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc).isoformat()
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _build_history_response_item(row, fb_info: Optional[dict] = None, detail: bool = False) -> dict:
+    # 1. Normalisasi status: kosong/None menjadi 'tidak_diketahui'
+    raw_status = getattr(row, "process_status", None)
+    if raw_status is None or not str(raw_status).strip():
+        status_norm = "tidak_diketahui"
+    else:
+        status_norm = str(raw_status).strip().lower()
+
+    # 2. Hanya status 'dinilai' dan 'ambigu' yang diizinkan memiliki label & konsensus
+    if status_norm in ("dinilai", "ambigu"):
+        label_pola = getattr(row, "pattern_label", None)
+        prediction_display = label_pola or "PERLU KONFIRMASI"
+        raw_agreement = getattr(row, "agreement_ratio", None)
+        agreement = raw_agreement if isinstance(raw_agreement, (int, float)) and not isinstance(raw_agreement, bool) else None
+    else:
+        label_pola = None
+        prediction_display = None
+        agreement = None
+
+    item = {
+        "id": str(row.id),
+        "input_text": row.input_text,
+        "input_type": getattr(row, "input_type", None) or "TEXT",
+        "image_url": getattr(row, "image_url", None),
+        "political_topic": getattr(row, "political_topic", None) or "Sosial Politik",
+        "process_status": status_norm,
+        "pattern_label": label_pola,
+        "prediction": prediction_display,
+        "agreement_ratio": agreement,
+        "confidence_score": agreement,
+        "created_at": _format_datetime_utc(getattr(row, "created_at", None)),
+        "has_feedback": fb_info is not None,
+        "feedback": fb_info,
+    }
+
+    if detail:
+        item.update({
+            "latency_seconds": getattr(row, "latency_seconds", None),
+            "narrative_text": getattr(row, "narrative_text", None),
+            "explanation": getattr(row, "lime_explanation", None),
+            "detected_entities": getattr(row, "detected_entities", None) or [],
+        })
+
+    return item
+
+# 2. DAFTAR RIWAYAT DETEKSI (GET /api/v1/users/history)
 @router.get("/history")
 def get_user_history(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100, description="Jumlah data yang diambil (1-100)"),
+    offset: int = Query(0, ge=0, description="Offset data untuk pagination"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Mengambil daftar riwayat deteksi pengguna dari yang terbaru.
-    Menggunakan proyeksi kolom spesifik untuk menghindari error kolom 'is_political'.
+    Mengambil daftar riwayat deteksi pengguna secara stabil dan konsisten.
+    Menggunakan proyeksi kolom spesifik untuk efisiensi dan keamanan skema.
     """
     try:
-        # 1. Pilih hanya kolom yang pasti ada (hindari memuat is_political)
+        # 1. Ambil baris dengan proyeksi kolom eksplisit & urutan deterministik
         logs = (
             db.query(
                 PredictionLog.id,
@@ -131,13 +188,13 @@ def get_user_history(
                 PredictionLog.created_at
             )
             .filter(PredictionLog.user_id == current_user.id)
-            .order_by(PredictionLog.created_at.desc())
+            .order_by(PredictionLog.created_at.desc(), PredictionLog.id.desc())
             .offset(offset)
             .limit(limit)
             .all()
         )
 
-        # 2. Kumpulkan feedback milik user untuk detection_id terkait secara efisien
+        # 2. Kumpulkan feedback milik pengguna untuk detection_id terkait secara efisien
         log_ids = [row.id for row in logs]
         feedbacks_map = {}
         if log_ids:
@@ -165,51 +222,17 @@ def get_user_history(
                     "admin_notes": fb.admin_notes
                 }
 
-        # 3. Susun data respons
-        results = []
-        for row in logs:
-            fb_info = feedbacks_map.get(row.id)
-            
-            # 1. Normalisasi status: jika None atau spasi kosong, tandai 'tidak_diketahui'
-            raw_status = row.process_status
-            if raw_status is None or not str(raw_status).strip():
-                status_norm = "tidak_diketahui"
-            else:
-                status_norm = str(raw_status).strip().lower()
-
-            # 2. Hanya status 'dinilai' dan 'ambigu' yang berhak memiliki label vonis
-            if status_norm in ("dinilai", "ambigu"):
-                label_pola = row.pattern_label
-                prediction_display = row.pattern_label or "PERLU KONFIRMASI"
-                agreement = row.agreement_ratio
-            else:
-                # Status ditolak, di_luar_domain, error, tidak_diketahui, dll. TIDAK memiliki vonis
-                label_pola = None
-                prediction_display = None
-                agreement = None
-
-            results.append({
-                "id": str(row.id),
-                "input_text": row.input_text,
-                "input_type": row.input_type or "TEXT",
-                "image_url": row.image_url,
-                "political_topic": row.political_topic or "Sosial Politik",
-                "process_status": status_norm,
-                "pattern_label": label_pola,
-                "prediction": prediction_display,
-                "agreement_ratio": agreement,
-                "confidence_score": agreement,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "has_feedback": fb_info is not None,
-                "feedback": fb_info
-            })
+        # 3. Format hasil secara konsisten tanpa duplikasi
+        results = [
+            _build_history_response_item(row, fb_info=feedbacks_map.get(row.id), detail=False)
+            for row in logs
+        ]
 
         return {
             "status": "success",
             "data": results
         }
     except SQLAlchemyError:
-        # get_db melakukan rollback; handler aplikasi memberi respons aman dengan CORS.
         raise
     except Exception as exc:
         db.rollback()
@@ -217,4 +240,155 @@ def get_user_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Riwayat tidak dapat dimuat saat ini. Silakan coba lagi."
+        )
+
+# 3. DETAIL SATU RIWAYAT DETEKSI (GET /api/v1/users/history/{history_id})
+@router.get("/history/{history_id}")
+def get_user_history_detail(
+    history_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Mengambil rincian lengkap satu riwayat deteksi beserta penjelasan LIME dan feedback.
+    Membatasi akses hanya pada riwayat milik pengguna yang sedang terautentikasi (404 jika bukan pemilik).
+    """
+    try:
+        # 1. Ambil satu entri dengan validasi kepemilikan ganda
+        log = (
+            db.query(
+                PredictionLog.id,
+                PredictionLog.input_text,
+                PredictionLog.input_type,
+                PredictionLog.image_url,
+                PredictionLog.political_topic,
+                PredictionLog.process_status,
+                PredictionLog.pattern_label,
+                PredictionLog.agreement_ratio,
+                PredictionLog.created_at,
+                PredictionLog.latency_seconds,
+                PredictionLog.narrative_text,
+                PredictionLog.lime_explanation,
+                PredictionLog.detected_entities
+            )
+            .filter(
+                PredictionLog.id == history_id,
+                PredictionLog.user_id == current_user.id
+            )
+            .first()
+        )
+
+        if not log:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riwayat deteksi tidak ditemukan."
+            )
+
+        # 2. Ambil rincian feedback lengkap milik pengguna untuk deteksi ini
+        fb = (
+            db.query(
+                UserFeedback.id,
+                UserFeedback.is_agreed,
+                UserFeedback.claimed_label,
+                UserFeedback.user_notes,
+                UserFeedback.clarification_url,
+                UserFeedback.review_status,
+                UserFeedback.admin_notes,
+                UserFeedback.reviewed_at,
+                UserFeedback.created_at
+            )
+            .filter(
+                UserFeedback.detection_id == history_id,
+                UserFeedback.user_id == current_user.id
+            )
+            .first()
+        )
+
+        fb_info = None
+        if fb:
+            fb_info = {
+                "id": str(fb.id),
+                "is_agreed": fb.is_agreed,
+                "claimed_label": fb.claimed_label,
+                "user_notes": fb.user_notes,
+                "clarification_url": fb.clarification_url,
+                "review_status": fb.review_status,
+                "admin_notes": fb.admin_notes,
+                "reviewed_at": _format_datetime_utc(fb.reviewed_at),
+                "created_at": _format_datetime_utc(fb.created_at),
+            }
+
+        # 3. Bentuk respons detail lengkap
+        detail_data = _build_history_response_item(log, fb_info=fb_info, detail=True)
+
+        return {
+            "status": "success",
+            "data": detail_data
+        }
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.error("Gagal membaca detail riwayat: error=%s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Detail riwayat tidak dapat dimuat saat ini. Silakan coba lagi."
+        )
+
+@router.delete("/history/{history_id}")
+def delete_user_history(
+    history_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Menghapus satu riwayat deteksi beserta feedback terkait secara transaksional (atomik).
+    Hanya pemilik sah yang dapat menghapus (404 jika bukan pemilik atau tidak ditemukan).
+    Mengembalikan data: {"id": "<id-yang-dihapus>"} sesuai kontrak frontend.
+    """
+    try:
+        # 1. Cari riwayat berdasarkan ID dan kepemilikan pengguna
+        log = (
+            db.query(PredictionLog)
+            .filter(
+                PredictionLog.id == history_id,
+                PredictionLog.user_id == current_user.id
+            )
+            .first()
+        )
+        if not log:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riwayat deteksi tidak ditemukan."
+            )
+
+        # 2. Hapus feedback terkait dalam transaksi yang sama
+        db.query(UserFeedback).filter(
+            UserFeedback.detection_id == history_id
+        ).delete(synchronize_session=False)
+
+        # 3. Hapus entri riwayat deteksi
+        deleted_id_str = str(log.id)
+        db.delete(log)
+
+        # 4. Komit tunggal atomik
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "Riwayat berhasil dihapus.",
+            "data": {
+                "id": deleted_id_str
+            }
+        }
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("Gagal menghapus riwayat deteksi: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal menghapus riwayat deteksi. Transaksi dibatalkan."
         )

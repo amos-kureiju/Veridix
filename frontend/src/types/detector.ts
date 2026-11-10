@@ -105,20 +105,28 @@ export interface HistoryItem {
     image_url?: string | null;
     process_status?: string;                                     // "DINILAI", "AMBIGU", dll.
     pattern_label?: string | null;                               // "BERPOLA HOAKS", "TIDAK BERPOLA HOAKS"
-    prediction?: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI" | string;// Alias kompatibilitas UI lama
+    prediction?: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI" | string | null;// Alias kompatibilitas UI lama
     agreement_ratio?: number | null;
     confidence_score?: number | null;                            // Alias kompatibilitas UI lama
     political_topic: string;
     created_at: string;
     inference_time?: number;
+    latency_seconds?: number | null;
+    narrative_text?: string | null;
+    explanation?: ExplanationData | null;
+    detected_entities?: string[] | null;
     has_feedback?: boolean;
     feedback?: {
         id: string;
         is_agreed: boolean;
-        claimed_label?: string;
+        claimed_label?: string | null;
         review_status?: "PENDING" | "REVIEWED" | "DISMISSED" | "RETRAINED" | string;
-        admin_notes?: string;
-    };
+        admin_notes?: string | null;
+        user_notes?: string | null;
+        clarification_url?: string | null;
+        reviewed_at?: string | null;
+        created_at?: string | null;
+    } | null;
 }
 
 export interface FeedbackItem {

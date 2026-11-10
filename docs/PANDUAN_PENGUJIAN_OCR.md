@@ -180,3 +180,5 @@ Keterbatasan dan keputusan menerima atau menolak kandidat:
 ```
 
 Notebook Jupyter membaca keluaran yang sudah diverifikasi untuk tabel dan grafik; notebook tidak menetapkan ulang acuan atau mengubah praproses aplikasi. Rencana perubahan awal disimpan sebagai arsip di [RENCANA_OPTIMASI_OCR.md](RENCANA_OPTIMASI_OCR.md).
+
+Kontrak API, berkas terkait, dan langkah pengujian detail/penghapusan riwayat pengguna dicatat di [PANDUAN_RIWAYAT.md](PANDUAN_RIWAYAT.md).

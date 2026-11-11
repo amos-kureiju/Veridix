@@ -1,6 +1,7 @@
 "use client";
 
-import { Activity, ShieldAlert, MessageSquare, Gauge, ArrowUpRight } from "lucide-react";
+import { ShieldAlert, MessageSquare, Gauge, ArrowUpRight } from "lucide-react";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 
 export interface HeaderStatsProps {
     totalDetections?: number;
@@ -22,7 +23,7 @@ export default function HeaderStats({
             badgeText: null as string | null,
             badgePositive: true,
             footerText: isGuest ? "Masuk untuk melihat" : "Sejak akun dibuat",
-            icon: Activity,
+            icon: AIAnalysisIcon,
             iconColor: "text-emerald-500",
             iconBg: "bg-emerald-50 border-emerald-100",
         },
@@ -72,7 +73,10 @@ export default function HeaderStats({
                                 {item.title}
                             </span>
                             <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${item.iconBg}`}>
-                                <Icon className={`w-4 h-4 ${item.iconColor}`} />
+                                <Icon
+                                    className={`${Icon === AIAnalysisIcon ? "h-6 w-6" : "h-4 w-4"
+                                        } ${item.iconColor}`}
+                                />
                             </div>
                         </div>
 

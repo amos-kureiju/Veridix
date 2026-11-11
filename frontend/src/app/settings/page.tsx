@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import UserShell from "@/components/layout/UserShell";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import {
-    Sparkles,
     Bell,
     FileSpreadsheet,
     CheckCircle2,
@@ -166,7 +166,7 @@ export default function SettingsPage() {
                 <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-2xs space-y-6">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
                         <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 shrink-0">
-                            <Sparkles className="w-4.5 h-4.5" />
+                            <AIAnalysisIcon className="h-6 w-6" />
                         </div>
                         <div>
                             <h3 className="text-sm font-bold text-slate-900">Inferensi AI & Human-in-the-Loop</h3>

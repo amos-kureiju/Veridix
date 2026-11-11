@@ -3,6 +3,7 @@
 import UserSidebar from "./UserSidebar";
 import UserTopbar from "./UserTopbar";
 import { useRouter } from "next/navigation";
+import Footer from "@/components/shared/Footer";
 
 interface UserShellProps {
     guest?: boolean;
@@ -47,8 +48,11 @@ export default function UserShell({
                 />
 
                 {/* AREA KONTEN — pt-[95px] memberi ruang setinggi topbar, konten tetap bergulir di bawah kaca */}
-                <main className="flex-1 overflow-y-auto px-6 lg:px-8 pb-6 pt-[95px] space-y-6">
-                    {children}
+                <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-[95px] lg:px-8">
+                    <div className="flex-1 space-y-6">
+                        {children}
+                    </div>
+                    <Footer guest={guest} />
                 </main>
 
             </div>

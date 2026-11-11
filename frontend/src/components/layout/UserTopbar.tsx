@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import {
     Bell,
     ChevronDown,
@@ -152,14 +153,26 @@ export default function UserTopbar({
             <div className="relative flex items-center gap-3 sm:gap-4">
 
                 {/* Status AI Badge */}
-                <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 text-emerald-700 border border-emerald-500/25 px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md">
-                    {aiStatus === "syncing" ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                    ) : (
-                        <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                    )}
-                    <span>SYNC AI</span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse"></span>
+                <div className="hidden items-center gap-2.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-700 shadow-sm backdrop-blur-md sm:flex">
+                    <span
+                        aria-hidden="true"
+                        className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/60"
+                    >
+                        {aiStatus === "syncing" && (
+                            <span className="absolute -inset-0.5 rounded-full border-2 border-transparent border-r-emerald-300 border-t-emerald-600 motion-safe:animate-spin" />
+                        )}
+
+                        <AIAnalysisIcon className="h-6 w-6" />
+                    </span>
+
+                    <span className="text-xs font-bold tracking-wide">
+                        SYNC AI
+                    </span>
+
+                    <span
+                        aria-hidden="true"
+                        className="h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+                    />
                 </div>
 
                 {/* Notifikasi User */}

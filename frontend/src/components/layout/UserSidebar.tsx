@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useMemo } from "react";
+import type { ComponentType } from "react";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import {
     Search,
-    BrainCircuit,
     History,
     MessageSquareQuote,
     UserCircle,
@@ -26,7 +27,8 @@ interface UserSidebarProps {
 type MenuItem = {
     label: string;
     href: string;
-    icon: typeof BrainCircuit;
+    icon: ComponentType<{ className?: string }>;
+    iconClassName?: string;
     badge?: string;
 };
 
@@ -56,7 +58,7 @@ export default function UserSidebar({
 
     // Menu Utama — fitur inti deteksi hoaks untuk user
     const mainMenuItems: MenuItem[] = [
-        { label: "Deteksi Berita", href: "/", icon: BrainCircuit },
+        { label: "Deteksi Berita", href: "/", icon: AIAnalysisIcon, iconClassName: "h-6 w-6" },
         { label: "Riwayat Saya", href: "/history", icon: History },
         {
             label: "Feedback Saya",
@@ -108,13 +110,17 @@ export default function UserSidebar({
                                     }`}
                             >
                                 <div className={`flex items-center ${collapsed ? "" : "gap-3"}`}>
-                                    <Icon
-                                        strokeWidth={1.75}
-                                        className={`w-[18px] h-[18px] shrink-0 transition-colors ${isActive
+                                    <span
+                                        aria-hidden="true"
+                                        className={`flex h-6 w-6 shrink-0 items-center justify-center transition-colors ${isActive
                                             ? "text-white"
                                             : "text-emerald-100/50 group-hover:text-emerald-100"
                                             }`}
-                                    />
+                                    >
+                                        <Icon
+                                            className={item.iconClassName ?? "h-[18px] w-[18px] stroke-[1.75]"}
+                                        />
+                                    </span>
                                     {!collapsed && <span>{item.label}</span>}
                                 </div>
 

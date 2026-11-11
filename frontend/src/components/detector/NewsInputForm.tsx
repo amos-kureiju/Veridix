@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import {
     FileText,
     Image as ImageIcon,
-    Sparkles,
     AlertCircle,
     UploadCloud,
     RefreshCw,
@@ -14,6 +13,7 @@ import {
     Edit3
 } from "lucide-react";
 import { getApiConnectionMessage } from "@/lib/apiClient";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import type { InputSourceType, OCRResponse } from "@/types/detector";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -352,29 +352,48 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
             </div>
 
             {/* 3. TOMBOL EKSEKUSI PIPELINE */}
-            <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-slate-400">
-                    Klasifikasi: IndoBERT (3 seed) • Penjelasan LIME dapat diminta setelah hasil tampil
-                </span>
+            <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+                    Periksa kembali naskah sebelum memulai analisis.
+                    Penjelasan kata dapat diminta setelah hasil tampil.
+                </p>
 
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={loading || blocked || readingImage || (!loginRequired &&
-                        (currentText.trim().length < 30 || (activeTab === "image" && (!ocrAccepted || Boolean(imageError)))))}
-                    className="flex items-center gap-2 bg-[#0b2520] hover:bg-[#133730] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-xl shadow-xs transition"
+                    disabled={
+                        loading || blocked || readingImage ||
+                        (!loginRequired && (
+                            currentText.trim().length < 30 ||
+                            (activeTab === "image" && (!ocrAccepted || Boolean(imageError)))
+                        ))
+                    }
+                    aria-busy={loading}
+                    className={`inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 whitespace-nowrap rounded-2xl border border-emerald-400/20 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/10 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25 sm:w-auto ${loading
+                            ? "cursor-wait bg-[#0b2520]"
+                            : "bg-[#0b2520] enabled:hover:bg-[#133730] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                        }`}
                 >
-                    {loading ? (
-                        <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Menganalisis dengan IndoBERT...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Sparkles className="w-4 h-4 text-emerald-400" />
-                            <span>{loginRequired ? "Masuk untuk Analisis" : "Analisis Sekarang"}</span>
-                        </>
-                    )}
+                    <span
+                        aria-hidden="true"
+                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10"
+                    >
+                        {loading && (
+                            <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-300/40 border-t-emerald-300 motion-safe:animate-spin" />
+                        )}
+
+                        <AIAnalysisIcon
+                            className={`h-6 w-6 ${loading ? "text-emerald-200" : "text-current"}`}
+                        />
+                    </span>
+
+                    <span>
+                        {loading
+                            ? "Memproses naskah..."
+                            : loginRequired
+                                ? "Masuk untuk Analisis"
+                                : "Analisis Sekarang"}
+                    </span>
                 </button>
             </div>
         </div>

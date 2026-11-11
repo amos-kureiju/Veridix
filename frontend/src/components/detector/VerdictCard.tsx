@@ -9,12 +9,12 @@ import {
     Download,
     HelpCircle,
     Clock,
-    Sparkles,
     ShieldAlert
 } from "lucide-react";
 import { DetectionResult } from "@/types/detector";
 import LimeHighlighter from "./LimeHighlighter";
 import DisclaimerBanner from "./DisclaimerBanner";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import FeedbackModal from "./FeedbackModal";
 
 interface VerdictCardProps {
@@ -56,13 +56,34 @@ export default function VerdictCard({
     // 1. Kondisi Sedang Memproses
     if (loading) {
         return (
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-10 shadow-2xs flex flex-col items-center justify-center text-center min-h-[460px]">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center animate-bounce mb-3 border border-emerald-100">
-                    <Sparkles className="w-6 h-6" />
+            <div
+                role="status"
+                aria-live="polite"
+                className="relative flex min-h-[460px] flex-col items-center justify-center overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-b from-white to-emerald-50/60 p-8 text-center shadow-sm"
+            >
+                <div
+                    aria-hidden="true"
+                    className="relative mb-6 flex h-24 w-24 items-center justify-center"
+                >
+                    <span className="absolute inset-0 rounded-full border border-emerald-100" />
+
+                    <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-200 border-t-emerald-500 motion-safe:animate-spin" />
+
+                    <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-600 shadow-lg shadow-emerald-100/60">
+                        <AIAnalysisIcon className="h-10 w-10" />
+                    </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-800">Memproses Inferensi IndoBERT</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-                    Mengevaluasi representasi kontekstual teks melalui konsensus 3 seed model...
+
+                <span className="mb-3 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">
+                    Analisis AI
+                </span>
+
+                <h3 className="text-lg font-semibold tracking-tight text-slate-800">
+                    Naskah Anda sedang diproses
+                </h3>
+
+                <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
+                    Hasil analisis akan tampil setelah pemrosesan selesai.
                 </p>
             </div>
         );
@@ -299,11 +320,27 @@ export default function VerdictCard({
                 </div>
             ) : (
                 <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center space-y-2">
-                    {limeLoading ? (
-                        <p className="text-[11px] text-slate-500">
-                            Menghitung penjelasan LIME. Proses ini dapat memakan waktu satu menit atau lebih...
-                        </p>
-                    ) : (
+                        {limeLoading ? (
+                            <div
+                                role="status"
+                                aria-live="polite"
+                                className="flex items-start gap-3 rounded-xl bg-emerald-50/70 p-3 text-left"
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600"
+                                >
+                                    <span className="absolute inset-0 rounded-full border-2 border-emerald-100 border-t-emerald-500 motion-safe:animate-spin" />
+                                    <AIAnalysisIcon className="h-6 w-6" />
+                                </span>
+                                <div>
+                                    <p className="text-xs font-semibold text-emerald-900">AI sedang menyusun penjelasan</p>
+                                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                                        Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
                         <>
                             <p className="text-[11px] text-slate-400">
                                 {limeError

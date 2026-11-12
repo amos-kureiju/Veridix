@@ -189,7 +189,7 @@ export default function LimeHighlighter({
 
                             {isHoax && computedTopHoax.length > 0 ? (
                                 <div className="space-y-1">
-                                    {computedTopHoax.slice(0, 3).map((w, i) => (
+                                    {computedTopHoax.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-rose-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-rose-400 font-mono font-extrabold text-[10px]">+{w.score.toFixed(4)}</span>
@@ -198,13 +198,13 @@ export default function LimeHighlighter({
                                 </div>
                             ) : isAmbiguous ? (
                                 <div className="space-y-1">
-                                    {computedTopHoax.slice(0, 1).map((w, i) => (
+                                        {computedTopHoax.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-rose-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-rose-400 font-mono font-extrabold text-[10px]">+{w.score.toFixed(4)}</span>
                                         </div>
                                     ))}
-                                    {computedTopFact.slice(0, 1).map((w, i) => (
+                                        {computedTopFact.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
@@ -213,7 +213,7 @@ export default function LimeHighlighter({
                                 </div>
                             ) : computedTopFact.length > 0 ? (
                                 <div className="space-y-1">
-                                    {computedTopFact.slice(0, 3).map((w, i) => (
+                                            {computedTopFact.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
@@ -251,7 +251,7 @@ export default function LimeHighlighter({
                                 Top Kata Menaikkan Skor Hoaks (+):
                             </span>
                             {computedTopHoax.length > 0 ? (
-                                computedTopHoax.slice(0, 3).map((w, i) => {
+                                computedTopHoax.map((w, i) => {
                                     const pct = Math.min(100, Math.max(0, (w.score / globalMaxAbsScore) * 100));
                                     return (
                                         <div key={i} className="space-y-1">
@@ -279,7 +279,7 @@ export default function LimeHighlighter({
                                 Top Kata Menurunkan Skor Hoaks (-):
                             </span>
                             {computedTopFact.length > 0 ? (
-                                computedTopFact.slice(0, 3).map((w, i) => {
+                                computedTopFact.map((w, i) => {
                                     const pct = Math.min(100, Math.max(0, (w.score / globalMaxAbsScore) * 100));
                                     return (
                                         <div key={i} className="space-y-1">

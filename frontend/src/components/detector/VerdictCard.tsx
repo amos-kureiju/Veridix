@@ -10,7 +10,8 @@ import {
     Download,
     HelpCircle,
     Clock,
-    ShieldAlert
+    ShieldAlert,
+    Scissors
 } from "lucide-react";
 import { DetectionResult } from "@/types/detector";
 import LimeHighlighter from "./LimeHighlighter";
@@ -40,14 +41,23 @@ export default function VerdictCard({
     const [feedbackForId, setFeedbackForId] = useState<string | null>(null);
     const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
     const [showLime, setShowLime] = useState(true);
+    const [showAnalyzedText, setShowAnalyzedText] = useState(false);
     const [viewSettings, setViewSettings] = useState({ ...DEFAULT_SETTINGS });
+
+    // Pengaman window untuk menghindari kegagalan pada lingkungan test runner
     useEffect(() => {
+        if (typeof window === "undefined") return;
         const sync = () => setViewSettings(readUserSettings());
         const onStorage = (e: StorageEvent) => { if (e.key === SETTINGS_KEY || e.key === null) sync(); };
         sync();
-        window.addEventListener("storage", onStorage); window.addEventListener("veridix:settings-changed", sync);
-        return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("veridix:settings-changed", sync); };
+        window.addEventListener("storage", onStorage);
+        window.addEventListener("veridix:settings-changed", sync);
+        return () => {
+            window.removeEventListener("storage", onStorage);
+            window.removeEventListener("veridix:settings-changed", sync);
+        };
     }, []);
+
     const feedbackId = result?.data?.id;
     const feedbackStatus = (result?.data?.process_status || (result?.data?.prediction ? "dinilai" : "ditolak")).toLowerCase();
     const feedbackTarget = !loading && canAct && typeof feedbackId === "string" && feedbackId.trim() &&
@@ -75,9 +85,7 @@ export default function VerdictCard({
                     className="relative mb-6 flex h-24 w-24 items-center justify-center"
                 >
                     <span className="absolute inset-0 rounded-full border border-emerald-100" />
-
                     <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-200 border-t-emerald-500 motion-safe:animate-spin" />
-
                     <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-600 shadow-lg shadow-emerald-100/60">
                         <AIAnalysisIcon className="h-10 w-10" />
                     </span>
@@ -113,17 +121,15 @@ export default function VerdictCard({
         );
     }
 
-    // ── 3. EKSTRAKSI KONTRAK DATA RESMI BACKEND (Prioritas 1) ─────────────────
+    // ── 3. EKSTRAKSI KONTRAK DATA RESMI BACKEND ──────────────────────────────
     const d = result.data as any;
 
-    // Baca status inferensi resmi (process_status dari API atau fallback status)
     const processStatus: string = (
         d.process_status ||
         d.status ||
         (d.prediction ? "dinilai" : "ditolak")
     ).toLowerCase();
 
-    // Baca label pola resmi
     const rawLabel: string = (
         d.pattern_label ||
         d.label ||
@@ -131,17 +137,20 @@ export default function VerdictCard({
         ""
     ).trim().toUpperCase();
 
-    // ── 4. PEMETAAN LABEL EKSPLISIT / EXACT MATCH (Prioritas 2 - Anti Terbalik) ─
+    // ── 4. PEMETAAN LABEL EKSPLISIT ──────────────────────────────────────────
     const isHoax = rawLabel === "BERPOLA HOAKS" || rawLabel === "HOAKS" || rawLabel === "HOAX";
     const isNonHoax = rawLabel === "TIDAK BERPOLA HOAKS" || rawLabel === "FAKTA" || rawLabel === "FACT";
     const isAmbiguous = processStatus === "ambigu" || rawLabel.includes("PERLU VERIFIKASI") || rawLabel === "PERLU KONFIRMASI";
     const isOutOfDomain = processStatus === "di_luar_domain" || rawLabel.includes("DI LUAR CAKUPAN");
     const isRejected = processStatus === "ditolak" || rawLabel === "TIDAK DAPAT DINILAI";
 
+    // PERBAIKAN AUDIT: Ekstraksi status pemotongan & teks yang dianalisis
+    const isTruncated = Boolean(d.terpotong);
+    const analyzedText: string = typeof d.teks_dinilai === "string" ? d.teks_dinilai : "";
+
     const topic = d.sub_topik || d.political_topic || "";
     const votesHoax = d.votes_hoax || "";
 
-    // Latensi riil (tanpa angka fiktif 0.38s)
     const latencyStr = d.latency_seconds !== undefined
         ? `${d.latency_seconds}s`
         : (d.inference_time_seconds !== undefined ? `${d.inference_time_seconds}s` : "-");
@@ -173,7 +182,6 @@ export default function VerdictCard({
                 badgeText: votesHoax ? `Suara hoaks: ${votesHoax}` : "Terindikasi"
             };
         } else {
-            // Label tak dikenal -> Tampilkan netral (bukan otomatis Fakta)
             theme = {
                 bg: "bg-slate-100 border-slate-300 text-slate-800",
                 badge: "bg-slate-500 text-white",
@@ -210,8 +218,6 @@ export default function VerdictCard({
 
     const IconVerdict = theme.icon;
 
-    // Tombol penjelasan hanya untuk hasil yang punya ID dan berstatus dinilai/ambigu
-    // (kepemilikan dan status tetap divalidasi backend: 404/409)
     const canExplain = Boolean(d.id) && (processStatus === "dinilai" || processStatus === "ambigu");
     const canFeedback = Boolean(feedbackTarget) && (isHoax || isNonHoax || isAmbiguous);
 
@@ -233,17 +239,14 @@ export default function VerdictCard({
         }
     }
 
-    // ── Penanganan Aman: Saring elemen null/rusak sebelum membaca atribut ──
     const rawTokensList = Array.isArray(d.explanation?.tokens) ? d.explanation.tokens : [];
     const limeAvailable = d.explanation?.explanation_available === true &&
         rawTokensList.some((t: any) => t && typeof t === "object" && typeof t.word === "string");
 
-    // Token diteruskan apa adanya; sanitasi hanya dilakukan di LimeHighlighter
     const limeTokens = limeAvailable
         ? rawTokensList.filter((t: any) => t && typeof t === "object" && typeof t.word === "string")
         : [];
 
-    // Kirimkan label 'HOAKS' murni ke LimeHighlighter agar tidak salah deteksi menjadi Fakta
     const limePredictionLabel = isHoax
         ? "HOAKS"
         : isAmbiguous
@@ -281,6 +284,45 @@ export default function VerdictCard({
                 </div>
             </div>
 
+            {/* PERBAIKAN AUDIT: PERINGATAN PEMOTONGAN TEKS (Mencakup Batas Kata & Token) */}
+            {isTruncated && (
+                <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-start gap-2.5">
+                        <Scissors className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold text-amber-900">
+                                    Naskah Berita Terpotong untuk Analisis
+                                </h4>
+                                {analyzedText && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAnalyzedText(!showAnalyzedText)}
+                                        className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
+                                    >
+                                        {showAnalyzedText ? "Tutup Naskah" : "Lihat Naskah Dinilai"}
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-[11px] text-amber-800/90 leading-relaxed mt-1">
+                                Panjang teks masukan melebihi ambang batas pemrosesan (maksimal ~60 kata pada praproses atau 128 token tokenizer IndoBERT). Model hanya menilai segmen awal naskah.
+                            </p>
+                        </div>
+                    </div>
+
+                    {showAnalyzedText && analyzedText && (
+                        <div className="mt-2 pt-2 border-t border-amber-200/60">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block mb-1">
+                                Teks yang Sebenarnya Dievaluasi:
+                            </span>
+                            <div className="bg-white/80 border border-amber-200/60 rounded-xl p-3 text-[11px] text-slate-700 font-mono leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                {analyzedText}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* LAPIS 2: KETERANGAN EVALUASI SISTEM */}
             <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
@@ -312,7 +354,7 @@ export default function VerdictCard({
                             tokens={limeTokens}
                             topHoax={d.explanation?.top_hoax_words}
                             topFact={d.explanation?.top_fact_words}
-                            showChart={viewSettings.show_lime_chart} 
+                            showChart={viewSettings.show_lime_chart}
                             topWordsCount={viewSettings.lime_top_words ?? 3}
                             prediction={limePredictionLabel}
                             numSamples={
@@ -320,7 +362,6 @@ export default function VerdictCard({
                                     ? d.explanation.num_samples
                                     : undefined
                             }
-                            // JANGAN kirim angka fiktif jika backend tidak menyediakan skor
                             confidenceScore={
                                 typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
                                     ? d.confidence_score
@@ -331,27 +372,27 @@ export default function VerdictCard({
                 </div>
             ) : (
                 <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center space-y-2">
-                        {limeLoading ? (
-                            <div
-                                role="status"
-                                aria-live="polite"
-                                className="flex items-start gap-3 rounded-xl bg-emerald-50/70 p-3 text-left"
+                    {limeLoading ? (
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="flex items-start gap-3 rounded-xl bg-emerald-50/70 p-3 text-left"
+                        >
+                            <span
+                                aria-hidden="true"
+                                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600"
                             >
-                                <span
-                                    aria-hidden="true"
-                                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600"
-                                >
-                                    <span className="absolute inset-0 rounded-full border-2 border-emerald-100 border-t-emerald-500 motion-safe:animate-spin" />
-                                    <AIAnalysisIcon className="h-6 w-6" />
-                                </span>
-                                <div>
-                                    <p className="text-xs font-semibold text-emerald-900">AI sedang menyusun penjelasan</p>
-                                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                                        Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
-                                    </p>
-                                </div>
+                                <span className="absolute inset-0 rounded-full border-2 border-emerald-100 border-t-emerald-500 motion-safe:animate-spin" />
+                                <AIAnalysisIcon className="h-6 w-6" />
+                            </span>
+                            <div>
+                                <p className="text-xs font-semibold text-emerald-900">AI sedang menyusun penjelasan</p>
+                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                                    Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
+                                </p>
                             </div>
-                        ) : (
+                        </div>
+                    ) : (
                         <>
                             <p className="text-[11px] text-slate-400">
                                 {limeError

@@ -47,7 +47,7 @@ const SAMPLE_REG: Record<Period, RegPoint[]> = {
 };
 
 export default function AdminDashboardPage() {
-    const { stats, recentLogs, threshold, loading, error, reload } = useAdminDashboard();
+    const { stats, recentLogs, threshold, loading, logsError, error, updateThreshold, reload } = useAdminDashboard();
 
     const safeStats = {
         total_detections_today: (stats as any)?.total_detections ?? stats?.total_detections_today ?? 0,
@@ -184,7 +184,9 @@ export default function AdminDashboardPage() {
                 <div className={`${CARD} p-6 flex flex-col justify-between`}>
                     <div>
                         <div className="flex items-center justify-between pb-3">
-                            <span className={LABEL}>HOAKS TERDETEKSI</span>
+                            <div className="flex items-center gap-2">
+                                <span className={LABEL}>HOAKS TERDETEKSI</span>
+                            </div>
                             <div className={CHIP}><ShieldAlert className="w-4 h-4" /></div>
                         </div>
                         <div className="flex items-baseline gap-2 mt-1">
@@ -193,16 +195,24 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
 
+                    {/* PERBAIKAN AUDIT: Menampilkan state transparan jika data tren log belum ada / terjadi galat */}
                     <div className="mt-5 pt-4 border-t border-slate-100 flex items-end gap-1.5 h-10 box-content">
-                        {(miniBars.length ? miniBars.map((l) => ({ h: Math.max(l.confidence_score * 100, 15), hoax: l.prediction === "HOAKS" }))
-                            : [40, 65, 30, 85, 95, 45, 75, 60].map((h, i) => ({ h, hoax: i === 4 }))
-                        ).map((b, i) => (
-                            <div
-                                key={i}
-                                style={{ height: `${b.h}%` }}
-                                className={`flex-1 rounded-sm transition-all duration-700 ${b.hoax ? "bg-emerald-700" : "bg-emerald-200"}`}
-                            />
-                        ))}
+                        {miniBars.length > 0 ? (
+                            miniBars.map((l) => ({
+                                h: Math.max(l.confidence_score * 100, 15),
+                                hoax: l.prediction === "HOAKS"
+                            })).map((b, i) => (
+                                <div
+                                    key={i}
+                                    style={{ height: `${b.h}%` }}
+                                    className={`flex-1 rounded-sm transition-all duration-700 ${b.hoax ? "bg-emerald-700" : "bg-emerald-200"}`}
+                                />
+                            ))
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 border border-dashed border-slate-200 rounded-md">
+                                {logsError ? "Gagal memuat tren bar" : "Data tren log belum tersedia"}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -424,14 +434,31 @@ export default function AdminDashboardPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {logs.length === 0 && (
+                            {/* PERBAIKAN AUDIT: Penanganan transparan status log (Error vs Kosong vs Data) */}
+                            {logsError ? (
                                 <tr>
-                                    <td colSpan={6} className="py-10 text-center text-slate-400">
-                                        {loading ? "Memuat log..." : "Belum ada log inferensi."}
+                                    <td colSpan={6} className="py-8 px-6 text-center bg-rose-50/60 border-y border-rose-100">
+                                        <div className="flex flex-col items-center justify-center gap-1.5 text-rose-800">
+                                            <span className="font-semibold text-xs">⚠️ {logsError}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => reload()}
+                                                className="text-[11px] font-bold underline text-rose-900 hover:text-rose-950 cursor-pointer"
+                                            >
+                                                Coba Muat Ulang Log
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
-                            )}
-                            {logs.map((log) => {
+                            ) : logs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-10 text-center text-slate-400">
+                                        {loading ? "Memuat log..." : "Belum ada log inferensi yang tercatat."}
+                                    </td>
+                                </tr>
+                            ) : null}
+
+                            {!logsError && logs.map((log) => {
                                 const isHoax = log.prediction === "HOAKS";
                                 return (
                                     <tr key={log.id} className="hover:bg-emerald-50/50 transition">

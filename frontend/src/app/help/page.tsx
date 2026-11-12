@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import UserShell from "@/components/layout/UserShell";
-import { 
-  HelpCircle, 
-  Layers, 
-  UploadCloud, 
-  MessageSquareQuote, 
+import {
+  HelpCircle,
+  Layers,
+  UploadCloud,
+  MessageSquareQuote,
   ExternalLink,
   ChevronDown,
   ShieldAlert,
@@ -31,8 +31,9 @@ export default function HelpPage() {
       a: "Model IndoBERT pada VERIDIX secara khusus dilatih dengan dataset korpus disinformasi politik Indonesia (Pemilu, DPR, Pilpres, KPU, dan Kebijakan). Sistem memiliki filter Guardrail yang akan menolak input di luar domain politik untuk mencegah prediksi halusinasi (out-of-distribution)."
     },
     {
+      // --- PERBAIKAN AUDIT: Penjelasan sesuai voting 3 seed ---
       q: "Apa arti status 'PERLU KONFIRMASI'?",
-      a: "Status ini muncul jika probabilitas Softmax berada pada rentang ambiguitas (0.30 < P < 0.70). Artinya teks mengandung campuran kalimat fakta dan retorika bias, sehingga disarankan untuk verifikasi silang secara manual."
+      a: "Status ini muncul jika sistem tidak mencapai konsensus bulat pada mekanisme voting 3-seed model ensemble IndoBERT (terjadi split voting / perbedaan keputusan antar-seed). Artinya naskah memiliki pola retorika yang terbelah antara fakta dan disinformasi, sehingga verifikasi silang secara manual sangat direkomendasikan."
     },
     {
       q: "Bagaimana cara kerja ekstraksi teks gambar (OCR)?",
@@ -45,8 +46,8 @@ export default function HelpPage() {
   ];
 
   return (
-    <UserShell 
-      guest={isGuest} 
+    <UserShell
+      guest={isGuest}
       userName={user?.name?.trim() || (isGuest ? "Tamu" : "Pengguna")}
       userRole={user?.role || "USER"}
       onLogout={logout}
@@ -64,24 +65,24 @@ export default function HelpPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          {/* Lapis 1 */}
+          {/* Lapis 1: Diperbarui ke konsensus voting multi-seed */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2">
             <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-md bg-[#0b2520] text-white flex items-center justify-center text-[10px]">L1</span>
-              Vonis & Skor Probabilitas
+              Vonis & Konsensus Multi-Seed
             </span>
             <p className="text-slate-600 leading-relaxed">
-              Klasifikasi utama dari model IndoBERT yang menghasilkan tiga kemungkinan vonis:
+              Keputusan agregat dari ensemble 3-seed IndoBERT untuk meminimalkan bias acak:
             </p>
             <div className="space-y-1 pt-1">
               <span className="flex items-center gap-1.5 text-rose-600 font-semibold text-[11px]">
-                <ShieldAlert className="w-3.5 h-3.5" /> HOAKS (Probabilitas ≥ 70%)
+                <ShieldAlert className="w-3.5 h-3.5" /> HOAKS (Konsensus mayoritas seed memutuskan Hoaks)
               </span>
               <span className="flex items-center gap-1.5 text-amber-600 font-semibold text-[11px]">
-                <AlertTriangle className="w-3.5 h-3.5" /> PERLU KONFIRMASI (30% - 70%)
+                <AlertTriangle className="w-3.5 h-3.5" /> PERLU KONFIRMASI (Suara terbelah / tidak mencapai konsensus bulat)
               </span>
               <span className="flex items-center gap-1.5 text-emerald-600 font-semibold text-[11px]">
-                <CheckCircle className="w-3.5 h-3.5" /> FAKTA (Probabilitas ≤ 30%)
+                <CheckCircle className="w-3.5 h-3.5" /> FAKTA (Konsensus mayoritas seed memutuskan Fakta)
               </span>
             </div>
           </div>
@@ -97,22 +98,22 @@ export default function HelpPage() {
             </p>
           </div>
 
-          {/* Lapis 3 */}
+          {/* Lapis 3: Diperbarui penjelasan fungsi warna LIME */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2">
             <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-md bg-[#0b2520] text-white flex items-center justify-center text-[10px]">L3</span>
               Transparansi XAI (LIME Explainer)
             </span>
             <p className="text-slate-600 leading-relaxed">
-              Menghapus sifat "Black Box" model AI. Setiap kata diberi warna:
+              Menghapus sifat "Black Box" model AI dengan kontribusi bobot lokal setiap kata:
             </p>
             <div className="flex gap-2 pt-1">
               <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-medium text-[11px]">Kata Merah</span>
-              <span className="text-slate-500 text-[11px] self-center">mendorong vonis Hoaks</span>
+              <span className="text-slate-500 text-[11px] self-center">menaikkan skor probabilitas hoaks (bobot positif)</span>
             </div>
             <div className="flex gap-2">
               <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-medium text-[11px]">Kata Hijau</span>
-              <span className="text-slate-500 text-[11px] self-center">mendorong vonis Fakta</span>
+              <span className="text-slate-500 text-[11px] self-center">menurunkan skor probabilitas hoaks (bobot negatif)</span>
             </div>
           </div>
 

@@ -68,11 +68,25 @@ def sync_initial_threshold():
         setting = db.query(AdminSetting).filter(AdminSetting.setting_key == "classification_threshold").first()
         if setting:
             val = float(setting.setting_value)
+            applied = False
+
             if hasattr(predictor, "set_threshold"):
                 predictor.set_threshold(val)
+                applied = True
             elif hasattr(predictor, "threshold"):
                 predictor.threshold = val
-            logger.info(f"Threshold AI berhasil dimuat dari DB: {val}")
+                applied = True
+
+            # PERBAIKAN AUDIT: Log mencatat fakta yang sebenarnya terjadi
+            if applied:
+                logger.info(f"Threshold AI ({val}) berhasil dimuat dan diterapkan ke predictor.")
+            else:
+                logger.info(
+                    f"Threshold AI ({val}) terbaca dari DB, namun predictor aktif tidak mendukung "
+                    "threshold dinamis (berjalan pada aturan konsensus voting beku)."
+                )
+        else:
+            logger.info("Pengaturan classification_threshold tidak ditemukan di DB, menggunakan nilai bawaan.")
     except Exception as e:
         logger.warning(f"Gagal memuat threshold awal: {e}")
     finally:

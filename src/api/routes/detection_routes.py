@@ -91,6 +91,22 @@ def detect_text(
     process_status = str(
         result.get("status") or result.get("process_status") or "dinilai"
     ).lower()
+    reason = result.get("reason")
+
+    # --- PERBAIKAN AUDIT: Deteksi & Bedakan Kegagalan Mesin AI ---
+    reason_lower = str(reason or "").lower()
+    is_engine_failure = (
+        process_status in ("gagal", "error")
+        or any(k in reason_lower for k in ("numerik", "nan", "inf", "probabilitas", "mesin", "kalkulasi"))
+    )
+
+    if is_engine_failure:
+        logger.error("Inferensi ditolak akibat anomali mesin AI: %s", reason)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Terjadi kesalahan kalkulasi pada mesin AI: {reason or 'keluaran numerik tidak valid'}."
+        )
+
     model_ran = process_status in ("dinilai", "ambigu")
 
     if process_status in ("ditolak", "di_luar_domain"):
@@ -109,7 +125,6 @@ def detect_text(
     votes_hoax = result.get("votes_hoax") if model_ran else None
     seed_decisions = result.get("seed_decisions") if model_ran else None
     sub_topik = result.get("sub_topik")
-    reason = result.get("reason")
     terpotong = bool(result.get("terpotong", False))
 
     # 5. Simpan ke Database
@@ -132,10 +147,24 @@ def detect_text(
     db.commit()
     db.refresh(log_entry)
 
+    # --- PERBAIKAN AUDIT: Penentuan Status & Pesan Respons yang Transparan ---
+    if process_status in ("ditolak", "di_luar_domain"):
+        # Kasus Penolakan Masukan (Input Rejection)
+        resp_status = "rejected"
+        resp_message = reason or "Naskah ditolak dan tidak dapat dinilai oleh sistem."
+    elif process_status == "ambigu":
+        # Kasus Konsensus Ambigu
+        resp_status = "success"
+        resp_message = "Verifikasi selesai: hasil konsensus model menunjukkan ambiguitas."
+    else:
+        # Kasus Sukses Dinilai
+        resp_status = "success"
+        resp_message = "Verifikasi berhasil diselesaikan."
+
     # 6. Response
     return DetectionResponse(
-        status="success",
-        message="Verifikasi berhasil diselesaikan.",
+        status=resp_status,
+        message=resp_message,
         data=DetectionResultData(
             id=log_entry.id,
             input_text=log_entry.input_text,

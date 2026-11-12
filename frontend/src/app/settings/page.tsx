@@ -50,9 +50,13 @@ export default function SettingsPage() {
         if (!loaded) return;
         try {
             const validated = normalizeUserSettings(settings);
-            window.dispatchEvent(new Event("veridix:settings-changed"));
+
+            // 1. Simpan data baru ke localStorage terlebih dahulu
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(validated));
             setSettings(validated);
+
+            // 2. Baru kirim event perubahan agar listener membaca preferensi yang SUDAH tersimpan
+            window.dispatchEvent(new Event("veridix:settings-changed"));
             setSavedMsg(true);
             setErrorMsg("");
         } catch {
@@ -60,7 +64,6 @@ export default function SettingsPage() {
             setErrorMsg("Preferensi gagal disimpan di browser.");
         }
     };
-
     const handleReset = () => {
         setSettings({ ...DEFAULT_SETTINGS });
         setSavedMsg(false);

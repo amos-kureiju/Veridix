@@ -179,10 +179,10 @@ class Penilai:
                                f"Teks kosong atau terlalu sedikit kata setelah pembersihan URL ({n_kata_praproses} kata < 10).",
                                t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
-        # 2. PENGAMAN BATCH & NUMERIK LENGKAP (Anti-IndexError, Anti-NaN, Anti-Inf, Rentang [0, 1])
+        # 2. PENGAMAN BATCH & NUMERIK (Tandai status "gagal" untuk anomali mesin AI, bukan penolakan naskah)
         raw_res = self.backend.seed_probs_each([x])
         if raw_res is None or len(raw_res) == 0:
-            return self._tolak("ditolak", "TIDAK DAPAT DINILAI", "Galat backend: keluaran inferensi kosong.",
+            return self._tolak("gagal", "TIDAK DAPAT DINILAI", "Galat backend: keluaran inferensi kosong.",
                                t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
         probs = np.asarray(raw_res[0], dtype=float)
@@ -190,18 +190,33 @@ class Penilai:
 
         # Cek: jumlah seed > 0, dimensi cocok, bebas NaN/Inf (np.isfinite), dan probabilitas wajib [0.0, 1.0]
         if n_seeds == 0 or len(probs) != n_seeds or not np.all(np.isfinite(probs)) or np.any(probs < 0.0) or np.any(probs > 1.0):
-            return self._tolak("ditolak", "TIDAK DAPAT DINILAI",
+            return self._tolak("gagal", "TIDAK DAPAT DINILAI",
                                "Galat komputasi model (probabilitas memuat NaN/Inf, di luar [0,1], atau jumlah seed tidak sesuai).",
                                t0, sub_topik=topik, istilah=terms, input_flags=v["flags"])
 
-
-        # 2. KEPUTUSAN BINER PER SEED: Murni 0 atau 1 sebelum pembulatan desimal
+        # 3. KEPUTUSAN BINER PER SEED: Murni 0 atau 1 sebelum pembulatan desimal
         seed_decisions = {s: int(probs[j] >= 0.5) for j, s in enumerate(self.backend.seeds)}
         votes = sum(seed_decisions.values())
         status, label = putuskan(votes, n_seeds, self.rule)
 
-        # 3. KONSENSUS ENSEMBLE: Kesepakatan mayoritas seed dengan presisi penuh
+        # 4. KONSENSUS ENSEMBLE: Kesepakatan mayoritas seed dengan presisi penuh
         agreement_ratio = max(votes, n_seeds - votes) / n_seeds
+
+        # 5. PERBAIKAN AUDIT: Deteksi Pemotongan Teks (Mencakup Batas Kata Praproses & Batas Token Tokenizer)
+        terpotong_kata = len(v["text"].split()) > MAX_WORDS
+        terpotong_token = False
+
+        tokenizer = getattr(self.backend, "tokenizer", None)
+        if tokenizer is not None and x:
+            try:
+                # Periksa apakah tokenisasi teks hasil praproses melebihi MAX_LEN (128 token)
+                n_tokens = len(tokenizer.encode(x, add_special_tokens=True, truncation=False))
+                if n_tokens > MAX_LEN:
+                    terpotong_token = True
+            except Exception:
+                pass
+
+        terpotong = bool(terpotong_kata or terpotong_token)
 
         res = {
             "success": True,
@@ -214,7 +229,7 @@ class Penilai:
             "sub_topik": topik,
             "istilah": terms,
             "teks_dinilai": x,
-            "terpotong": len(v["text"].split()) > MAX_WORDS,
+            "terpotong": terpotong,  # <-- Kini mencakup kata (> 60) dan sub-token (> 128)
             "input_flags": v["flags"],
             "disclaimer": DISCLAIMER,
         }
@@ -223,11 +238,16 @@ class Penilai:
         if debug:
             res["debug"] = {
                 "prob_hoax_per_seed": {s: round(float(probs[j]), 6) for j, s in enumerate(self.backend.seeds)},
-                "mean_prob_hoax": round(float(probs.mean()), 6)
+                "mean_prob_hoax": round(float(probs.mean()), 6),
+                "pemotongan": {
+                    "terpotong_kata": terpotong_kata,
+                    "terpotong_token": terpotong_token,
+                    "max_words": MAX_WORDS,
+                    "max_len_tokens": MAX_LEN
+                }
             }
         res["latency_seconds"] = round(time.time() - t0, 3)
         return res
-
 
 class BackendIndoBERT:
     """Satu model dasar; keadaan terlatih tiap seed ditukar saat inferensi. Gagal keras bila integritas tidak cocok."""

@@ -9,7 +9,6 @@ import {
     RefreshCw,
     CheckCircle2,
     X,
-    SlidersHorizontal,
     Edit3
 } from "lucide-react";
 import { getApiConnectionMessage } from "@/lib/apiClient";
@@ -33,7 +32,6 @@ interface NewsInputFormProps {
 export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, loginRequired, onRequireLogin, onAnalyze, onExtractImage }: NewsInputFormProps) {
     const [activeTab, setActiveTab] = useState<"text" | "image">("text");
     const [inputText, setInputText] = useState("");
-    const [selectedIssue, setSelectedIssue] = useState("ALL");
 
     // State untuk OCR
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -240,27 +238,8 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                                 className="w-full bg-[#f8fafc] border border-slate-200 rounded-2xl p-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition resize-none leading-relaxed"
                             />
 
-                            {/* FITUR KOMUNIKASI USER: Pilihan Fokus Isu yang Ingin Diuji */}
-                            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                                <div className="flex items-center gap-2 text-slate-600">
-                                    <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="font-semibold">Fokus Verifikasi Isu:</span>
-                                </div>
-                                <select
-                                    value={selectedIssue}
-                                    onChange={(e) => setSelectedIssue(e.target.value)}
-                                    className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:border-emerald-500 shadow-2xs"
-                                >
-                                    <option value="ALL">Deteksi Menyeluruh (Umum)</option>
-                                    <option value="KPU">Integritas Penyelenggara (KPU/Bawaslu)</option>
-                                    <option value="BANSOS">Politisasi Bansos & Kebijakan Publik</option>
-                                    <option value="MANIPULASI">Klaim Manipulasi Suara / Sirekap</option>
-                                    <option value="DELEGITIMASI">Delegitimasi Institusi / Mahkamah Konstitusi</option>
-                                </select>
-                            </div>
-
                             <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                                <span>{inputText.length} karakter (Min. 30 karakter)</span>
+                                <span>{inputText.trim().length} karakter (Min. 30 karakter)</span>
                                 <span>Arsitektur: IndoBERT Base P1 • 124.5M Parameter</span>
                             </div>
                         </div>

@@ -8,30 +8,41 @@ interface LimeHighlighterProps {
     tokens?: LimeToken[];
     topHoax?: Array<{ word: string; score: number }>;
     topFact?: Array<{ word: string; score: number }>;
-    showChart?: boolean; topWordsCount?: 3 | 5 | 7;
+    showChart?: boolean;
+    topWordsCount?: 3 | 5 | 7;
     prediction?: string;
     confidenceScore?: number;
     numSamples?: number;
 }
 
-// Fungsi sanitasi angka ketat: tolak boolean, array, null, objek, dan string non-numerik
-const parseWeightStrict = (raw: any): number => {
+// PERBAIKAN AUDIT: Mengembalikan null jika rusak/hilang (TIDAK dipaksa menjadi 0)
+const parseWeightStrict = (raw: any): number | null => {
+    if (raw === null || raw === undefined || typeof raw === "boolean") {
+        return null;
+    }
     if (typeof raw === "number") {
-        return Number.isFinite(raw) ? raw : 0;
+        return Number.isFinite(raw) ? raw : null;
     }
     if (typeof raw === "string" && raw.trim() !== "") {
         const num = Number(raw.trim());
-        return Number.isFinite(num) ? num : 0;
+        return Number.isFinite(num) ? num : null;
     }
-    return 0; // Menolak boolean (true/false), array, null, objek
+    return null;
 };
 
 export default function LimeHighlighter({
-    tokens = [], topHoax = [], topFact = [], prediction = "TIDAK BERPOLA HOAKS",
-    confidenceScore, numSamples, showChart = true, topWordsCount = 3
+    tokens = [],
+    topHoax = [],
+    topFact = [],
+    prediction = "TIDAK BERPOLA HOAKS",
+    confidenceScore,
+    numSamples,
+    showChart = true,
+    topWordsCount = 3
 }: LimeHighlighterProps) {
     const wordLimit = topWordsCount === 5 || topWordsCount === 7 ? topWordsCount : 3;
-    // ── 1. SANITASI TOKEN (Hooks selalu dipanggil di level teratas) ──
+
+    // ── 1. SANITASI TOKEN DENGAN PEMBEDAAN BOBOT NULL VS NOL ──
     const validTokens = useMemo(() => {
         if (!Array.isArray(tokens)) return [];
         return tokens
@@ -40,53 +51,71 @@ export default function LimeHighlighter({
                 const safeWeight = parseWeightStrict(t.weight !== undefined ? t.weight : t.score);
                 const rawInf = String(t.influence || "").toUpperCase();
 
-                // Pemetaan pengaruh: dahulukan bobot negatif dan kata negasi 'TIDAK'
+                // Pemetaan pengaruh hanya jika bobot tersedia (bukan null)
                 let infType: "hoax" | "fact" | "neutral" = "neutral";
-                if (safeWeight < 0 || rawInf.includes("TIDAK") || rawInf === "FACT" || rawInf.includes("FAKTA")) {
-                    infType = "fact";
-                } else if (safeWeight > 0 || rawInf.includes("HOAKS") || rawInf.includes("HOAX")) {
-                    infType = "hoax";
+                if (safeWeight !== null) {
+                    if (safeWeight < 0 || rawInf.includes("TIDAK") || rawInf === "FACT" || rawInf.includes("FAKTA")) {
+                        infType = "fact";
+                    } else if (safeWeight > 0 || rawInf.includes("HOAKS") || rawInf.includes("HOAX")) {
+                        infType = "hoax";
+                    }
                 }
 
                 return {
                     word: String(t.word),
-                    weight: safeWeight,
+                    weight: safeWeight, // bernilai number ATAU null
                     influence: infType
                 };
             });
     }, [tokens]);
 
-    // Ekstraksi 5 kata pendorong hoaks (validasi ketat per elemen)
+    // Deteksi apakah ada token yang bobotnya tidak tersedia
+    const hasUnavailableWeights = useMemo(() => {
+        return validTokens.some((t) => t.weight === null);
+    }, [validTokens]);
+
+    // Ekstraksi kata pendorong hoaks (hanya yang memiliki bobot numerik valid > 0)
     const computedTopHoax = useMemo(() => {
         if (Array.isArray(topHoax) && topHoax.length > 0) {
             const sanitized = topHoax
                 .filter((w) => w && typeof w === "object")
                 .map((w) => ({ word: String(w.word || "").trim(), score: parseWeightStrict(w.score) }))
-                .filter((w) => w.word !== "" && w.score > 0)
+                .filter((w): w is { word: string; score: number } => w.word !== "" && w.score !== null && w.score > 0)
                 .sort((a, b) => b.score - a.score);
             if (sanitized.length > 0) return sanitized.slice(0, wordLimit);
         }
-        // Fallback: hitung dari validTokens jika prop kosong/rusak
+        // Fallback: hitung dari validTokens jika prop kosong
         return validTokens
-            .filter((t) => t.weight > 0)
+            .filter((t): t is { word: string; weight: number; influence: "hoax" | "fact" | "neutral" } => t.weight !== null && t.weight > 0)
             .sort((a, b) => b.weight - a.weight)
             .slice(0, wordLimit)
             .map((t) => ({ word: t.word, score: t.weight }));
     }, [validTokens, topHoax, wordLimit]);
 
-    // Ekstraksi 5 kata penurun skor hoaks
+    // Ekstraksi kata penurun skor hoaks (hanya yang memiliki bobot numerik valid < 0)
     const computedTopFact = useMemo(() => {
         if (Array.isArray(topFact) && topFact.length > 0) {
-            const sanitized = topFact.filter((w) => w && typeof w === "object").map((w) => ({ word: String(w.word || "").trim(), score: Math.abs(parseWeightStrict(w.score)) })).filter((w) => w.word !== "" && w.score > 0).sort((a, b) => b.score - a.score);
+            const sanitized = topFact
+                .filter((w) => w && typeof w === "object")
+                .map((w) => {
+                    const parsed = parseWeightStrict(w.score);
+                    return { word: String(w.word || "").trim(), score: parsed !== null ? Math.abs(parsed) : null };
+                })
+                .filter((w): w is { word: string; score: number } => w.word !== "" && w.score !== null && w.score > 0)
+                .sort((a, b) => b.score - a.score);
             if (sanitized.length > 0) return sanitized.slice(0, wordLimit);
         }
-        return validTokens.filter((t) => t.weight < 0).sort((a, b) => a.weight - b.weight).slice(0, wordLimit).map((t) => ({ word: t.word, score: Math.abs(t.weight) }));
+        return validTokens
+            .filter((t): t is { word: string; weight: number; influence: "hoax" | "fact" | "neutral" } => t.weight !== null && t.weight < 0)
+            .sort((a, b) => a.weight - b.weight)
+            .slice(0, wordLimit)
+            .map((t) => ({ word: t.word, score: Math.abs(t.weight) }));
     }, [validTokens, topFact, wordLimit]);
 
-    // ── SKALA MAKSIMUM ABSOLUT BERSAMA (Mencegah distorsi visual merah vs hijau) ──
+    // ── SKALA MAKSIMUM ABSOLUT BERSAMA ──
     const globalMaxAbsScore = useMemo(() => {
-        const maxH = computedTopHoax.length > 0 ? Math.max(...computedTopHoax.map(w => w.score)) : 0;
-        const maxF = computedTopFact.length > 0 ? Math.max(...computedTopFact.map(w => w.score)) : 0;
+        const maxH = computedTopHoax.length > 0 ? Math.max(...computedTopHoax.map((w) => w.score)) : 0;
+        const maxF = computedTopFact.length > 0 ? Math.max(...computedTopFact.map((w) => w.score)) : 0;
         return Math.max(maxH, maxF, 0.0001);
     }, [computedTopHoax, computedTopFact]);
 
@@ -126,17 +155,24 @@ export default function LimeHighlighter({
                         <div className="p-3 bg-white border border-slate-200/60 rounded-xl leading-relaxed text-xs text-slate-800 max-h-48 overflow-y-auto shadow-2xs">
                             {validTokens.map((item, idx) => {
                                 let badgeStyle = "";
-                                if (item.influence === "hoax" && item.weight > 0) {
-                                    badgeStyle = "bg-rose-100 text-rose-800 font-bold px-1 py-0.5 rounded border border-rose-200 mx-0.5 shadow-2xs inline-block";
-                                } else if (item.influence === "fact" && item.weight < 0) {
-                                    badgeStyle = "bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded border border-emerald-200 mx-0.5 shadow-2xs inline-block";
+                                if (item.weight !== null) {
+                                    if (item.influence === "hoax" && item.weight > 0) {
+                                        badgeStyle = "bg-rose-100 text-rose-800 font-bold px-1 py-0.5 rounded border border-rose-200 mx-0.5 shadow-2xs inline-block";
+                                    } else if (item.influence === "fact" && item.weight < 0) {
+                                        badgeStyle = "bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded border border-emerald-200 mx-0.5 shadow-2xs inline-block";
+                                    }
                                 }
+
+                                // PERBAIKAN: Jika bobot null, judul bertuliskan "Tidak tersedia", bukan 0.0000
+                                const tooltipTitle = item.weight !== null
+                                    ? `Bobot Pengaruh: ${item.weight > 0 ? "+" : ""}${item.weight.toFixed(4)}`
+                                    : "Bobot Pengaruh: Tidak tersedia";
 
                                 return (
                                     <span
                                         key={idx}
                                         className={badgeStyle}
-                                        title={`Bobot Pengaruh: ${item.weight > 0 ? "+" : ""}${item.weight.toFixed(4)}`}
+                                        title={tooltipTitle}
                                     >
                                         {item.word}{" "}
                                     </span>
@@ -145,15 +181,22 @@ export default function LimeHighlighter({
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
-                        <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-                            <span>Merah: Menaikkan Skor Hoaks (+)</span>
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                            <span>Hijau: Menurunkan Skor Hoaks (-)</span>
-                        </span>
+                    <div className="flex flex-wrap items-center justify-between gap-y-1 pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                                <span>Merah: Menaikkan Skor Hoaks (+)</span>
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                <span>Hijau: Menurunkan Skor Hoaks (-)</span>
+                            </span>
+                        </div>
+                        {hasUnavailableWeights && (
+                            <span className="text-[10px] text-amber-600 italic">
+                                *Beberapa kata tidak memiliki atribusi bobot valid.
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -167,15 +210,14 @@ export default function LimeHighlighter({
                             </h4>
                         </div>
 
-                        {/* Narasi Objektif Sesuai Cara Kerja Backend */}
                         <p className="text-[11px] text-emerald-100/80 leading-relaxed">
                             Warna menunjukkan pengaruh lokal kata terhadap rerata skor kelas hoaks.
                             {isAmbiguous ? (
                                 <> Status <strong>PERLU VERIFIKASI</strong> berasal dari ketidaksepakatan keputusan antar-seed model.</>
                             ) : isHoax ? (
-                                    <> Keputusan <strong>BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata merah menaikkan skor kelas hoaks, sedangkan kata hijau menurunkannya.</>
-                                ) : isFact ? (
-                                    <> Keputusan <strong>TIDAK BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata hijau menurunkan skor kelas hoaks, sedangkan kata merah menaikkannya.</>
+                                <> Keputusan <strong>BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata merah menaikkan skor kelas hoaks, sedangkan kata hijau menurunkannya.</>
+                            ) : isFact ? (
+                                <> Keputusan <strong>TIDAK BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata hijau menurunkan skor kelas hoaks, sedangkan kata merah menaikkannya.</>
                             ) : (
                                 <> Label keputusan tidak dikenali sistem, sehingga hasil perlu diverifikasi manual. Warna kata tetap menunjukkan pengaruh lokal terhadap skor kelas hoaks.</>
                             )}
@@ -198,13 +240,13 @@ export default function LimeHighlighter({
                                 </div>
                             ) : isAmbiguous ? (
                                 <div className="space-y-1">
-                                        {computedTopHoax.map((w, i) => (
+                                    {computedTopHoax.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-rose-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-rose-400 font-mono font-extrabold text-[10px]">+{w.score.toFixed(4)}</span>
                                         </div>
                                     ))}
-                                        {computedTopFact.map((w, i) => (
+                                    {computedTopFact.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
@@ -213,7 +255,7 @@ export default function LimeHighlighter({
                                 </div>
                             ) : computedTopFact.length > 0 ? (
                                 <div className="space-y-1">
-                                            {computedTopFact.map((w, i) => (
+                                    {computedTopFact.map((w, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px]">
                                             <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
                                             <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
@@ -234,7 +276,7 @@ export default function LimeHighlighter({
 
             </div>
 
-            {/* BAGIAN BAWAH: GRAFIK PROPORSI BOBOT KATA (SKALA BERSAMA MURNI TANPA FLOOR 1%) */}
+            {/* BAGIAN BAWAH: GRAFIK PROPORSI BOBOT KATA */}
             {showChart && (computedTopHoax.length > 0 || computedTopFact.length > 0) && (
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 border-b border-slate-100">

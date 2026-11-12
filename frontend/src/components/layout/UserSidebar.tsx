@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { ComponentType } from "react";
 import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
+import { useUserSidebar } from "./UserSidebarProvider";
 import {
     Search,
     History,
@@ -39,7 +40,7 @@ export default function UserSidebar({
     feedbackCount = 0,
 }: UserSidebarProps) {
     const pathname = usePathname();
-    const [collapsed, setCollapsed] = useState(false);
+    const { collapsed, setCollapsed } = useUserSidebar();
     const [query, setQuery] = useState("");
     const searchInputRef = useRef<HTMLInputElement>(null);
 

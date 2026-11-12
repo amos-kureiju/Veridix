@@ -5,9 +5,8 @@ from sqlalchemy import (
     UniqueConstraint, Integer
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
-from sqlalchemy.orm import relationship, declarative_base
-
-Base = declarative_base()
+from sqlalchemy.orm import relationship
+from src.database.session import Base
 
 
 class User(Base):

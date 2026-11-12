@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -166,10 +166,14 @@ def get_my_profile(
 # 4. LUPA PASSWORD (Kirim Tautan Pemulihan via Email)
 # =====================================================================
 @router.post("/forgot-password")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(
+    req: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     """
     Membuat token reset acak, menyimpan hash SHA-256 ke Supabase,
-    dan mengirim tautan pemulihan ke inbox Gmail.
+    dan mengirim tautan pemulihan ke inbox Gmail via background task.
     Respon selalu seragam (anti-enumeration OWASP).
     """
     email_clean = req.email.lower().strip()
@@ -198,8 +202,8 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
         db.add(reset_entry)
         db.commit()
 
-        # 5. Kirim token mentah melalui email asli
-        send_password_reset_email(user.email, raw_token)
+        # 5. Kirim token mentah melalui background task agar API tidak freeze
+        background_tasks.add_task(send_password_reset_email, user.email, raw_token)
 
     # Respon umum yang sama baik email terdaftar maupun tidak terdaftar
     return {

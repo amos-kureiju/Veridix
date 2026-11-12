@@ -19,7 +19,11 @@ function load(relative, mocks = {}, globals = {}) {
     const module = { exports: {} };
     vm.runInNewContext(outputText, {
         module, exports: module.exports, process, console, AbortController, Event, FormData, URL,
-        require: name => Object.hasOwn(mocks, name) ? mocks[name] : frontendRequire(name),
+        require: name => Object.hasOwn(mocks, name) ? mocks[name] :
+            name.startsWith('@/types/') ? load(name.slice(2) + '.ts', mocks, globals) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.tsx')) ? load(name.slice(2) + '.tsx', mocks, globals) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.ts')) ? load(name.slice(2) + '.ts', mocks, globals) :
+            frontendRequire(name),
         ...globals,
     }, { filename });
     return module.exports;

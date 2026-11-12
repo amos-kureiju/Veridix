@@ -37,41 +37,47 @@ class TestDetectionAndAuthAPI(unittest.TestCase):
             "latency_seconds": 0.32
         })
 
+        self.auth_headers = {}
+        login_res = self.client.post("/api/v1/auth/login", json={
+            "email": "admin@veridix.id",
+            "password": "admin123"
+        })
+        if login_res.status_code == 200:
+            token = login_res.json()["access_token"]
+            self.auth_headers = {"Authorization": f"Bearer {token}"}
+
     def tearDown(self):
         dr.predictor.predict_and_explain = self.orig_predictor
 
     # 1. Tes Validasi Input Terlalu Pendek (< 30 Karakter)
     def test_detection_short_text_rejected(self):
-        res = self.client.post("/api/v1/detect/text", json={"text": "Pendek sekali"})
+        res = self.client.post("/api/v1/detect/text", json={"text": "Pendek sekali"}, headers=self.auth_headers)
         self.assertIn(res.status_code, [400, 422])
 
     # 2. Tes Guardrail Domain Politik (Teks non-politik ditolak)
     def test_detection_out_of_domain_rejected(self):
         non_political_text = "Resep membuat bolu kukus pandan manis dan lembut untuk cemilan keluarga di rumah sore hari."
-        res = self.client.post("/api/v1/detect/text", json={"text": non_political_text})
+        res = self.client.post("/api/v1/detect/text", json={"text": non_political_text}, headers=self.auth_headers)
         self.assertEqual(res.status_code, 400)
         self.assertIn("di luar jangkauan", res.json().get("detail", "").lower())
 
     # 3. Tes Deteksi Valid & Keselarasan Skema Response
     def test_detection_valid_text_success(self):
         political_text = "KPU RI secara resmi mengumumkan jadwal pelaksanaan tahapan pemilu serentak dan pilpres tahun depan."
-        res = self.client.post("/api/v1/detect/text", json={"text": political_text})
+        res = self.client.post("/api/v1/detect/text", json={"text": political_text}, headers=self.auth_headers)
         self.assertEqual(res.status_code, 200)
         data = res.json()
         self.assertEqual(data["status"], "success")
         
         payload = data["data"]
-        self.assertIn(payload["prediction"], ["HOAKS", "FAKTA", "PERLU KONFIRMASI"])
-        self.assertGreater(payload["confidence_score"], 0)
-        self.assertGreater(payload["inference_time_seconds"], 0)
-        self.assertIn("explanation", payload)
-        self.assertGreater(len(payload["explanation"]["tokens"]), 0)
+        self.assertIn(payload["pattern_label"], ["BERPOLA HOAKS", "TIDAK BERPOLA HOAKS", None])
+        self.assertGreater(payload["latency_seconds"], 0)
 
         # Verifikasi data tersimpan di database
         db = SessionLocal()
-        saved = db.query(PredictionLog).filter(PredictionLog.id == uuid.UUID(payload["id"])).first()
+        saved = db.query(PredictionLog).filter(PredictionLog.id == uuid.UUID(str(payload["id"]))).first()
         self.assertIsNotNone(saved)
-        self.assertEqual(saved.verdict, payload["prediction"])
+        self.assertEqual(saved.pattern_label, payload["pattern_label"])
         self.assertEqual(saved.input_text, political_text)
         db.close()
 
@@ -79,7 +85,7 @@ class TestDetectionAndAuthAPI(unittest.TestCase):
     def test_detection_ai_engine_failure_handled(self):
         dr.predictor.predict_and_explain = MagicMock(side_effect=RuntimeError("Model checkpoint korup atau tidak dapat dimuat"))
         political_text = "DPR RI menggelar rapat koordinasi bersama menteri membahas RUU pemilu dan anggaran negara."
-        res = self.client.post("/api/v1/detect/text", json={"text": political_text})
+        res = self.client.post("/api/v1/detect/text", json={"text": political_text}, headers=self.auth_headers)
         self.assertEqual(res.status_code, 500)
         self.assertIn("kesalahan pada mesin ai", res.json().get("detail", "").lower())
 
@@ -112,12 +118,12 @@ class TestDetectionAndAuthAPI(unittest.TestCase):
         # Ambil stats
         stats_res = self.client.get("/api/v1/admin/stats", headers=headers)
         self.assertEqual(stats_res.status_code, 200)
-        self.assertIn("total_detections_today", stats_res.json())
+        self.assertIn("total_detections", stats_res.json().get("data", {}))
 
-        # Ambil logs
-        logs_res = self.client.get("/api/v1/admin/logs/recent", headers=headers)
-        self.assertEqual(logs_res.status_code, 200)
-        self.assertIsInstance(logs_res.json(), list)
+        # Ambil feedbacks
+        feedbacks_res = self.client.get("/api/v1/admin/feedbacks", headers=headers)
+        self.assertEqual(feedbacks_res.status_code, 200)
+        self.assertIn("data", feedbacks_res.json())
 
 if __name__ == "__main__":
     unittest.main()

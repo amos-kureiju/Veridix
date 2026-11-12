@@ -1,5 +1,5 @@
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Any, Dict
 from jose import jwt
 from src.core.config import settings
@@ -9,8 +9,17 @@ SECRET_KEY = settings.JWT_SECRET_KEY.get_secret_value()
 
 
 def _truncate_password_bytes(password: str) -> bytes:
-    """Bcrypt memiliki batas maksimal 72 byte. Potong secara aman pada level UTF-8."""
-    return password.encode("utf-8")[:72]
+    """Bcrypt memiliki batas maksimal 72 byte. Potong secara aman pada batas karakter UTF-8."""
+    encoded = password.encode("utf-8")
+    if len(encoded) <= 72:
+        return encoded
+    truncated = encoded[:72]
+    while True:
+        try:
+            truncated.decode("utf-8")
+            return truncated
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
 
 
 def hash_password(password: str) -> str:
@@ -32,7 +41,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Membuat JWT token yang memuat sub (user_id), role, dan token_version."""
     to_encode = data.copy()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     if expires_delta:
         expire = now + expires_delta

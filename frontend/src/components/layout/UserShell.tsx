@@ -3,7 +3,7 @@
 import UserSidebar from "./UserSidebar";
 import UserTopbar from "./UserTopbar";
 import { useRouter } from "next/navigation";
-import Footer from "@/components/shared/Footer";
+import Footer from "@/components/shared/footer";
 
 interface UserShellProps {
     guest?: boolean;

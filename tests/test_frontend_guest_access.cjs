@@ -21,7 +21,10 @@ function load(relativePath, mocks = {}, globals = {}) {
         module, exports: module.exports, process, console, AbortController, AbortSignal,
         Event, FormData, URL, Blob, DOMException,
         require: name => Object.hasOwn(mocks, name) ? mocks[name] :
-            name.startsWith('@/types/') ? load(name.slice(2) + '.ts', mocks, globals) : frontendRequire(name),
+            name.startsWith('@/types/') ? load(name.slice(2) + '.ts', mocks, globals) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.tsx')) ? load(name.slice(2) + '.tsx', mocks, globals) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.ts')) ? load(name.slice(2) + '.ts', mocks, globals) :
+            frontendRequire(name),
         ...globals,
     }, { filename });
     return module.exports;

@@ -22,7 +22,11 @@ function load(relativePath, mocks = {}) {
     vm.runInNewContext(outputText, {
         module, exports: module.exports, process, console, URL,
         alert: () => assert.fail('Feedback must not report success or failure through alert'),
-        require: name => Object.hasOwn(mocks, name) ? mocks[name] : frontendRequire(name),
+        require: name => Object.hasOwn(mocks, name) ? mocks[name] :
+            name.startsWith('@/types/') ? load(name.slice(2) + '.ts', mocks) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.tsx')) ? load(name.slice(2) + '.tsx', mocks) :
+            name.startsWith('@/') && fs.existsSync(path.join(frontend, 'src', name.slice(2) + '.ts')) ? load(name.slice(2) + '.ts', mocks) :
+            frontendRequire(name),
     }, { filename });
     return module.exports;
 }

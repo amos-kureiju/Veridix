@@ -15,9 +15,12 @@ class IPv4SMTP_SSL(smtplib.SMTP_SSL):
         if self.context is None:
             self.context = ssl.create_default_context()
         # Ambil IP address IPv4 murni (menghindari error IPv6 di Windows)
-        addrinfo = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
-        ipv4_ip = addrinfo[0][4][0]
-        raw_sock = socket.create_connection((ipv4_ip, port), timeout, self.source_address)
+        try:
+            addrinfo = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            host_to_connect = addrinfo[0][4][0] if addrinfo else host
+        except Exception:
+            host_to_connect = host
+        raw_sock = socket.create_connection((host_to_connect, port), timeout, self.source_address)
         return self.context.wrap_socket(raw_sock, server_hostname=host)
 
 
@@ -106,10 +109,19 @@ Tim Keamanan VERIDIX
     msg.attach(MIMEText(html_content, "html"))
 
     try:
-        # Menghubungkan secara langsung ke IPv4 Gmail Port 465
-        with IPv4SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
+        smtp_host = (settings.SMTP_HOST or "smtp.gmail.com").strip()
+        smtp_port = int(settings.SMTP_PORT) if settings.SMTP_PORT else 465
+
+        # Hubungkan ke SMTP server
+        if smtp_port == 465:
+            with IPv4SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                server.starttls(context=ssl.create_default_context())
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
 
         logger.info(f"Email reset password berhasil dikirim ke {to_email}")
         return True

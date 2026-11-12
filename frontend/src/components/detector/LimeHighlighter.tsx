@@ -8,6 +8,7 @@ interface LimeHighlighterProps {
     tokens?: LimeToken[];
     topHoax?: Array<{ word: string; score: number }>;
     topFact?: Array<{ word: string; score: number }>;
+    showChart?: boolean; topWordsCount?: 3 | 5 | 7;
     prediction?: string;
     confidenceScore?: number;
     numSamples?: number;
@@ -26,13 +27,10 @@ const parseWeightStrict = (raw: any): number => {
 };
 
 export default function LimeHighlighter({
-    tokens = [],
-    topHoax = [],
-    topFact = [],
-    prediction = "TIDAK BERPOLA HOAKS",
-    confidenceScore,
-    numSamples
+    tokens = [], topHoax = [], topFact = [], prediction = "TIDAK BERPOLA HOAKS",
+    confidenceScore, numSamples, showChart = true, topWordsCount = 3
 }: LimeHighlighterProps) {
+    const wordLimit = topWordsCount === 5 || topWordsCount === 7 ? topWordsCount : 3;
     // ── 1. SANITASI TOKEN (Hooks selalu dipanggil di level teratas) ──
     const validTokens = useMemo(() => {
         if (!Array.isArray(tokens)) return [];
@@ -66,32 +64,24 @@ export default function LimeHighlighter({
                 .map((w) => ({ word: String(w.word || "").trim(), score: parseWeightStrict(w.score) }))
                 .filter((w) => w.word !== "" && w.score > 0)
                 .sort((a, b) => b.score - a.score);
-            if (sanitized.length > 0) return sanitized.slice(0, 5);
+            if (sanitized.length > 0) return sanitized.slice(0, wordLimit);
         }
         // Fallback: hitung dari validTokens jika prop kosong/rusak
         return validTokens
             .filter((t) => t.weight > 0)
             .sort((a, b) => b.weight - a.weight)
-            .slice(0, 5)
+            .slice(0, wordLimit)
             .map((t) => ({ word: t.word, score: t.weight }));
-    }, [validTokens, topHoax]);
+    }, [validTokens, topHoax, wordLimit]);
 
     // Ekstraksi 5 kata penurun skor hoaks
     const computedTopFact = useMemo(() => {
         if (Array.isArray(topFact) && topFact.length > 0) {
-            const sanitized = topFact
-                .filter((w) => w && typeof w === "object")
-                .map((w) => ({ word: String(w.word || "").trim(), score: Math.abs(parseWeightStrict(w.score)) }))
-                .filter((w) => w.word !== "" && w.score > 0)
-                .sort((a, b) => b.score - a.score);
-            if (sanitized.length > 0) return sanitized.slice(0, 5);
+            const sanitized = topFact.filter((w) => w && typeof w === "object").map((w) => ({ word: String(w.word || "").trim(), score: Math.abs(parseWeightStrict(w.score)) })).filter((w) => w.word !== "" && w.score > 0).sort((a, b) => b.score - a.score);
+            if (sanitized.length > 0) return sanitized.slice(0, wordLimit);
         }
-        return validTokens
-            .filter((t) => t.weight < 0)
-            .sort((a, b) => a.weight - b.weight)
-            .slice(0, 5)
-            .map((t) => ({ word: t.word, score: Math.abs(t.weight) }));
-    }, [validTokens, topFact]);
+        return validTokens.filter((t) => t.weight < 0).sort((a, b) => a.weight - b.weight).slice(0, wordLimit).map((t) => ({ word: t.word, score: Math.abs(t.weight) }));
+    }, [validTokens, topFact, wordLimit]);
 
     // ── SKALA MAKSIMUM ABSOLUT BERSAMA (Mencegah distorsi visual merah vs hijau) ──
     const globalMaxAbsScore = useMemo(() => {
@@ -245,7 +235,7 @@ export default function LimeHighlighter({
             </div>
 
             {/* BAGIAN BAWAH: GRAFIK PROPORSI BOBOT KATA (SKALA BERSAMA MURNI TANPA FLOOR 1%) */}
-            {(computedTopHoax.length > 0 || computedTopFact.length > 0) && (
+            {showChart && (computedTopHoax.length > 0 || computedTopFact.length > 0) && (
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 border-b border-slate-100">
                         <span className="font-bold text-slate-800">Seberapa besar pengaruh tiap kata</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiClient } from "@/lib/apiClient";
+import { DEFAULT_SETTINGS, SETTINGS_KEY, readUserSettings } from "@/lib/userSettings";
 import {
     CheckCircle,
     AlertTriangle,
@@ -39,6 +40,14 @@ export default function VerdictCard({
     const [feedbackForId, setFeedbackForId] = useState<string | null>(null);
     const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
     const [showLime, setShowLime] = useState(true);
+    const [viewSettings, setViewSettings] = useState({ ...DEFAULT_SETTINGS });
+    useEffect(() => {
+        const sync = () => setViewSettings(readUserSettings());
+        const onStorage = (e: StorageEvent) => { if (e.key === SETTINGS_KEY || e.key === null) sync(); };
+        sync();
+        window.addEventListener("storage", onStorage); window.addEventListener("veridix:settings-changed", sync);
+        return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("veridix:settings-changed", sync); };
+    }, []);
     const feedbackId = result?.data?.id;
     const feedbackStatus = (result?.data?.process_status || (result?.data?.prediction ? "dinilai" : "ditolak")).toLowerCase();
     const feedbackTarget = !loading && canAct && typeof feedbackId === "string" && feedbackId.trim() &&
@@ -303,6 +312,8 @@ export default function VerdictCard({
                             tokens={limeTokens}
                             topHoax={d.explanation?.top_hoax_words}
                             topFact={d.explanation?.top_fact_words}
+                            showChart={viewSettings.show_lime_chart} 
+                            topWordsCount={viewSettings.lime_top_words ?? 3}
                             prediction={limePredictionLabel}
                             numSamples={
                                 Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0

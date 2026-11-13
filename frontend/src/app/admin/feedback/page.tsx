@@ -17,7 +17,25 @@ export default function AdminFeedbackPage() {
         try {
             const res = await apiClient.get<any>("/api/v1/admin/feedbacks");
             const raw = res.data?.data || res.data;
-            setFeedbacks(Array.isArray(raw) ? raw : []);
+            const rawArray = Array.isArray(raw) ? raw : [];
+
+            // PEMETAAN EKSPLISIT: Selaraskan kontrak backend -> AdminFeedbackItem
+            const mapped: AdminFeedbackItem[] = rawArray.map((fb: any) => ({
+                id: fb.id ? String(fb.id) : "",
+                detection_id: fb.detection_id ? String(fb.detection_id) : "",
+                user_email: fb.user_email || fb.user?.email || "Pengguna Terdaftar",
+                // Ambil dari relasi detection jika tersedia
+                news_snippet: fb.news_snippet || fb.detection?.input_text || fb.input_text || "",
+                model_verdict: fb.model_verdict || fb.detection?.pattern_label || fb.pattern_label || "TIDAK TERSEDIA",
+                // Pemetaan field nama backend -> nama tampilan
+                user_claim: fb.user_claim || fb.claimed_label || "",
+                user_note: fb.user_note || fb.user_notes || null,
+                // Pemetaan review_status -> status untuk filter tabel
+                status: (fb.status || fb.review_status || "PENDING").toUpperCase() as AdminFeedbackItem["status"],
+                created_at: fb.created_at || new Date().toISOString(),
+            }));
+
+            setFeedbacks(mapped);
         } catch (err: any) {
             setError(err.response?.data?.detail || "Gagal memuat antrean masukan kurasi.");
         } finally {

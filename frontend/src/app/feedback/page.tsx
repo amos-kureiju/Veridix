@@ -21,55 +21,82 @@ export default function UserFeedbackPage() {
 
     const displayName = user?.name || (isGuest ? "Tamu" : "Pengguna");
 
-    // Simpan referensi ID pengguna aktif saat request dilakukan
-    const activeUserIdRef = useRef<string | null>(null);
+    // Token pelacak sesi aktif untuk mendiskualifikasi respons lama
+    const activeSessionRef = useRef<string | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
-    // 2. PERBAIKAN FETCH: Gunakan apiClient resmi + cegah respons akun lama tampil
     const fetchUserFeedbacks = useCallback(async () => {
+        // Batalkan request aktif sebelumnya
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        // Jika mode tamu atau user tidak ada, bersihkan total secara sinkron
         if (isGuest || !user?.id) {
+            activeSessionRef.current = null;
             setFeedbacks([]);
             setIsLoading(false);
             setFetchError(null);
             return;
         }
 
-        const currentUserId = user.id;
-        activeUserIdRef.current = currentUserId;
+        const currentSessionId = String(user.id);
+        activeSessionRef.current = currentSessionId;
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         setIsLoading(true);
         setFetchError(null);
 
         try {
-            // Gunakan kontrak API resmi /api/v1/feedback/my
-            const res = await apiClient.get<any>("/api/v1/feedback/my");
+            const res = await apiClient.get<any>("/api/v1/feedback/my", {
+                signal: controller.signal
+            });
 
-            // Abaikan respons jika pengguna sudah berganti akun sebelum fetch selesai
-            if (activeUserIdRef.current !== currentUserId) {
+            // DISKUALIFIKASI: Abaikan respons jika sesi sudah berubah atau logout
+            if (activeSessionRef.current !== currentSessionId) {
                 return;
             }
 
             const rawData = res.data?.data || res.data;
             setFeedbacks(Array.isArray(rawData) ? rawData : []);
         } catch (err: any) {
-            if (activeUserIdRef.current !== currentUserId) {
+            // Jangan update state jika request sengaja dibatalkan
+            if (err?.name === "CanceledError" || err?.name === "AbortError" || activeSessionRef.current !== currentSessionId) {
                 return;
             }
-            const message =
-                err.response?.data?.detail ||
-                err.message ||
-                "Terjadi kesalahan saat memuat data sanggahan dari server.";
+            const message = err.response?.data?.detail || "Gagal memuat data sanggahan dari server.";
             setFetchError(message);
             setFeedbacks([]);
         } finally {
-            if (activeUserIdRef.current === currentUserId) {
+            if (activeSessionRef.current === currentSessionId) {
                 setIsLoading(false);
             }
         }
     }, [isGuest, user?.id]);
 
+    // Efek sinkronisasi pergantian akun / logout
     useEffect(() => {
-        fetchUserFeedbacks();
-    }, [fetchUserFeedbacks]);
+        if (isGuest || !user?.id) {
+            activeSessionRef.current = null;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            setFeedbacks([]);
+            setIsLoading(false);
+            setFetchError(null);
+        } else {
+            fetchUserFeedbacks();
+        }
+
+        return () => {
+            activeSessionRef.current = null;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [isGuest, user?.id, fetchUserFeedbacks]);
 
     // Filter feedback berdasarkan kata kunci dan status backend resmi
     const filteredFeedbacks = useMemo(() => {
@@ -137,8 +164,7 @@ export default function UserFeedbackPage() {
                     <option value="ALL">Semua Status</option>
                     <option value="PENDING">Menunggu Tinjauan</option>
                     <option value="REVIEWED">Sudah Ditinjau</option>
-                    <option value="MARKED_FOR_RETRAIN">Disetujui Retrain</option>
-                    <option value="RETRAINED">Selesai Retraining</option>
+                    <option value="RETRAINED">Disetujui untuk Korpus Latih</option>
                     <option value="DISMISSED">Sanggahan Ditolak</option>
                 </select>
             </div>

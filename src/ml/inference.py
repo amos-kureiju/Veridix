@@ -202,21 +202,22 @@ class Penilai:
         # 4. KONSENSUS ENSEMBLE: Kesepakatan mayoritas seed dengan presisi penuh
         agreement_ratio = max(votes, n_seeds - votes) / n_seeds
 
-        # 5. PERBAIKAN AUDIT: Deteksi Pemotongan Teks (Mencakup Batas Kata Praproses & Batas Token Tokenizer)
+        # 5. DETEKSI PEMOTONGAN TEKS (Thread-Safe via Lock Bersama)
         terpotong_kata = len(v["text"].split()) > MAX_WORDS
-        terpotong_token = False
+        terpotong_token: Optional[bool] = None
 
-        tokenizer = getattr(self.backend, "tokenizer", None)
-        if tokenizer is not None and x:
-            try:
-                # Periksa apakah tokenisasi teks hasil praproses melebihi MAX_LEN (128 token)
-                n_tokens = len(tokenizer.encode(x, add_special_tokens=True, truncation=False))
-                if n_tokens > MAX_LEN:
-                    terpotong_token = True
-            except Exception:
-                pass
+        # PERBAIKAN: Selalu gunakan helper count_tokens() yang terlindungi lock
+        if hasattr(self.backend, "count_tokens") and x:
+            n_tokens = self.backend.count_tokens(x)
+            if n_tokens is not None:
+                terpotong_token = n_tokens > MAX_LEN
+            else:
+                # Ketersediaan tidak diketahui (tidak ditelan menjadi False)
+                terpotong_token = None
+        else:
+            terpotong_token = None
 
-        terpotong = bool(terpotong_kata or terpotong_token)
+        terpotong = bool(terpotong_kata or (terpotong_token is True))
 
         res = {
             "success": True,

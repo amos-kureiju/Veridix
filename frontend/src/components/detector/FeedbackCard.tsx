@@ -30,13 +30,6 @@ export default function FeedbackCard({ item }: FeedbackCardProps) {
                         Disetujui untuk Korpus Latih
                     </span>
                 );
-            case "MARKED_FOR_RETRAIN":
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-xs">
-                        <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                        Disetujui untuk Korpus Latih
-                    </span>
-                );
             case "REVIEWED":
                 return (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-xs">
@@ -51,11 +44,17 @@ export default function FeedbackCard({ item }: FeedbackCardProps) {
                     </span>
                 );
             case "PENDING":
-            default:
                 return (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 shadow-xs">
                         <Clock className="w-3 h-3 text-amber-600" />
                         Menunggu Tinjauan
+                    </span>
+                );
+            default:
+                // PERBAIKAN: Tampilkan status netral jika nilai tidak dikenal
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200 shadow-xs">
+                        Status: {status || "Tidak Diketahui"}
                     </span>
                 );
         }

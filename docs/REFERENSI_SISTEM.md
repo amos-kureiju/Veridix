@@ -102,6 +102,7 @@ Rujukan implementasi yang dibaca:
 | Daftar riwayat | `GET /api/v1/users/history` | Kepemilikan, pagination, dan field respons. |
 | Detail/hapus riwayat | `GET`/`DELETE /api/v1/users/history/{id}` | Hak akses dan konsistensi penghapusan. |
 | Kirim/perbarui feedback | `POST /api/v1/feedback` | Kepemilikan hasil dan aturan pembaruan. |
+| Feedback milik pengguna | `GET /api/v1/feedback/my` | Sesi terverifikasi; query dibatasi `UserFeedback.user_id`, dengan konteks `PredictionLog`. |
 | Daftar feedback admin | `GET /api/v1/admin/feedbacks` | Role serta parameter `status_filter`, `skip`, dan `limit`. |
 | Review admin | `PUT /api/v1/feedback/{feedback_id}/review` | Status, catatan, reviewer, dan waktu tinjauan. |
 
@@ -111,7 +112,6 @@ Tabel mencatat deklarasi route pada sumber, bukan keberhasilan server/database p
 
 | Fitur | Ketentuan |
 | --- | --- |
-| `GET /api/v1/feedback/my` | Belum terdaftar pada router yang dibaca. Pemanggilan frontend tidak membuatnya tersedia. |
 | Log global/dashboard admin | Inventarisasi route dan schema aktual; jangan mengarang kontrak. |
 | PDF admin | Ada helper ReportLab di source; keberadaan helper tidak membuktikan endpoint/alur ekspor admin sudah terhubung. |
 | PDF hasil deteksi | Tombol pada kode yang pernah diperiksa dinonaktifkan; pisahkan dari PDF admin. |
@@ -196,6 +196,12 @@ Jangan menggambar relasi fisik satu-ke-satu tanpa constraint yang mendukungnya.
 
 Panjang satu halaman bukan total database. Hindari request tambahan per baris untuk konteks yang dapat disediakan melalui query relasi.
 
+Pada implementasi 13 November 2026, daftar admin memakai satu query outer join `UserFeedback -> PredictionLog` dan `UserFeedback -> User` (pengirim, bukan reviewer). Field tambahan `input_text`, `pattern_label`, dan `user_email` bersifat nullable. `count` berarti jumlah baris yang dimuat setelah filter/pagination. Frontend memvalidasi envelope, ID, status dan tanggal; konteks yang tidak tersedia tidak diganti dengan data contoh. Persetujuan kandidat korpus dinonaktifkan jika konteks deteksi/klaim tidak memadai.
+
+Halaman feedback pengguna membatasi data yang terlihat dengan ID pemilik saat render dan menunggu sesi terverifikasi. Pembatalan serta identitas request melindungi hasil, galat, dan indikator loading dari respons lama. Daftar kosong yang sah dibedakan dari respons rusak atau kegagalan layanan.
+
+Waktu pada kartu pengguna dan tabel feedback admin diformat eksplisit ke `Asia/Jakarta` (WIB). Timestamp lama tanpa offset mengikuti default UTC database, konsisten dengan halaman riwayat; tanggal yang hilang/rusak tidak diganti dengan waktu saat ini.
+
 ## 4. Siklus feedback dan status legacy
 
 ### 4.1 Status tinjauan
@@ -236,6 +242,8 @@ Riwayat review tidak boleh disebut tersedia sebelum schema dan implementasinya a
 
 Handler review hanya menyimpan status, catatan, reviewer, dan waktu. Ia tidak mengganti keputusan asli model atau menjalankan training. Data feedback tidak otomatis menjadi bagian dev-test maupun lockbox beku.
 
+UI kurasi saat ini memakai `RETRAINED` untuk tindakan persetujuan kandidat korpus berikutnya, dengan catatan admin; ini tetap nilai legacy, bukan bukti pelatihan selesai. Keberhasilan UI memerlukan konfirmasi server yang cocok untuk ID feedback/deteksi, status, catatan, dan waktu review. Jika review sudah dikonfirmasi tetapi refresh gagal, UI menyatakan keduanya secara terpisah. Riwayat review lengkap tetap belum diimplementasikan.
+
 ## 5. Masukan, OCR, dan pemotongan teks
 
 Detail unggahan, editor, kebijakan kualitas, dan uji OCR dikelola di [Panduan Pengujian OCR](PANDUAN_PENGUJIAN_OCR.md). Ringkasan alur lintas tahap:
@@ -271,6 +279,10 @@ Kode praproses menetapkan `MAX_WORDS = 60`, sedangkan konfigurasi inferensi mene
 | Peringatan | Terlihat ketika hanya sebagian masukan dianalisis. |
 
 Seluruh teks praproses belum tentu masuk model jika tokenizer masih memotongnya. Jangan menyimpulkan pemotongan hanya dari jumlah karakter atau menyamarkan keterbatasan dengan memotong teks di frontend.
+
+Kontrak respons deteksi aktif: `terpotong` bernilai `true` jika pemotongan diketahui pada salah satu tahap, `false` hanya ketika kedua tahap diketahui tidak memotong, dan `null` jika belum dapat dipastikan. Batas kata diperiksa setelah pembersihan, pada jalur yang sama dengan `praproses`; urutan transformasi dan keluaran teks tetap. `BackendIndoBERT.count_tokens` dan tokenisasi inferensi memakai lock yang sama. Kegagalan hitung token tidak menggagalkan klasifikasi yang sah, tetapi tetap terlihat sebagai ketidakpastian pemotongan.
+
+`teks_dinilai` pada respons langsung adalah hasil praproses **sebelum batas tokenizer**, bukan decoding token yang persis masuk model. UI menyebut batas ini dan menampilkan peringatan saat metadata pemotongan belum tersedia. Kedua field belum disimpan sebagai kolom tersendiri di database; hasil riwayat lama tidak boleh dianggap memiliki metadata tersebut. Ini tidak mengubah checkpoint, voting, padding, atau konfigurasi LIME.
 
 ## 6. Kegagalan model dan jejak reproduksi
 

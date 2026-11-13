@@ -139,3 +139,38 @@ def review_user_feedback(
             created_at=feedback.created_at
         )
     )
+
+@router.get("/my")
+def get_user_feedbacks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mengambil riwayat sanggahan milik pengguna aktif secara relasional."""
+    # Kueri relasional: UserFeedback digabungkan dengan PredictionLog via detection_id
+    results = (
+        db.query(UserFeedback, PredictionLog)
+        .outerjoin(PredictionLog, UserFeedback.detection_id == PredictionLog.id)
+        .filter(UserFeedback.user_id == current_user.id)
+        .order_by(UserFeedback.created_at.desc())
+        .all()
+    )
+
+    data = []
+    for fb, log in results:
+        data.append({
+            "id": f"FB-{fb.id}",
+            "detection_id": str(fb.detection_id),
+            # Ambil cuplikan teks dan vonis awal dari tabel PredictionLog
+            "news_snippet": log.input_text if log else "",
+            "model_verdict": log.pattern_label if log else "TIDAK TERSEDIA",
+            # Pemetaan field resmi dari tabel UserFeedback
+            "user_claim": fb.claimed_label,
+            "user_note": fb.user_notes,
+            "status": fb.review_status,
+            "created_at": fb.created_at.isoformat() if fb.created_at else ""
+        })
+
+    return {
+        "status": "success",
+        "data": data
+    }

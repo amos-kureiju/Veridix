@@ -144,9 +144,13 @@ export default function VerdictCard({
     const isOutOfDomain = processStatus === "di_luar_domain" || rawLabel.includes("DI LUAR CAKUPAN");
     const isRejected = processStatus === "ditolak" || rawLabel === "TIDAK DAPAT DINILAI";
 
-    // PERBAIKAN AUDIT: Ekstraksi status pemotongan & teks yang dianalisis
+    // PERBAIKAN AUDIT: Ekstraksi status pemotongan & fallback teks yang dianalisis
     const isTruncated = Boolean(d.terpotong);
-    const analyzedText: string = typeof d.teks_dinilai === "string" ? d.teks_dinilai : "";
+    const hasAnalyzedText = typeof d.teks_dinilai === "string" && d.teks_dinilai.trim() !== "";
+    const displaySnippet = hasAnalyzedText
+        ? d.teks_dinilai
+        : (typeof d.input_text === "string" ? d.input_text.trim().split(/\s+/).slice(0, 60).join(" ") + "..." : "");
+
 
     const topic = d.sub_topik || d.political_topic || "";
     const votesHoax = d.votes_hoax || "";
@@ -284,7 +288,7 @@ export default function VerdictCard({
                 </div>
             </div>
 
-            {/* PERBAIKAN AUDIT: PERINGATAN PEMOTONGAN TEKS (Mencakup Batas Kata & Token) */}
+            {/* PERBAIKAN AUDIT: Peringatan Pemotongan Teks Transparan */}
             {isTruncated && (
                 <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 space-y-2">
                     <div className="flex items-start gap-2.5">
@@ -294,15 +298,13 @@ export default function VerdictCard({
                                 <h4 className="text-xs font-bold text-amber-900">
                                     Naskah Berita Terpotong untuk Analisis
                                 </h4>
-                                {analyzedText && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAnalyzedText(!showAnalyzedText)}
-                                        className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
-                                    >
-                                        {showAnalyzedText ? "Tutup Naskah" : "Lihat Naskah Dinilai"}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAnalyzedText(!showAnalyzedText)}
+                                    className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                                >
+                                    {showAnalyzedText ? "Tutup Naskah" : "Lihat Naskah Dinilai"}
+                                </button>
                             </div>
                             <p className="text-[11px] text-amber-800/90 leading-relaxed mt-1">
                                 Panjang teks masukan melebihi ambang batas pemrosesan (maksimal ~60 kata pada praproses atau 128 token tokenizer IndoBERT). Model hanya menilai segmen awal naskah.
@@ -310,13 +312,13 @@ export default function VerdictCard({
                         </div>
                     </div>
 
-                    {showAnalyzedText && analyzedText && (
+                    {showAnalyzedText && (
                         <div className="mt-2 pt-2 border-t border-amber-200/60">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block mb-1">
-                                Teks yang Sebenarnya Dievaluasi:
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
+                                {hasAnalyzedText ? "Teks Hasil Praproses yang Dievaluasi:" : "Cuplikan Masukan Asli (~60 kata pertama):"}
                             </span>
-                            <div className="bg-white/80 border border-amber-200/60 rounded-xl p-3 text-[11px] text-slate-700 font-mono leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
-                                {analyzedText}
+                            <div className="bg-white/90 border border-amber-200/60 rounded-xl p-3 text-[11px] text-slate-700 font-mono leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                {displaySnippet || "Cuplikan naskah tidak tersedia."}
                             </div>
                         </div>
                     )}

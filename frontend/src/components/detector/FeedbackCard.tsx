@@ -1,28 +1,53 @@
 "use client";
 
 import { FeedbackItem } from "@/types/detector";
-import { Clock, CheckCircle2, RefreshCcw, ShieldAlert, CheckCircle } from "lucide-react";
+import { Clock, CheckCircle2, ShieldAlert, CheckCircle } from "lucide-react";
 
 interface FeedbackCardProps {
     item: FeedbackItem;
 }
 
+// 1. HELPER EKSPEKTASI LABEL (Anti Terbalik & Anti Substring Bug)
+const isExactHoax = (label?: string | null): boolean => {
+    const s = (label || "").trim().toUpperCase();
+    return (s === "BERPOLA HOAKS" || s === "HOAKS" || s === "HOAX") && !s.includes("TIDAK");
+};
+
+const isExactFact = (label?: string | null): boolean => {
+    const s = (label || "").trim().toUpperCase();
+    return s === "TIDAK BERPOLA HOAKS" || s === "FAKTA" || s === "FACT";
+};
+
 export default function FeedbackCard({ item }: FeedbackCardProps) {
-    // Helper untuk menentukan warna dan ikon badge status dari admin
-    const renderStatusBadge = (status: FeedbackItem["status"]) => {
-        switch (status) {
+    // 2. STATUS BADGE JUJUR (Selaras dengan kurasi admin, bukan klaim retraining fiktif)
+    const renderStatusBadge = (status: FeedbackItem["status"] | string) => {
+        const normalized = (status || "").toUpperCase();
+        switch (normalized) {
             case "RETRAINED":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-xs">
-                        <RefreshCcw className="w-3 h-3 text-emerald-600 animate-spin-slow" />
-                        Masuk Retraining
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200/60 shadow-xs">
+                        <CheckCircle2 className="w-3 h-3 text-purple-600" />
+                        Disetujui untuk Korpus Latih
+                    </span>
+                );
+            case "MARKED_FOR_RETRAIN":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-xs">
+                        <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                        Disetujui untuk Korpus Latih
                     </span>
                 );
             case "REVIEWED":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-xs">
-                        <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         Sudah Ditinjau
+                    </span>
+                );
+            case "DISMISSED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200/60 shadow-xs">
+                        Sanggahan Ditolak
                     </span>
                 );
             case "PENDING":
@@ -36,8 +61,11 @@ export default function FeedbackCard({ item }: FeedbackCardProps) {
         }
     };
 
-    const isModelHoax = item.model_verdict === "HOAKS";
-    const isModelFact = item.model_verdict === "FAKTA";
+    const isModelHoax = isExactHoax(item.model_verdict);
+    const isModelFact = isExactFact(item.model_verdict);
+
+    const isUserHoax = isExactHoax(item.user_claim);
+    const isUserFact = isExactFact(item.user_claim);
 
     return (
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-md transition-all space-y-4 font-sans">
@@ -74,7 +102,7 @@ export default function FeedbackCard({ item }: FeedbackCardProps) {
                 </p>
             </div>
 
-            {/* 3. Komparasi Visual: Vonis Model vs Klaim Koreksi Pengguna */}
+            {/* 3. Komparasi Visual: Vonis Model vs Klaim Koreksi Pengguna (Grid Utuh) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {/* Kolom Vonis IndoBERT */}
                 <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3">
@@ -82,23 +110,39 @@ export default function FeedbackCard({ item }: FeedbackCardProps) {
                         Vonis Awal IndoBERT:
                     </span>
                     <div className="flex items-center gap-1.5 mt-1">
-                        {isModelHoax && <ShieldAlert className="w-4 h-4 text-rose-600" />}
-                        {isModelFact && <CheckCircle className="w-4 h-4 text-emerald-600" />}
-                        <span className={`font-bold ${isModelHoax ? "text-rose-600" : isModelFact ? "text-emerald-600" : "text-amber-600"
-                            }`}>
+                        {isModelHoax && <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />}
+                        {isModelFact && <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        <span
+                            className={`font-bold ${isModelHoax
+                                    ? "text-rose-600"
+                                    : isModelFact
+                                        ? "text-emerald-600"
+                                        : "text-amber-600"
+                                }`}
+                        >
                             {item.model_verdict}
                         </span>
                     </div>
                 </div>
 
                 {/* Kolom Koreksi User */}
-                <div className="bg-emerald-50/40 border border-emerald-200/60 rounded-xl p-3">
-                    <span className="text-[10px] font-bold uppercase text-emerald-700 block tracking-wider">
+                <div className="bg-slate-50/80 border border-slate-200/60 rounded-xl p-3">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
                         Klaim Koreksi Anda:
                     </span>
                     <div className="flex items-center gap-1.5 mt-1">
                         <span className="font-bold text-slate-800">
-                            Menurut saya <span className={item.user_claim === "HOAKS" ? "text-rose-600" : "text-emerald-600"}>{item.user_claim}</span>
+                            Menurut Anda:{" "}
+                            <span
+                                className={`font-extrabold ${isUserHoax
+                                        ? "text-rose-600"
+                                        : isUserFact
+                                            ? "text-emerald-600"
+                                            : "text-amber-600"
+                                    }`}
+                            >
+                                {item.user_claim}
+                            </span>
                         </span>
                     </div>
                 </div>

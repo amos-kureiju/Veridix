@@ -31,9 +31,8 @@ export default function HelpPage() {
       a: "Model IndoBERT pada VERIDIX secara khusus dilatih dengan dataset korpus disinformasi politik Indonesia (Pemilu, DPR, Pilpres, KPU, dan Kebijakan). Sistem memiliki filter Guardrail yang akan menolak input di luar domain politik untuk mencegah prediksi halusinasi (out-of-distribution)."
     },
     {
-      // --- PERBAIKAN AUDIT: Penjelasan sesuai voting 3 seed ---
-      q: "Apa arti status 'PERLU KONFIRMASI'?",
-      a: "Status ini muncul jika sistem tidak mencapai konsensus bulat pada mekanisme voting 3-seed model ensemble IndoBERT (terjadi split voting / perbedaan keputusan antar-seed). Artinya naskah memiliki pola retorika yang terbelah antara fakta dan disinformasi, sehingga verifikasi silang secara manual sangat direkomendasikan."
+      q: "Apa arti status 'PERLU VERIFIKASI' / 'PERLU KONFIRMASI'?",
+      a: "Status ini muncul jika sistem tidak mencapai kesepakatan bulat pada voting ensemble 3-seed IndoBERT (terjadi suara terbelah 1/3 atau 2/3 seed). Artinya naskah memiliki sinyal ambigu antara fakta dan disinformasi, sehingga verifikasi silang secara manual sangat direkomendasikan."
     },
     {
       q: "Bagaimana cara kerja ekstraksi teks gambar (OCR)?",
@@ -65,24 +64,25 @@ export default function HelpPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          {/* Lapis 1: Diperbarui ke konsensus voting multi-seed */}
+          {/* Lapis 1: Diperbarui ke kesepakatan bulat 3/3 seed (Unanimous Rule) */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2">
             <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-md bg-[#0b2520] text-white flex items-center justify-center text-[10px]">L1</span>
               Vonis & Konsensus Multi-Seed
             </span>
             <p className="text-slate-600 leading-relaxed">
-              Keputusan agregat dari ensemble 3-seed IndoBERT untuk meminimalkan bias acak:
+              Keputusan agregat dari ensemble 3-seed IndoBERT dengan aturan kesepakatan bulat (*unanimous*):
             </p>
             <div className="space-y-1 pt-1">
+              {/* PERBAIKAN: Ganti 'mayoritas' dengan '3/3' dan '0/3' */}
               <span className="flex items-center gap-1.5 text-rose-600 font-semibold text-[11px]">
-                <ShieldAlert className="w-3.5 h-3.5" /> HOAKS (Konsensus mayoritas seed memutuskan Hoaks)
+                <ShieldAlert className="w-3.5 h-3.5" /> HOAKS (Kesepakatan bulat 3 dari 3 seed)
               </span>
               <span className="flex items-center gap-1.5 text-amber-600 font-semibold text-[11px]">
-                <AlertTriangle className="w-3.5 h-3.5" /> PERLU KONFIRMASI (Suara terbelah / tidak mencapai konsensus bulat)
+                <AlertTriangle className="w-3.5 h-3.5" /> PERLU VERIFIKASI (Suara terbelah 1/3 atau 2/3 seed)
               </span>
               <span className="flex items-center gap-1.5 text-emerald-600 font-semibold text-[11px]">
-                <CheckCircle className="w-3.5 h-3.5" /> FAKTA (Konsensus mayoritas seed memutuskan Fakta)
+                <CheckCircle className="w-3.5 h-3.5" /> FAKTA (Kesepakatan bulat 0 dari 3 seed / ketiga model sepakat fakta)
               </span>
             </div>
           </div>

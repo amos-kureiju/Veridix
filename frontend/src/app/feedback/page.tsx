@@ -1,70 +1,83 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/lib/apiClient";
 import FeedbackCard from "@/components/detector/FeedbackCard";
 import { FeedbackItem } from "@/types/detector";
 import { Search, Send, Lock, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import UserShell from "@/components/layout/UserShell";
 
 export default function UserFeedbackPage() {
-    const { isGuest, user, token, logout } = useAuth();
+    // 1. PERBAIKAN TS2339: Hapus 'token' dari useAuth
+    const { isGuest, user, logout } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-    // --- State Riil Pengganti Dummy ---
     const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
 
     const displayName = user?.name || (isGuest ? "Tamu" : "Pengguna");
 
-    // Fungsi fetch feedback khusus milik akun aktif
+    // Simpan referensi ID pengguna aktif saat request dilakukan
+    const activeUserIdRef = useRef<string | null>(null);
+
+    // 2. PERBAIKAN FETCH: Gunakan apiClient resmi + cegah respons akun lama tampil
     const fetchUserFeedbacks = useCallback(async () => {
-        if (isGuest) {
+        if (isGuest || !user?.id) {
             setFeedbacks([]);
+            setIsLoading(false);
+            setFetchError(null);
             return;
         }
+
+        const currentUserId = user.id;
+        activeUserIdRef.current = currentUserId;
 
         setIsLoading(true);
         setFetchError(null);
 
         try {
-            const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("token") : null);
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/feedback/my`, {
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-                },
-            });
+            // Gunakan kontrak API resmi /api/v1/feedback/my
+            const res = await apiClient.get<any>("/api/v1/feedback/my");
 
-            if (!res.ok) {
-                throw new Error(`Gagal memuat feedback (Status: ${res.status})`);
+            // Abaikan respons jika pengguna sudah berganti akun sebelum fetch selesai
+            if (activeUserIdRef.current !== currentUserId) {
+                return;
             }
 
-            const data = await res.json();
-            // Sesuaikan jika payload backend terbungkus misal { data: [...] } atau array langsung
-            setFeedbacks(Array.isArray(data) ? data : data.data || []);
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Terjadi kesalahan saat memuat data feedback.";
+            const rawData = res.data?.data || res.data;
+            setFeedbacks(Array.isArray(rawData) ? rawData : []);
+        } catch (err: any) {
+            if (activeUserIdRef.current !== currentUserId) {
+                return;
+            }
+            const message =
+                err.response?.data?.detail ||
+                err.message ||
+                "Terjadi kesalahan saat memuat data sanggahan dari server.";
             setFetchError(message);
             setFeedbacks([]);
         } finally {
-            setIsLoading(false);
+            if (activeUserIdRef.current === currentUserId) {
+                setIsLoading(false);
+            }
         }
-    }, [isGuest, token]);
+    }, [isGuest, user?.id]);
 
     useEffect(() => {
         fetchUserFeedbacks();
     }, [fetchUserFeedbacks]);
 
-    // Filter data riil berdasarkan input search dan filter status
+    // Filter feedback berdasarkan kata kunci dan status backend resmi
     const filteredFeedbacks = useMemo(() => {
         return feedbacks.filter((item) => {
             const matchSearch =
                 (item.news_snippet ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (item.user_note ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+
             const matchStatus = selectedStatus === "ALL" || item.status === selectedStatus;
             return matchSearch && matchStatus;
         });
@@ -115,6 +128,7 @@ export default function UserFeedbackPage() {
                         className="w-full bg-[#f8fafc] border border-slate-200 pl-8 pr-3 py-2 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-500"
                     />
                 </div>
+                {/* Status diselaraskan dengan backend resmi */}
                 <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
@@ -123,17 +137,19 @@ export default function UserFeedbackPage() {
                     <option value="ALL">Semua Status</option>
                     <option value="PENDING">Menunggu Tinjauan</option>
                     <option value="REVIEWED">Sudah Ditinjau</option>
-                    <option value="RETRAINED">Masuk Retraining</option>
+                    <option value="MARKED_FOR_RETRAIN">Disetujui Retrain</option>
+                    <option value="RETRAINED">Selesai Retraining</option>
+                    <option value="DISMISSED">Sanggahan Ditolak</option>
                 </select>
             </div>
 
-            {/* Daftar Komponen Modular FeedbackCard & Handling State */}
+            {/* Daftar Komponen FeedbackCard & Penanganan State */}
             <div className="space-y-4">
                 {/* 1. Kondisi Loading */}
                 {isLoading && (
                     <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
-                        <span>Memuat riwayat feedback Anda...</span>
+                        <span>Memuat riwayat sanggahan Anda...</span>
                     </div>
                 )}
 
@@ -145,8 +161,9 @@ export default function UserFeedbackPage() {
                             <span>{fetchError}</span>
                         </div>
                         <button
+                            type="button"
                             onClick={fetchUserFeedbacks}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition cursor-pointer"
                         >
                             <RefreshCw className="w-3 h-3" />
                             Coba Lagi
@@ -154,23 +171,23 @@ export default function UserFeedbackPage() {
                     </div>
                 )}
 
-                {/* 3. Kondisi Sukses tetapi Belum Ada Data Sama Sekali */}
+                {/* 3. Kondisi Sukses tetapi Belum Ada Data */}
                 {!isLoading && !fetchError && feedbacks.length === 0 && (
                     <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-xs text-slate-400">
                         {isGuest
-                            ? "Silakan masuk dengan akun terdaftar untuk melihat riwayat feedback Anda."
-                            : "Belum ada riwayat feedback yang Anda kirimkan."}
+                            ? "Silakan masuk dengan akun terdaftar untuk melihat riwayat sanggahan Anda."
+                            : "Belum ada riwayat sanggahan yang Anda kirimkan."}
                     </div>
                 )}
 
-                {/* 4. Kondisi Filter/Pencarian Tidak Menemukan Hasil */}
+                {/* 4. Kondisi Filter/Pencarian Nihil */}
                 {!isLoading && !fetchError && feedbacks.length > 0 && filteredFeedbacks.length === 0 && (
                     <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-xs text-slate-400">
-                        Tidak ada feedback yang cocok dengan filter atau kata kunci pencarian.
+                        Tidak ada sanggahan yang cocok dengan filter atau kata kunci pencarian.
                     </div>
                 )}
 
-                {/* 5. Render Daftar Feedback Riil */}
+                {/* 5. Render Daftar Riil */}
                 {!isLoading && !fetchError && filteredFeedbacks.map((fb) => (
                     <FeedbackCard key={fb.id} item={fb} />
                 ))}

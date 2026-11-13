@@ -344,7 +344,33 @@ class BackendIndoBERT:
                     out[i:i + len(p), j] = p
         return out
 
+    # -- Tambahkan helper method thread-safe ini di dalam BackendIndoBERT --
+    def count_tokens(self, text: str) -> Optional[int]:
+        """Menghitung jumlah token sub-kata secara thread-safe."""
+        try:
+            with self._lock:
+                return len(self.tokenizer.encode(str(text), add_special_tokens=True, truncation=False))
+        except Exception:
+            return None
 
+    def seed_probs_each(self, texts: List[str]) -> np.ndarray:
+        torch = self.torch
+        texts = [str(t) for t in texts]
+        out = np.zeros((len(texts), len(self.seeds)), dtype=np.float64)
+
+        with self._lock:
+            # Tokenisasi wajib di dalam lock agar tidak ada kebocoran batas token
+            enc = self.tokenizer(texts, max_length=MAX_LEN, padding="max_length", truncation=True, return_tensors="pt")
+            with torch.no_grad():
+                for j, s in enumerate(self.seeds):
+                    self.clf.load_state_dict(self.states[s], strict=False)
+                    for i in range(0, len(texts), BATCH):
+                        ids = enc["input_ids"][i:i + BATCH].to(self.device)
+                        am = enc["attention_mask"][i:i + BATCH].to(self.device)
+                        p = torch.softmax(self.clf(ids, am), dim=1)[:, 1].cpu().numpy()
+                        out[i:i + len(p), j] = p
+        return out
+    
 _PRED = None
 _PRED_LOCK = threading.Lock()
 

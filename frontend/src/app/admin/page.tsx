@@ -237,7 +237,7 @@ export default function AdminDashboardPage() {
                     </div>
                 </div>
 
-                {/* Pengguna Aktif */}
+                {/* Pengguna Aktif & Beban Server */}
                 <div className={`${CARD} p-6 flex flex-col justify-between`}>
                     <div>
                         <div className="flex items-center justify-between pb-3">
@@ -246,13 +246,18 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="flex items-baseline gap-2 mt-1">
                             <h3 className="text-2xl font-bold text-slate-900 font-sans">{safeStats.active_users_count}</h3>
-                            <span className={PILL}>Online</span>
+                            <span className={PILL}>{!error && stats ? "Terhubung" : "Terputus"}</span>
                         </div>
                     </div>
 
+                    {/* KOREKSI: Gunakan average_latency_seconds sesuai schema backend */}
                     <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                        <span>Beban Server: Optimal (0.38s/inf)</span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>
+                            {typeof (stats as any)?.average_latency_seconds === "number" && (stats as any).average_latency_seconds > 0
+                                ? `Latensi Rerata: ${(stats as any).average_latency_seconds.toFixed(2)}s/inf`
+                                : "Beban Server: Metrik belum tersedia"}
+                        </span>
+                        <span className={`w-2 h-2 rounded-full ${!error && stats ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`} />
                     </div>
                 </div>
             </div>

@@ -28,7 +28,7 @@ export interface AdminFeedbackItem {
     model_verdict: "HOAKS" | "FAKTA" | "PERLU KONFIRMASI";
     user_claim: "HOAKS" | "FAKTA";
     user_note?: string;
-    status: "PENDING" | "REVIEWED" | "RETRAINED";
+    status: "PENDING" | "REVIEWED" | "RETRAINED" | "DISMISSED";
     created_at: string;
 }
 

@@ -65,21 +65,33 @@ apiClient.interceptors.response.use(
             }
         }
 
-        if (error.response?.status !== 401 && !axios.isCancel(error)) {
+        const isCanceled = axios.isCancel(error) || error.code === "ERR_CANCELED" || error.name === "CanceledError";
+
+        if (error.response?.status !== 401 && !isCanceled) {
             const method = error.config?.method;
             const code = error.code;
             const status = error.response?.status;
             const timeout = error.config?.timeout;
+
+            // Ambil pesan error riil dari FastAPI atau error jaringan
+            const detail =
+                typeof error.response?.data?.detail === "string"
+                    ? error.response.data.detail
+                    : typeof error.response?.data?.message === "string"
+                        ? error.response.data.message
+                        : error.message || null;
+
             const diagnostic = {
                 method: typeof method === "string" && /^(get|post|put|patch|delete|head|options)$/i.test(method)
                     ? method.toUpperCase() : null,
-                endpoint: requestEndpoint(error.config?.url),
+                endpoint: requestEndpoint(error.config?.url) || error.config?.url || null,
                 status: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
                 code: typeof code === "string" && /^[A-Z][A-Z0-9_]{0,39}$/.test(code) ? code : null,
                 timeout: typeof timeout === "number" && Number.isFinite(timeout) && timeout >= 0 ? timeout : null,
+                detail: detail, // <-- PERBAIKAN: Sertakan alasan kegagalan asli dari server
             };
+
             if (status === 400 || status === 422) {
-                // Penolakan input tetap diteruskan ke form, tanpa overlay error Next.js.
                 console.warn("[API Validation]:", diagnostic);
             } else {
                 console.error("[API Error]:", diagnostic);

@@ -105,27 +105,73 @@ def list_feedbacks(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    query = db.query(UserFeedback)
+    # Kueri relasi riil ke PredictionLog dan User
+    query = (
+        db.query(UserFeedback, PredictionLog, User)
+        .outerjoin(PredictionLog, UserFeedback.detection_id == PredictionLog.id)
+        .outerjoin(User, UserFeedback.user_id == User.id)
+    )
+
     if status_filter:
         query = query.filter(UserFeedback.review_status == status_filter)
 
-    feedbacks = query.order_by(UserFeedback.created_at.desc()).offset(skip).limit(limit).all()
+    results = query.order_by(UserFeedback.created_at.desc()).offset(skip).limit(limit).all()
+
+    data = []
+    for f, log, u in results:
+        data.append({
+            "id": str(f.id),
+            "detection_id": str(f.detection_id),
+            "user_id": str(f.user_id) if f.user_id else None,
+            "user_email": u.email if u and u.email else "Pengguna Terdaftar",
+            # Ambil cuplikan teks dan vonis model asli dari PredictionLog
+            "news_snippet": log.input_text if log and log.input_text else "",
+            "model_verdict": log.pattern_label if log and log.pattern_label else "TIDAK TERSEDIA",
+            "is_agreed": f.is_agreed,
+            "user_claim": f.claimed_label,
+            "claimed_label": f.claimed_label,
+            "user_note": f.user_notes,
+            "user_notes": f.user_notes,
+            "clarification_url": f.clarification_url,
+            "status": f.review_status,
+            "review_status": f.review_status,
+            "admin_notes": getattr(f, "admin_notes", None),
+            "created_at": f.created_at.isoformat() if f.created_at else None
+        })
 
     return {
         "status": "success",
-        "count": len(feedbacks),
-        "data": [
-            {
-                "id": f.id,
-                "detection_id": f.detection_id,
-                "user_id": f.user_id,
-                "is_agreed": f.is_agreed,
-                "claimed_label": f.claimed_label,
-                "user_notes": f.user_notes,
-                "clarification_url": f.clarification_url,
-                "review_status": f.review_status,
-                "admin_notes": getattr(f, "admin_notes", None),
-                "created_at": f.created_at
-            } for f in feedbacks
-        ]
+        "count": len(data),
+        "data": data
     }
+
+@router.get("/logs/recent")
+def get_recent_admin_logs(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    logs_query = (
+        db.query(PredictionLog, User)
+        .outerjoin(User, PredictionLog.user_id == User.id)
+        .order_by(PredictionLog.created_at.desc())
+        .limit(min(limit, 50))
+        .all()
+    )
+
+    data = []
+    for log, u in logs_query:
+        user_identifier = u.email if u and u.email else (f"User-{str(log.user_id)[:8]}" if log.user_id else "Anonim/Tamu")
+        conf_score = float(log.agreement_ratio) if log.agreement_ratio is not None else 1.0
+
+        data.append({
+            "id": str(log.id),
+            "user_identifier": user_identifier,
+            "text_snippet": (log.input_text[:140] + "...") if log.input_text and len(log.input_text) > 140 else (log.input_text or "-"),
+            "political_topic": log.political_topic or "UMUM",
+            "prediction": log.pattern_label or "TIDAK DAPAT DINILAI",
+            "confidence_score": conf_score,
+            "created_at": log.created_at.isoformat() if log.created_at else None
+        })
+
+    return {"status": "success", "data": data}

@@ -35,14 +35,24 @@ export function useAdminDashboard() {
                     : null
             );
 
-            // 2. Ambil Log Terkini (Transparan jika gagal, tidak menyamarkan error)
+            // 2. Ambil Log Terkini (Validasi kontrak array ketat & pesan error jaringan riil)
             try {
                 const resLogs = await apiClient.get<any>("/api/v1/admin/logs/recent");
-                const logsData = resLogs.data?.data || resLogs.data;
-                setRecentLogs(Array.isArray(logsData) ? logsData : []);
+                const logsData = resLogs.data?.data ?? resLogs.data;
+
+                if (Array.isArray(logsData)) {
+                    setRecentLogs(logsData);
+                } else {
+                    // Jangan samarkan sebagai data kosong jika format server keliru
+                    setLogsError("Format data log dari server tidak valid (diharapkan array).");
+                    setRecentLogs([]);
+                }
             } catch (err: any) {
+                // Tangkap detail backend atau pesan jaringan (misal: "Network Error" jika server mati)
                 const logErrMessage =
-                    err.response?.data?.detail || "Gagal memuat log aktivitas terkini dari server.";
+                    err.response?.data?.detail ||
+                    err.message ||
+                    "Gagal memuat log aktivitas terkini dari server.";
                 setLogsError(logErrMessage);
                 setRecentLogs([]);
             }

@@ -64,7 +64,7 @@ export default function ProfilePage() {
         setTimeout(() => setProfileMsg(null), 3000);
     };
 
-    // Handler Ubah Sandi (Dengan Session Revocation & Auto Logout)
+    // Handler Ubah Sandi (Gunakan Session Handling Terpusat dari Hook)
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!canEdit) return;
@@ -85,20 +85,21 @@ export default function ProfilePage() {
             confirm_password: confirmPassword
         });
 
+        // dan mengarahkan browser ke /auth/login secara terpusat.
         if (res.success) {
             setOldPassword("");
             setNewPassword("");
             setConfirmPassword("");
             setPasswordMsg({
                 type: "success",
-                text: "Kata sandi berhasil diperbarui! Demi keamanan, sesi Anda telah direset. Mengalihkan ke login...",
+                text: "Kata sandi berhasil diperbarui. Mengalihkan ke halaman login...",
             });
-            // Karena token_version di database naik, logout otomatis ke login page
-            setTimeout(() => {
-                logout();
-            }, 2000);
+            // Tidak ada lagi setTimeout(() => logout(), 2000) yang memicu race condition
         } else {
-            setPasswordMsg({ type: "error", text: res.message || "Gagal mengubah kata sandi. Periksa kata sandi lama." });
+            setPasswordMsg({
+                type: "error",
+                text: res.message || "Gagal mengubah kata sandi. Periksa kata sandi lama."
+            });
         }
     };
 

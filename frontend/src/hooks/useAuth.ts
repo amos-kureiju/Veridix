@@ -201,15 +201,29 @@ export function useAuth() {
         }
 
         setLoading(true);
+        // Catat token sesi aktif yang digunakan untuk permintaan ini
+        const currentToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
         try {
             const res = await apiClient.post(AUTH_EP.changePassword, {
                 old_password: payload.old_password,
                 new_password: payload.new_password,
                 confirm_password: payload.confirm_password,
             });
+
+            // PERBAIKAN: Bersihkan sesi lama HANYA jika token di localStorage masih sama
+            // (mencegah penghapusan sesi jika pengguna sudah login di sesi lain)
+            if (typeof window !== "undefined" && localStorage.getItem("token") === currentToken) {
+                localStorage.removeItem("token");
+                document.cookie = "token=; Max-Age=0; path=/";
+                document.cookie = "role=; Max-Age=0; path=/";
+                setUser(null);
+                // Arahkan terpusat ke login dengan query penjelas
+                window.location.href = "/auth/login?status=password_changed";
+            }
             return {
                 success: true,
-                message: res.data?.message || "Kata sandi berhasil diperbarui."
+                message: res.data?.message || "Kata sandi berhasil diperbarui. Silakan masuk kembali."
             };
         } catch (err: any) {
             return {

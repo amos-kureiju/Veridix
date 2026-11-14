@@ -116,7 +116,7 @@ function PasswordField({
 /* ───────────────────────── Halaman ───────────────────────── */
 
 export default function AdminProfilePage() {
-    const { user, changePassword, logout} = useAuth();
+    const { user, changePassword } = useAuth();
     const u = user as { name?: string; email?: string; role?: string } | null;
     const name = u?.name || "Administrator";
     const email = u?.email || "-";
@@ -155,28 +155,26 @@ export default function AdminProfilePage() {
         setMessage(null);
         setLoading(true);
 
-        // Memanggil endpoint backend POST /api/v1/users/change-password
         const res = await changePassword({
             old_password: current,
             new_password: next,
             confirm_password: confirm,
         });
 
-        setLoading(false);
-
+        // PERBAIKAN: Hapus setTimeout logout lokal.
+        // Hook useAuth.changePassword sudah otomatis membersihkan sesi lama 
+        // dan mengarahkan browser ke /auth/login secara terpusat.
         if (res.success) {
             setCurrent("");
             setNext("");
             setConfirm("");
             setMessage({
                 type: "ok",
-                text: "Password berhasil diganti. Sesi telah direset demi keamanan, mengalihkan ke halaman login...",
+                text: "Kata sandi berhasil diganti. Mengalihkan ke halaman login...",
             });
-            // Karena token_version di DB naik, sesi lama hangus -> redirect login
-            setTimeout(() => {
-                logout();
-            }, 2000);
+    
         } else {
+            setLoading(false);
             setMessage({
                 type: "error",
                 text: res.message || "Gagal mengganti password. Periksa kembali password saat ini.",

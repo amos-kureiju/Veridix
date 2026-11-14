@@ -83,11 +83,17 @@ def change_password(
             detail="Kata sandi saat ini wajib diisi."
         )
 
+    # Validasi 2: Password lama wajib benar
     if not verify_password(payload.old_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kata sandi saat ini yang Anda masukkan salah."
         )
+
+    # Simpan password baru & NAIKKAN token_version
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.token_version = (getattr(current_user, "token_version", 0) or 0) + 1
+    db.commit()
 
     # Validasi 3: Cegah password sama
     if payload.old_password == payload.new_password:

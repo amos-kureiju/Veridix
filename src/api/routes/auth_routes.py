@@ -80,7 +80,9 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
 # =====================================================================
 @router.post("/login")
 def login_user(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email.lower().strip()).first()
+    # PERBAIKAN: Gunakan func.lower() agar pencarian email case-insensitive
+    email_clean = req.email.lower().strip()
+    user = db.query(User).filter(func.lower(User.email) == email_clean).first()
     
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(

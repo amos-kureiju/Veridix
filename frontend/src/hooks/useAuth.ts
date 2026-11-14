@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { isAxiosError } from "axios";
 import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
 import type { UserProfile, UpdateProfilePayload, ChangePasswordPayload } from "@/types/user";
@@ -13,6 +13,9 @@ const AUTH_EP = {
     reset: "/api/v1/auth/reset-password",
     profile: "/api/v1/users/profile",
     changePassword: "/api/v1/users/change-password",
+    googleChallenge: "/api/v1/auth/google/challenge",
+    googleLogin: "/api/v1/auth/google",
+    googleLink: "/api/v1/auth/google/link",
 };
 
 const parseErrorMessage = (err: any, fallback: string): string => {
@@ -28,11 +31,53 @@ const parseErrorMessage = (err: any, fallback: string): string => {
     return fallback;
 };
 
+const normalizeUserProfile = (raw: any, fallbackEmail = ""): UserProfile => ({
+    id: String(raw.id),
+    name: raw.name || raw.full_name || "",
+    email: raw.email || fallbackEmail,
+    role: String(raw.role).toUpperCase() as "USER" | "ADMIN",
+    avatar_url: raw.avatar_url || "",
+    has_password: typeof raw.has_password === "boolean" ? raw.has_password : true,
+    google_linked: Boolean(raw.google_linked),
+    email_verified_at: raw.email_verified_at ?? null,
+    total_detections: raw.total_detections ?? 0,
+    total_feedbacks: raw.total_feedbacks ?? 0,
+    is_active: raw.is_active,
+    created_at: raw.created_at ?? "",
+});
+
 export function useAuth() {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [ready, setReady] = useState<boolean>(false);
     const [sessionError, setSessionError] = useState<string | null>(null);
+
+    const loginAttemptRef = useRef<number>(0);
+
+    // Jalur tunggal penerimaan sesi (dipakai login sandi, login Google, dan penautan Google)
+    const acceptSession = useCallback(
+        (payload: { access_token: string; user: any }, attemptId: number, fallbackEmail = "") => {
+            if (attemptId !== loginAttemptRef.current) {
+                return null;
+            }
+            if (!payload?.access_token || !payload?.user || typeof payload.user !== "object") {
+                throw new Error("Format respons sesi server tidak valid.");
+            }
+
+            const token = payload.access_token;
+            const userData = normalizeUserProfile(payload.user, fallbackEmail);
+
+            localStorage.setItem("token", token);
+            document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
+            document.cookie = `role=${userData.role}; path=/; max-age=604800; SameSite=Lax`;
+
+            setUser(userData);
+            setSessionError(null);
+            setReady(true);
+            return userData;
+        },
+        []
+    );
 
     const refreshUser = useCallback(async () => {
         setReady(false);
@@ -47,17 +92,7 @@ export function useAuth() {
             const res = await apiClient.get<any>(AUTH_EP.me);
             if (localStorage.getItem("token") !== token) return;
             const data = res.data;
-            setUser({
-                id: String(data.id),
-                name: data.name || data.full_name || "",
-                email: data.email,
-                role: String(data.role).toUpperCase() as "USER" | "ADMIN",
-                avatar_url: data.avatar_url || "",
-                total_detections: data.total_detections ?? 0,
-                total_feedbacks: data.total_feedbacks ?? 0,
-                is_active: data.is_active,
-                created_at: data.created_at ?? "",
-            });
+            setUser(normalizeUserProfile(data));
         } catch (err: any) {
             if (localStorage.getItem("token") !== token) return;
             if (err.response?.status === 401) {
@@ -85,34 +120,17 @@ export function useAuth() {
     }, [refreshUser]);
 
     const login = async (email: string, password: string) => {
+        const attemptId = ++loginAttemptRef.current;
         setLoading(true);
         try {
             const res = await apiClient.post<{ access_token: string; user: any }>(
                 AUTH_EP.login,
                 { email, password }
             );
-            const token = res.data.access_token;
-            const raw = res.data.user;
-
-            const userData: UserProfile = {
-                id: String(raw.id),
-                name: raw.name || raw.full_name || "",
-                email: raw.email || email,
-                role: String(raw.role).toUpperCase() as "USER" | "ADMIN",
-                avatar_url: raw.avatar_url || "",
-                total_detections: raw.total_detections ?? 0,
-                total_feedbacks: raw.total_feedbacks ?? 0,
-                is_active: raw.is_active,
-                created_at: raw.created_at ?? "",
-            };
-
-            localStorage.setItem("token", token);
-            document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
-            document.cookie = `role=${userData.role}; path=/; max-age=604800; SameSite=Lax`;
-
-            setUser(userData);
-            setSessionError(null);
-            setReady(true);
+            const userData = acceptSession(res.data, attemptId, email);
+            if (!userData) {
+                return { success: false, message: "Percobaan masuk dibatalkan oleh sesi yang lebih baru." };
+            }
             return { success: true, user: userData };
         } catch (err: any) {
             return {
@@ -123,6 +141,71 @@ export function useAuth() {
                         ? "Email atau kata sandi salah."
                         : "Gagal masuk. Silakan coba lagi."
                 ),
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const requestGoogleChallenge = async (purpose: "login" | "link") => {
+        try {
+            const res = await apiClient.post<{ challenge_id: string; nonce: string; expires_at: string }>(
+                AUTH_EP.googleChallenge,
+                { purpose },
+                { withCredentials: true }
+            );
+            return { success: true as const, ...res.data };
+        } catch (err: any) {
+            return {
+                success: false as const,
+                message: getApiConnectionMessage(err) ?? parseErrorMessage(err, "Gagal memulai verifikasi Google."),
+            };
+        }
+    };
+
+    const loginWithGoogle = async (challengeId: string, credential: string) => {
+        const attemptId = ++loginAttemptRef.current;
+        setLoading(true);
+        try {
+            const res = await apiClient.post<{ access_token: string; user: any }>(
+                AUTH_EP.googleLogin,
+                { challenge_id: challengeId, credential },
+                { withCredentials: true }
+            );
+            const userData = acceptSession(res.data, attemptId);
+            if (!userData) {
+                return { success: false, message: "Percobaan masuk dibatalkan oleh sesi yang lebih baru." };
+            }
+            return { success: true, user: userData };
+        } catch (err: any) {
+            return {
+                success: false,
+                status: err?.response?.status,
+                message: getApiConnectionMessage(err) ?? parseErrorMessage(err, "Gagal masuk menggunakan Google."),
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const linkGoogleAccount = async (challengeId: string, credential: string, currentPassword: string) => {
+        const attemptId = ++loginAttemptRef.current;
+        setLoading(true);
+        try {
+            const res = await apiClient.post<{ access_token: string; user: any }>(
+                AUTH_EP.googleLink,
+                { challenge_id: challengeId, credential, current_password: currentPassword },
+                { withCredentials: true }
+            );
+            const userData = acceptSession(res.data, attemptId);
+            if (!userData) {
+                return { success: false, message: "Sesi berubah saat proses penautan." };
+            }
+            return { success: true, user: userData, message: "Akun Google berhasil ditautkan." };
+        } catch (err: any) {
+            return {
+                success: false,
+                message: getApiConnectionMessage(err) ?? parseErrorMessage(err, "Gagal menautkan akun Google."),
             };
         } finally {
             setLoading(false);
@@ -150,7 +233,6 @@ export function useAuth() {
         }
     };
 
-    // --- 1. LUPA PASSWORD (Kirim email tautan) ---
     const forgotPassword = async (email: string) => {
         setLoading(true);
         try {
@@ -171,7 +253,6 @@ export function useAuth() {
         }
     };
 
-    // --- 2. RESET PASSWORD (Pakai token dari link email) ---
     const resetPassword = async (token: string, password: string, confirmPassword?: string) => {
         setLoading(true);
         try {
@@ -194,14 +275,12 @@ export function useAuth() {
         }
     };
 
-    // --- 3. GANTI PASSWORD (Saat sudah login) ---
     const changePassword = async (payload: ChangePasswordPayload) => {
         if (payload.confirm_password && payload.new_password !== payload.confirm_password) {
             return { success: false, message: "Konfirmasi kata sandi baru tidak cocok." };
         }
 
         setLoading(true);
-        // Catat token sesi aktif yang digunakan untuk permintaan ini
         const currentToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
         try {
@@ -211,14 +290,12 @@ export function useAuth() {
                 confirm_password: payload.confirm_password,
             });
 
-            // PERBAIKAN: Bersihkan sesi lama HANYA jika token di localStorage masih sama
-            // (mencegah penghapusan sesi jika pengguna sudah login di sesi lain)
             if (typeof window !== "undefined" && localStorage.getItem("token") === currentToken) {
+                ++loginAttemptRef.current;
                 localStorage.removeItem("token");
                 document.cookie = "token=; Max-Age=0; path=/";
                 document.cookie = "role=; Max-Age=0; path=/";
                 setUser(null);
-                // Arahkan terpusat ke login dengan query penjelas
                 window.location.href = "/auth/login?status=password_changed";
             }
             return {
@@ -235,7 +312,6 @@ export function useAuth() {
         }
     };
 
-    // --- 4. UPDATE PROFIL (Nama & Avatar) ---
     const updateProfile = async (payload: UpdateProfilePayload) => {
         setLoading(true);
         try {
@@ -245,7 +321,6 @@ export function useAuth() {
                 avatar_url: payload.avatar_url,
             });
 
-            // Update state user lokal langsung
             setUser((prev) => prev ? {
                 ...prev,
                 name: fullName || prev.name,
@@ -264,6 +339,7 @@ export function useAuth() {
     };
 
     const logout = () => {
+        ++loginAttemptRef.current;
         localStorage.removeItem("token");
         document.cookie = "token=; Max-Age=0; path=/";
         document.cookie = "role=; Max-Age=0; path=/";
@@ -280,6 +356,9 @@ export function useAuth() {
         isAdmin: user?.role === "ADMIN",
         loading,
         login,
+        requestGoogleChallenge,
+        loginWithGoogle,
+        linkGoogleAccount,
         register,
         forgotPassword,
         forgot: forgotPassword,

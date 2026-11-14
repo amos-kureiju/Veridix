@@ -4,6 +4,9 @@ export interface UserProfile {
     email: string;
     avatar_url?: string;
     role: "USER" | "ADMIN";
+    hash_password?: boolean;
+    google_linked?: boolean;
+    email_verified_at?:  string | null;
     is_active: boolean;
     total_detections: number;
     total_feedbacks: number;

@@ -39,10 +39,15 @@ class GoogleIdentity:
 class _TimeoutSession(requests.Session):
     def __init__(self, timeout: float):
         super().__init__()
-        self._default_timeout = timeout
+        self._default_timeout = float(timeout)
 
     def request(self, method, url, **kwargs):
-        kwargs.setdefault("timeout", self._default_timeout)
+        # PERBAIKAN: Paksa timeout agar tidak kalah oleh timeout=None atau 120s bawaan transport
+        req_timeout = kwargs.get("timeout")
+        if req_timeout is None:
+            kwargs["timeout"] = self._default_timeout
+        else:
+            kwargs["timeout"] = min(float(req_timeout), self._default_timeout)
         return super().request(method, url, **kwargs)
 
 
@@ -78,21 +83,42 @@ def verify_google_id_token(credential: str) -> GoogleIdentity:
     if issuer not in ("accounts.google.com", "https://accounts.google.com"):
         raise GoogleTokenInvalidError("Penerbit token Google tidak valid.")
 
-    sub = str(claims.get("sub") or "").strip()
-    email = str(claims.get("email") or "").strip().lower()
+    raw_sub = claims.get("sub")
+    raw_email = claims.get("email")
     email_verified = claims.get("email_verified") is True
 
-    if not sub or not email or not email_verified:
+    # PERBAIKAN: Pastikan tipe asli adalah string, tidak kosong, dan sesuai batas kolom DB (255)
+    if not isinstance(raw_sub, str) or not isinstance(raw_email, str) or not email_verified:
         raise GoogleTokenInvalidError(
             "Akun Google tidak memiliki identitas atau email terverifikasi yang valid."
         )
 
-    hosted_domain = str(claims.get("hd") or "").strip()
+    sub = raw_sub.strip()
+    email = raw_email.strip().lower()
+
+    if not sub or len(sub) > 255 or not email or len(email) > 255 or "@" not in email:
+        raise GoogleTokenInvalidError(
+            "Format atau panjang identitas akun Google tidak valid."
+        )
+
+    raw_hd = claims.get("hd")
+    hosted_domain = raw_hd.strip() if isinstance(raw_hd, str) else ""
     is_google_hosted_email = email.endswith(("@gmail.com", "@googlemail.com")) or bool(hosted_domain)
 
-    full_name = str(claims.get("name") or "").strip() or email.split("@")[0]
-    avatar_url = str(claims.get("picture") or "").strip() or None
-    nonce = str(claims.get("nonce") or "").strip() or None
+    raw_name = claims.get("name")
+    full_name = (raw_name.strip() if isinstance(raw_name, str) and raw_name.strip() else email.split("@")[0])[:150]
+
+    raw_picture = claims.get("picture")
+    avatar_url = None
+    if isinstance(raw_picture, str):
+        pic = raw_picture.strip()
+        if pic.startswith(("https://", "http://")) and len(pic) <= 500:
+            avatar_url = pic
+
+    raw_nonce = claims.get("nonce")
+    nonce = raw_nonce.strip() if isinstance(raw_nonce, str) and raw_nonce.strip() else None
+    if nonce is not None and len(nonce) > 255:
+        raise GoogleTokenInvalidError("Format nonce pada token Google tidak valid.")
 
     return GoogleIdentity(
         sub=sub,

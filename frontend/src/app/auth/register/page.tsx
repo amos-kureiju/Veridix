@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import AuthHeading from "@/components/auth/AuthHeading";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 // Skor kekuatan sandi 0–4
 const getStrength = (pw: string) => {
@@ -32,7 +33,7 @@ const STRENGTH_COLOR = ["bg-slate-200", "bg-rose-500", "bg-amber-500", "bg-emera
 
 export default function RegisterPage() {
     const router = useRouter();
-    const { register } = useAuth();
+    const { register, requestGoogleChallenge, loginWithGoogle } = useAuth();
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -40,16 +41,20 @@ export default function RegisterPage() {
     const [confirm, setConfirm] = useState("");
     const [show, setShow] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
+    const [isConflictError, setIsConflictError] = useState(false);
 
+    const isBusy = loading || googleLoading;
     const strength = getStrength(password);
     const passwordsMatch = confirm.length > 0 && password === confirm;
     const passwordsMismatch = confirm.length > 0 && password !== confirm;
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (loading) return;
+        if (isBusy) return;
         setError("");
+        setIsConflictError(false);
 
         if (password.length < 8) {
             setError("Kata sandi minimal 8 karakter.");
@@ -75,6 +80,31 @@ export default function RegisterPage() {
         }
     };
 
+    const handleGoogleCredential = async (challengeId: string, credential: string) => {
+        if (isBusy) return;
+        setError("");
+        setIsConflictError(false);
+        setGoogleLoading(true);
+
+        try {
+            const result = await loginWithGoogle(challengeId, credential);
+            if (!result.success || !result.user) {
+                const msg = result.message || "Gagal mendaftar dengan Google.";
+                const conflict =
+                    (result as { status?: number }).status === 409 ||
+                    msg.toLowerCase().includes("sudah terdaftar dengan akun kata sandi");
+                setIsConflictError(conflict);
+                setError(msg);
+                return;
+            }
+            router.push("/");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Gagal mendaftar dengan Google.");
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
+
     return (
         <>
             <AuthHeading
@@ -86,10 +116,28 @@ export default function RegisterPage() {
                 {error && (
                     <div
                         role="alert"
-                        className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700"
+                        className={`flex items-start gap-2 rounded-2xl border p-3.5 text-sm ${isConflictError
+                                ? "border-amber-200 bg-amber-50 text-amber-800"
+                                : "border-rose-200 bg-rose-50 text-rose-700"
+                            }`}
                     >
                         <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                        <span>{error}</span>
+                        <div className="space-y-1">
+                            <p>{error}</p>
+                            {isConflictError && (
+                                <p className="text-xs opacity-90">
+                                    Silakan{" "}
+                                    <Link href="/auth/login" className="font-bold underline">
+                                        masuk menggunakan kata sandi
+                                    </Link>{" "}
+                                    (atau{" "}
+                                    <Link href="/auth/forgot-password" className="font-bold underline">
+                                        pulihkan kata sandi
+                                    </Link>
+                                    ) lalu tautkan Google di halaman Profil.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -103,6 +151,7 @@ export default function RegisterPage() {
                             type="text"
                             autoComplete="name"
                             required
+                            disabled={isBusy}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Nama Anda"
@@ -121,6 +170,7 @@ export default function RegisterPage() {
                             type="email"
                             autoComplete="email"
                             required
+                            disabled={isBusy}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="nama@email.com"
@@ -140,6 +190,7 @@ export default function RegisterPage() {
                             autoComplete="new-password"
                             required
                             minLength={8}
+                            disabled={isBusy}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Minimal 8 karakter"
@@ -186,6 +237,7 @@ export default function RegisterPage() {
                             type={show ? "text" : "password"}
                             autoComplete="new-password"
                             required
+                            disabled={isBusy}
                             value={confirm}
                             onChange={(e) => setConfirm(e.target.value)}
                             placeholder="Ulangi kata sandi"
@@ -204,7 +256,7 @@ export default function RegisterPage() {
 
                 <button
                     type="submit"
-                    disabled={loading || !name.trim() || !email || !password || !confirm}
+                    disabled={isBusy || !name.trim() || !email || !password || !confirm}
                     className="auth-btn"
                 >
                     {loading ? (
@@ -220,6 +272,32 @@ export default function RegisterPage() {
                     )}
                 </button>
             </form>
+
+            <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
+                <span className="h-px flex-1 bg-slate-200" />
+                atau daftar dengan
+                <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="flex flex-col items-center">
+                <GoogleSignInButton
+                    purpose="login"
+                    text="signup_with"
+                    disabled={isBusy}
+                    requestChallenge={requestGoogleChallenge}
+                    onCredential={handleGoogleCredential}
+                    onError={(msg) => {
+                        setIsConflictError(false);
+                        setError(msg);
+                    }}
+                />
+                {googleLoading && (
+                    <p className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
+                        <Loader2 size={14} className="animate-spin" />
+                        Menyiapkan akun Google Anda…
+                    </p>
+                )}
+            </div>
 
             <p className="mt-8 text-center text-sm text-slate-500">
                 Sudah punya akun?{" "}

@@ -15,19 +15,38 @@ import {
     Activity,
     MessageSquare,
     ShieldCheck,
-    AlertTriangle
+    AlertTriangle,
+    Link2,
+    Info,
+    Loader2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function ProfilePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { user, isGuest, updateProfile, changePassword, logout, ready, loading, sessionError } = useAuth();
+    const {
+        user,
+        isGuest,
+        updateProfile,
+        changePassword,
+        requestGoogleChallenge,
+        linkGoogleAccount,
+        logout,
+        ready,
+        loading,
+        sessionError,
+    } = useAuth();
     const canEdit = ready && Boolean(user) && !isGuest && !loading && !sessionError;
 
     // Fallback data cerdas: Jika mode tamu, tampilkan demo identitas agar UI tetap menarik
     const currentName = user?.name || (isGuest ? "Pengunjung Demo" : "Pengguna");
-    const currentEmail = user?.email || (isGuest ? "tamu@veridix.id" : "—"); 
+    const currentEmail = user?.email || (isGuest ? "tamu@veridix.id" : "—");
     const currentRole = user?.role || (isGuest ? "TAMU" : "USER");
+
+    const hasPassword = user?.has_password !== false;
+    const googleLinked = Boolean(user?.google_linked);
+    const isStandardUser = String(currentRole).toUpperCase() === "USER";
 
     // Form State
     const [name, setName] = useState(currentName);
@@ -35,14 +54,26 @@ export default function ProfilePage() {
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [avatarError, setAvatarError] = useState(false);
+
+    // State Penautan Google
+    const [linkPassword, setLinkPassword] = useState("");
+    const linkPasswordRef = useRef("");
+    const [linkLoading, setLinkLoading] = useState(false);
+    const [linkMsg, setLinkMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Sinkronkan state jika data user auth berubah
     useEffect(() => {
         if (user) {
             setName(user.name);
             setEmail(user.email);
+            setAvatarError(false);
         }
     }, [user]);
+
+    useEffect(() => {
+        linkPasswordRef.current = linkPassword;
+    }, [linkPassword]);
 
     // Alert State
     const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -67,7 +98,7 @@ export default function ProfilePage() {
     // Handler Ubah Sandi (Gunakan Session Handling Terpusat dari Hook)
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!canEdit) return;
+        if (!canEdit || !hasPassword) return;
         if (isGuest) {
             alert("Mode Tamu tidak memiliki kata sandi.");
             return;
@@ -82,10 +113,9 @@ export default function ProfilePage() {
         const res = await changePassword({
             old_password: oldPassword,
             new_password: newPassword,
-            confirm_password: confirmPassword
+            confirm_password: confirmPassword,
         });
 
-        // dan mengarahkan browser ke /auth/login secara terpusat.
         if (res.success) {
             setOldPassword("");
             setNewPassword("");
@@ -94,12 +124,50 @@ export default function ProfilePage() {
                 type: "success",
                 text: "Kata sandi berhasil diperbarui. Mengalihkan ke halaman login...",
             });
-            // Tidak ada lagi setTimeout(() => logout(), 2000) yang memicu race condition
         } else {
             setPasswordMsg({
                 type: "error",
-                text: res.message || "Gagal mengubah kata sandi. Periksa kata sandi lama."
+                text: res.message || "Gagal mengubah kata sandi. Periksa kata sandi lama.",
             });
+        }
+    };
+
+    // Handler Penautan Akun Google
+    const handleGoogleLinkCredential = async (challengeId: string, credential: string) => {
+        if (!canEdit || linkLoading) return;
+        const currentPw = linkPasswordRef.current;
+        if (!currentPw) {
+            setLinkMsg({
+                type: "error",
+                text: "Masukkan kata sandi saat ini terlebih dahulu sebelum menautkan Google.",
+            });
+            return;
+        }
+
+        setLinkMsg(null);
+        setLinkLoading(true);
+        try {
+            const res = await linkGoogleAccount(challengeId, credential, currentPw);
+            if (res.success) {
+                setLinkPassword("");
+                linkPasswordRef.current = "";
+                setLinkMsg({
+                    type: "success",
+                    text: "Akun Google berhasil ditautkan ke akun Anda.",
+                });
+            } else {
+                setLinkMsg({
+                    type: "error",
+                    text: res.message || "Gagal menautkan akun Google.",
+                });
+            }
+        } catch (err) {
+            setLinkMsg({
+                type: "error",
+                text: err instanceof Error ? err.message : "Gagal menautkan akun Google.",
+            });
+        } finally {
+            setLinkLoading(false);
         }
     };
 
@@ -146,7 +214,17 @@ export default function ProfilePage() {
                         {/* Avatar dengan Tombol Kamera */}
                         <div className="relative my-2">
                             <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#081c18] to-emerald-800 text-emerald-100 flex items-center justify-center text-3xl font-extrabold border-4 border-slate-50 shadow-md overflow-hidden">
-                                {currentName.charAt(0).toUpperCase()}
+                                {user?.avatar_url && !avatarError ? (
+                                    <img
+                                        src={user.avatar_url}
+                                        alt={currentName}
+                                        onError={() => setAvatarError(true)}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    currentName.charAt(0).toUpperCase()
+                                )}
                             </div>
                             <button
                                 type="button"
@@ -168,15 +246,47 @@ export default function ProfilePage() {
                         {/* Role Badge */}
                         <div className="flex items-center gap-2">
                             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold ${currentRole === "ADMIN"
-                                    ? "bg-slate-900 text-white"
-                                    : isGuest
-                                        ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                        : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                                ? "bg-slate-900 text-white"
+                                : isGuest
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
                                 }`}>
                                 <ShieldCheck className="w-3.5 h-3.5" />
                                 {currentRole === "ADMIN" ? "Administrator" : isGuest ? "Pengunjung Tamu" : "Pengguna Terverifikasi"}
                             </span>
                         </div>
+
+                        {/* Status Metode Masuk (Khusus Pengguna Resmi) */}
+                        {!isGuest && user && (
+                            <div className="w-full pt-3 border-t border-slate-100 space-y-2 text-left">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Metode Masuk Akun
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <span
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${hasPassword
+                                                ? "bg-slate-50 text-slate-700 border-slate-200"
+                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                            }`}
+                                    >
+                                        <KeyRound className="w-3 h-3" />
+                                        {hasPassword ? "Sandi Lokal Aktif" : "Tanpa Sandi Lokal"}
+                                    </span>
+
+                                    {isStandardUser && (
+                                        <span
+                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${googleLinked
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                                                }`}
+                                        >
+                                            <Link2 className="w-3 h-3" />
+                                            {googleLinked ? "Google Tertaut" : "Google Belum Tertaut"}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* 2 Kotak Metrik Akun */}
                         <div className="w-full pt-4 border-t border-slate-100 grid grid-cols-2 gap-3 text-left">
@@ -222,8 +332,8 @@ export default function ProfilePage() {
                                 </div>
                                 {profileMsg && (
                                     <span className={`text-xs font-semibold flex items-center gap-1 px-3 py-1 rounded-xl border animate-in fade-in ${profileMsg.type === "success"
-                                            ? "text-emerald-800 bg-emerald-50 border-emerald-200"
-                                            : "text-rose-800 bg-rose-50 border-rose-200"
+                                        ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                                        : "text-rose-800 bg-rose-50 border-rose-200"
                                         }`}>
                                         {profileMsg.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                                         {profileMsg.text}
@@ -262,10 +372,10 @@ export default function ProfilePage() {
                                             readOnly
                                             disabled
                                             className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
-                                    />
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1.5">Email akun tidak dapat diubah secara langsung.</p>
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1.5">Email akun tidak dapat diubah secara langsung.</p>
-                            </div>
                             </div>
 
                             <div className="pt-2 flex justify-end">
@@ -280,80 +390,175 @@ export default function ProfilePage() {
                             </div>
                         </form>
 
-                        {/* 2. FORM KEAMANAN & SANDI */}
-                        <form onSubmit={handleChangePassword} className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-2xs space-y-5">
-                            <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-900">Keamanan & Sandi</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">Pastikan akun Anda dilindungi kombinasi kata sandi yang kuat.</p>
+                        {/* 2. PENAUTAN AKUN GOOGLE (KHUSUS USER BIASA YANG SUDAH LOGIN) */}
+                        {!isGuest && isStandardUser && (
+                            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-2xs space-y-4">
+                                <div className="pb-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-900">Tautan Akun Google</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            Masuk lebih cepat menggunakan akun Google tanpa mengganti data riwayat Anda.
+                                        </p>
+                                    </div>
+                                    {linkMsg && (
+                                        <span
+                                            className={`text-xs font-semibold px-3 py-1 rounded-xl border flex items-center gap-1 ${linkMsg.type === "success"
+                                                    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                                    : "text-rose-700 bg-rose-50 border-rose-200"
+                                                }`}
+                                        >
+                                            {linkMsg.type === "success" ? (
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                            ) : (
+                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                            )}
+                                            {linkMsg.text}
+                                        </span>
+                                    )}
                                 </div>
-                                {passwordMsg && (
-                                    <span className={`text-xs font-semibold px-3 py-1 rounded-xl flex items-center gap-1 ${passwordMsg.type === "success"
+
+                                {googleLinked ? (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-900">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="font-bold">Akun Google Sudah Tertaut</p>
+                                            <p className="text-[11px] text-emerald-700 mt-0.5">
+                                                Anda dapat masuk ke VERIDIX menggunakan tombol Masuk dengan Google.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : hasPassword ? (
+                                    <div className="space-y-4 text-xs">
+                                        <div>
+                                            <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
+                                                Konfirmasi Kata Sandi Saat Ini:
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={linkPassword}
+                                                onChange={(e) => setLinkPassword(e.target.value)}
+                                                placeholder="Masukkan kata sandi saat ini sebelum klik Google"
+                                                disabled={!canEdit || linkLoading}
+                                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
+                                            />
+                                            <p className="text-[10px] text-slate-400 mt-1.5">
+                                                Untuk keamanan akun, masukkan kata sandi lokal Anda lalu pilih akun Google di bawah.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <GoogleSignInButton
+                                                purpose="link"
+                                                text="continue_with"
+                                                disabled={!canEdit || linkLoading || !linkPassword}
+                                                requestChallenge={requestGoogleChallenge}
+                                                onCredential={handleGoogleLinkCredential}
+                                                onError={(msg) => setLinkMsg({ type: "error", text: msg })}
+                                            />
+                                            {linkLoading && (
+                                                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    Menautkan akun Google…
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
+
+                        {/* 3. FORM KEAMANAN & SANDI (KONDISIONAL BERDASARKAN has_password) */}
+                        {hasPassword ? (
+                            <form onSubmit={handleChangePassword} className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-2xs space-y-5">
+                                <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-900">Keamanan & Sandi</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">Pastikan akun Anda dilindungi kombinasi kata sandi yang kuat.</p>
+                                    </div>
+                                    {passwordMsg && (
+                                        <span className={`text-xs font-semibold px-3 py-1 rounded-xl flex items-center gap-1 ${passwordMsg.type === "success"
                                             ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
                                             : "text-rose-700 bg-rose-50 border border-rose-200"
-                                        }`}>
-                                        {passwordMsg.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                                        {passwordMsg.text}
-                                    </span>
-                                )}
-                            </div>
+                                            }`}>
+                                            {passwordMsg.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                                            {passwordMsg.text}
+                                        </span>
+                                    )}
+                                </div>
 
-                            <div className="space-y-4 text-xs">
-                                <div>
-                                    <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
-                                        Kata Sandi Lama:
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={oldPassword}
-                                        onChange={(e) => setOldPassword(e.target.value)}
-                                        placeholder="••••••••"
+                                <div className="space-y-4 text-xs">
+                                    <div>
+                                        <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
+                                            Kata Sandi Lama:
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            disabled={!canEdit}
+                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
+                                                Kata Sandi Baru:
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                placeholder="Min. 8 karakter"
+                                                disabled={!canEdit}
+                                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
+                                                Konfirmasi Sandi Baru:
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                placeholder="Ulangi kata sandi baru"
+                                                disabled={!canEdit}
+                                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 flex justify-end">
+                                    <button
+                                        type="submit"
                                         disabled={!canEdit}
-                                        className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
-                                    />
+                                        className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl shadow-xs transition"
+                                    >
+                                        <KeyRound className="w-3.5 h-3.5" />
+                                        <span>Perbarui Kata Sandi</span>
+                                    </button>
                                 </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            </form>
+                        ) : (
+                            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-2xs space-y-3">
+                                <div className="pb-3 border-b border-slate-100">
+                                    <h3 className="text-sm font-bold text-slate-900">Keamanan & Sandi</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">Pengelolaan kata sandi akun.</p>
+                                </div>
+                                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+                                    <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                                     <div>
-                                        <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
-                                            Kata Sandi Baru:
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            placeholder="Min. 8 karakter"
-                                            disabled={!canEdit}
-                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1.5">
-                                            Konfirmasi Sandi Baru:
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            placeholder="Ulangi kata sandi baru"
-                                            disabled={!canEdit}
-                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition"
-                                        />
+                                        <p className="font-bold text-slate-900">Akun Masuk via Google</p>
+                                        <p className="text-[11px] text-slate-600 mt-0.5">
+                                            Akun ini diautentikasi menggunakan Google dan tidak memakai kata sandi lokal VERIDIX. Keamanan login Anda dikelola langsung melalui akun Google Anda.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="pt-2 flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={!canEdit}
-                                    className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl shadow-xs transition"
-                                >
-                                    <KeyRound className="w-3.5 h-3.5" />
-                                    <span>Perbarui Kata Sandi</span>
-                                </button>
-                            </div>
-                        </form>
+                        )}
 
                     </div>
 

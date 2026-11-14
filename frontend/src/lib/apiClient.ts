@@ -31,10 +31,23 @@ function requestEndpoint(url: unknown): string | null {
     }
 }
 
-// 1. REQUEST INTERCEPTOR: Otomatis lampirkan Bearer Token jika ada di localStorage
+// 1. REQUEST INTERCEPTOR (Ganti blok baris ~33–43)
+const PUBLIC_AUTH_PATHS = [
+    "/auth/login",
+    "/auth/register",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+];
+
 apiClient.interceptors.request.use(
     (config) => {
-        if (typeof window !== "undefined") {
+        const url = config.url || "";
+        // Endpoint publik tidak perlu membawa JWT lama; /auth/google/link & /challenge tetap boleh bawa token
+        const isPublicAuth =
+            PUBLIC_AUTH_PATHS.some((p) => url.includes(p)) ||
+            url.endsWith("/auth/google");
+
+        if (typeof window !== "undefined" && !isPublicAuth) {
             const token = localStorage.getItem("token");
             if (token && config.headers) {
                 config.headers.Authorization = `Bearer ${token}`;
@@ -45,12 +58,13 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// 2. RESPONSE INTERCEPTOR: Tangani error global
+// 2. RESPONSE INTERCEPTOR (Cukup ubah baris ~49)
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Jangan auto-logout jika error terjadi pada endpoint login itu sendiri
-        const isLoginRequest = error.config?.url?.includes("/auth/login");
+        const reqUrl = error.config?.url || "";
+        // Kecualikan /auth/google agar gagal login Google tidak menghapus sesi lain
+        const isLoginRequest = reqUrl.includes("/auth/login") || reqUrl.endsWith("/auth/google");
 
         // Bersihkan sesi yang ditolak; halaman publik tetap dapat dibuka.
         if (error.response?.status === 401 && !isLoginRequest && typeof window !== "undefined") {

@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from src.database.session import get_db
-from src.database.models import User, PredictionLog, UserFeedback
 from src.core.auth_deps import get_current_user
 from src.core.security import verify_password, hash_password
 from src.database.models import User, PredictionLog, UserFeedback, PasswordResetToken
@@ -55,14 +54,6 @@ def update_user_profile(
     current_user.full_name = payload.full_name.strip()
     if payload.avatar_url is not None:
         current_user.avatar_url = payload.avatar_url.strip()
-
-    user.password_hash = hash_password(payload.new_password)
-    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
-    db.query(PasswordResetToken).filter(
-         PasswordResetToken.user_id == user.id,
-        PasswordResetToken.is_used == False
-    ).update({"is_used": True}, synchronize_session=False)
-    db.commit()
 
     db.commit()
     db.refresh(current_user)
@@ -124,9 +115,13 @@ def change_password(
                 detail="Kata sandi saat ini yang Anda masukkan salah."
             )
 
-        # 4. Satu kali update sandi, satu kali kenaikan token_version, satu kali commit
+        # 4. Satu kali update sandi, satu kali kenaikan token_version, dan batalkan token reset aktif
         user.password_hash = hash_password(payload.new_password)
         user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.is_used == False
+        ).update({"is_used": True}, synchronize_session=False)
         db.commit()
 
         return {

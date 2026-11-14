@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     PASSWORD_RESET_EXPIRE_MINUTES: int = 15
 
+    # --- Pengaturan Google Identity Services (OAuth ID Token) ---
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CHALLENGE_EXPIRE_MINUTES: int = 5
+    GOOGLE_CERT_TIMEOUT_SECONDS: float = 5.0
+    GOOGLE_CHALLENGE_COOKIE_NAME: str = "veridix_google_challenge"
+    COOKIE_SECURE: bool = False  # Set True di .env produksi (HTTPS)
+    COOKIE_SAMESITE: str = "lax" 
+
     class Config:
         case_sensitive = True
         env_file = ".env"

@@ -22,15 +22,21 @@ def _truncate_password_bytes(password: str) -> bytes:
             truncated = truncated[:-1]
 
 
+MAX_PASSWORD_BYTES = 72
+
 def hash_password(password: str) -> str:
-    """Meng-hash kata sandi dengan bcrypt (aman terhadap input > 72 byte)."""
-    pw_bytes = _truncate_password_bytes(password)
+    """Meng-hash kata sandi baru dengan bcrypt (menolak sandi > 72 byte secara eksplisit)."""
+    pw_bytes = password.encode("utf-8")
+    if len(pw_bytes) > MAX_PASSWORD_BYTES:
+        raise ValueError("Kata sandi terlalu panjang (maksimal 72 byte).")
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Memverifikasi kecocokan kata sandi."""
+def verify_password(plain_password: str, hashed_password: Optional[str]) -> bool:
+    """Memverifikasi kecocokan kata sandi (kompatibel dengan hash lama)."""
+    if not plain_password or not hashed_password:
+        return False
     pw_bytes = _truncate_password_bytes(plain_password)
     try:
         return bcrypt.checkpw(pw_bytes, hashed_password.encode("utf-8"))

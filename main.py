@@ -114,9 +114,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+cors_origins = list(dict.fromkeys([
+    *(origin.rstrip("/") for origin in settings.CORS_ORIGINS if origin and origin != "*"),
+    *([settings.FRONTEND_URL.rstrip("/")] if settings.FRONTEND_URL else []),
+]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

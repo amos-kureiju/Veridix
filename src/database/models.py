@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Boolean, Text, Float, DateTime, ForeignKey, 
     UniqueConstraint, Integer
@@ -14,7 +14,10 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
+    google_sub = Column(String(255), unique=True, nullable=True, index=True)
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    google_challenges = relationship("GoogleAuthChallenge", back_populates="user", cascade="all, delete-orphan")
     full_name = Column(String(150), nullable=False)
     avatar_url = Column(Text, nullable=True)
     role = Column(
@@ -156,3 +159,17 @@ class ThresholdHistory(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
     admin_user = relationship("User", foreign_keys=[modified_by], back_populates="threshold_changes")
+
+class GoogleAuthChallenge(Base):
+    __tablename__ = "google_auth_challenges"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nonce_hash = Column(String(64), nullable=False, index=True)
+    browser_binding_hash = Column(String(64), nullable=False)
+    purpose = Column(String(20), nullable=False)  # 'login' atau 'link'
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    user = relationship("User", back_populates="google_challenges")

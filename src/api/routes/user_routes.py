@@ -13,6 +13,7 @@ from src.database.session import get_db
 from src.database.models import User, PredictionLog, UserFeedback
 from src.core.auth_deps import get_current_user
 from src.core.security import verify_password, hash_password
+from src.database.models import User, PredictionLog, UserFeedback, PasswordResetToken
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -55,6 +56,14 @@ def update_user_profile(
     if payload.avatar_url is not None:
         current_user.avatar_url = payload.avatar_url.strip()
 
+    user.password_hash = hash_password(payload.new_password)
+    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+    db.query(PasswordResetToken).filter(
+         PasswordResetToken.user_id == user.id,
+        PasswordResetToken.is_used == False
+    ).update({"is_used": True}, synchronize_session=False)
+    db.commit()
+
     db.commit()
     db.refresh(current_user)
     return {
@@ -69,48 +78,67 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Validasi 1: Konfirmasi kecocokan password baru
-    if payload.confirm_password and payload.new_password != payload.confirm_password:
+    # 1. Validasi seluruh input sebelum menyentuh database
+    if payload.confirm_password is not None and payload.new_password != payload.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Konfirmasi kata sandi baru tidak cocok."
         )
 
-    # Validasi 2: Password lama wajib benar
     if not payload.old_password or not payload.old_password.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kata sandi saat ini wajib diisi."
         )
 
-    # Validasi 2: Password lama wajib benar
-    if not verify_password(payload.old_password, current_user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Kata sandi saat ini yang Anda masukkan salah."
-        )
-
-    # Simpan password baru & NAIKKAN token_version
-    current_user.password_hash = hash_password(payload.new_password)
-    current_user.token_version = (getattr(current_user, "token_version", 0) or 0) + 1
-    db.commit()
-
-    # Validasi 3: Cegah password sama
     if payload.old_password == payload.new_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kata sandi baru tidak boleh sama dengan kata sandi lama."
         )
 
-    # Simpan password baru & NAIKKAN token_version (otomatis batalkan JWT sesi lama)
-    current_user.password_hash = hash_password(payload.new_password)
-    current_user.token_version = (getattr(current_user, "token_version", 0) or 0) + 1
-    db.commit()
+    try:
+        # 2. Kunci baris user agar aman dari perubahan kredensial bersamaan
+        user = (
+            db.query(User)
+            .filter(User.id == current_user.id)
+            .with_for_update()
+            .first()
+        )
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pengguna tidak ditemukan."
+            )
 
-    return {
-        "status": "success",
-        "message": "Kata sandi berhasil diperbarui. Demi keamanan, silakan masuk kembali."
-    }
+        # 3. Pastikan akun memiliki sandi lokal (aman untuk akun Google-only nanti)
+        if not user.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Akun ini tidak memiliki kata sandi lokal."
+            )
+
+        if not verify_password(payload.old_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kata sandi saat ini yang Anda masukkan salah."
+            )
+
+        # 4. Satu kali update sandi, satu kali kenaikan token_version, satu kali commit
+        user.password_hash = hash_password(payload.new_password)
+        user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "Kata sandi berhasil diperbarui. Demi keamanan, silakan masuk kembali."
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
 
 # 2. RIWAYAT DETEKSI PENGGUNA (GET /api/v1/users/history)

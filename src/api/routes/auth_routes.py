@@ -7,6 +7,8 @@ from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime, timedelta, timezone
+from sqlalchemy.exc import IntegrityError
 
 from src.database.session import get_db
 from src.database.models import User, PredictionLog, UserFeedback, PasswordResetToken
@@ -50,7 +52,8 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
             detail="Kata sandi minimal 8 karakter."
         )
 
-    existing_user = db.query(User).filter(User.email == req.email.lower().strip()).first()
+    email_clean = req.email.lower().strip()
+    existing_user = db.query(User).filter(func.lower(User.email) == email_clean).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -59,15 +62,22 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
 
     new_user = User(
         full_name=req.name.strip(),
-        email=req.email.lower().strip(),
+        email=email_clean,
         password_hash=hash_password(req.password),
         role="USER",
         is_active=True,
         token_version=0
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Alamat email sudah terdaftar. Silakan masuk atau gunakan email lain."
+        )
 
     return {
         "status": "success",
@@ -84,7 +94,7 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     email_clean = req.email.lower().strip()
     user = db.query(User).filter(func.lower(User.email) == email_clean).first()
     
-    if not user or not verify_password(req.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email atau kata sandi tidak cocok."
@@ -179,22 +189,18 @@ def forgot_password(
     Respon selalu seragam (anti-enumeration OWASP).
     """
     email_clean = req.email.lower().strip()
-    user = db.query(User).filter(User.email == email_clean).first()
+    user = db.query(User).filter(func.lower(User.email) == email_clean).first()
 
-    if user and user.is_active:
-        # 1. Buat token acak yang kuat (32 bytes = 43 karakter aman URL)
+    if user and user.is_active and user.password_hash:
         raw_token = secrets.token_urlsafe(32)
-        # 2. Hash SHA-256 token (64 hex) untuk disimpan di database
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 
-        # 3. Batalkan token lama yang belum digunakan milik akun ini
         db.query(PasswordResetToken).filter(
             PasswordResetToken.user_id == user.id,
             PasswordResetToken.is_used == False
-        ).update({"is_used": True})
+        ).update({"is_used": True}, synchronize_session=False)
 
-        # 4. Simpan token baru dengan masa berlaku 15 menit
-        expire_at = datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
+        expire_at = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
         reset_entry = PasswordResetToken(
             user_id=user.id,
             token_code=token_hash,
@@ -204,7 +210,6 @@ def forgot_password(
         db.add(reset_entry)
         db.commit()
 
-        # 5. Kirim token mentah melalui background task agar API tidak freeze
         background_tasks.add_task(send_password_reset_email, user.email, raw_token)
 
     # Respon umum yang sama baik email terdaftar maupun tidak terdaftar
@@ -219,7 +224,7 @@ def forgot_password(
 # =====================================================================
 @router.post("/reset-password")
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if req.confirm_password and req.new_password != req.confirm_password:
+    if req.confirm_password is not None and req.new_password != req.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Konfirmasi kata sandi baru tidak cocok."
@@ -231,51 +236,57 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
             detail="Kata sandi baru minimal 8 karakter."
         )
 
-    # 1. Hash token dari request untuk dicocokkan dengan data Supabase
     token_hash = hashlib.sha256(req.token.strip().encode()).hexdigest()
+    now = datetime.now(timezone.utc)
 
-    # 2. Cari token yang valid dan belum kedaluwarsa
-    now = datetime.utcnow()
-    token_record = (
-        db.query(PasswordResetToken)
-        .filter(
-            PasswordResetToken.token_code == token_hash,
-            PasswordResetToken.is_used == False,
-            PasswordResetToken.expires_at > now
-        )
-        .first()
-    )
-
-    if not token_record:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tautan reset kata sandi tidak valid atau sudah kedaluwarsa."
+    try:
+        # Kunci baris token agar tidak bisa dikonsumsi dua permintaan bersamaan
+        token_record = (
+            db.query(PasswordResetToken)
+            .filter(
+                PasswordResetToken.token_code == token_hash,
+                PasswordResetToken.is_used == False,
+                PasswordResetToken.expires_at > now
+            )
+            .with_for_update()
+            .first()
         )
 
-    user = db.query(User).filter(User.id == token_record.user_id).first()
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Akun pengguna tidak ditemukan atau dinonaktifkan."
+        if not token_record:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tautan reset kata sandi tidak valid atau sudah kedaluwarsa."
+            )
+
+        user = (
+            db.query(User)
+            .filter(User.id == token_record.user_id)
+            .with_for_update()
+            .first()
         )
+        if not user or not user.is_active or not user.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Akun pengguna tidak ditemukan atau tidak mendukung reset sandi lokal."
+            )
 
-    # 3. Cegah penggunaan password yang sama persis
-    if verify_password(req.new_password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Kata sandi baru tidak boleh sama dengan kata sandi lama."
-        )
+        if verify_password(req.new_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kata sandi baru tidak boleh sama dengan kata sandi lama."
+            )
 
-    # 4. Update password & naikkan token_version (invalidasi seluruh sesi lama)
-    user.password_hash = hash_password(req.new_password)
-    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
-    user.updated_at = now
+        user.password_hash = hash_password(req.new_password)
+        user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+        user.updated_at = now
 
-    # 5. Tandai token sudah digunakan
-    token_record.is_used = True
-    db.commit()
+        token_record.is_used = True
+        db.commit()
 
-    return {
-        "status": "success",
-        "message": "Kata sandi berhasil diperbarui. Silakan login menggunakan kata sandi baru Anda."
-    }
+        return {
+            "status": "success",
+            "message": "Kata sandi berhasil diperbarui. Silakan login menggunakan kata sandi baru Anda."
+        }
+    except HTTPException:
+        db.rollback()
+        raise

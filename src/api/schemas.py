@@ -119,3 +119,37 @@ class UserHistoryItem(BaseModel):
 class UserHistoryResponse(BaseModel):
     status: str = "success"
     data: List[UserHistoryItem] = []
+
+class ManagedUserItem(BaseModel):
+    id: UUID
+    name: str
+    email: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    analysis_count: int = Field(..., ge=0)
+    has_password: bool
+    google_linked: bool
+
+class AdminUserListResponse(BaseModel):
+    status: str = "success"
+    data: List[ManagedUserItem] = []
+    count: int = Field(..., ge=0)
+    total: int = Field(..., ge=0)
+    skip: int = Field(..., ge=0)
+    limit: int = Field(..., ge=1)
+
+
+class UserStatusUpdateRequest(BaseModel):
+    is_active: bool
+
+
+class UserStatusUpdateData(BaseModel):
+    id: UUID
+    is_active: bool
+
+
+class UserStatusUpdateResponse(BaseModel):
+    status: str = "success"
+    message: str
+    data: UserStatusUpdateData

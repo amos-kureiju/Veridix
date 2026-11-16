@@ -30,7 +30,7 @@ export default function Home() {
 
     const analyze = async (
         text: string,
-        source: InputSourceType = "TEXT",
+        source: InputSourceType = "TEXT",   
         imageUrl?: string | null
     ) => {
         if (!ready) return;

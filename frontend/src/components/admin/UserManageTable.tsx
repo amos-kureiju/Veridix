@@ -319,7 +319,7 @@ export default function UserManageTable() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : /* Kondisi 4: Daftar kosong / filter tidak cocok */ isEmpty || users.length === 0 ? (
+                            ) : /* Kondisi 4: Daftar kosong / filter tidak cocok */ isEmpty ? (
                                 <tr>
                                     <td colSpan={7} className="py-12 px-6 text-center text-slate-500">
                                         {hasActiveFilter ? (

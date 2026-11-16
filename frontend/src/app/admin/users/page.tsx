@@ -8,7 +8,7 @@ export default function AdminUsersPage() {
             <div>
                 <h2 className="text-xl font-bold tracking-tight text-slate-900">Manajemen Pengguna Sistem</h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                    Kelola izin akses, penguncian akun (suspend), dan status penggunaan deteksi seluruh anggota terdaftar.
+                    Pantau akun terdaftar, jumlah analisis tersimpan, metode masuk, serta kelola pengaktifan atau penonaktifan akun pengguna.
                 </p>
             </div>
 

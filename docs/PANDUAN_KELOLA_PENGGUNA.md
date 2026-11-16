@@ -2,7 +2,7 @@
 
 Disusun: **16 November 2026**.
 
-**Status: rencana implementasi berdasarkan pemeriksaan kode lokal.** Dokumen ini belum menambahkan endpoint, menghubungkan tabel, mengubah database, atau menjalankan pengujian. Kontrak rencana harus diimplementasikan dan dibuktikan sebelum disebut fitur tersedia.
+**Status 16 November 2026: implementasi sebagian.** Schema dan endpoint daftar/status sudah dideklarasikan pada kode. Hook `useAdminUsers` telah diisi dan diperiksa dengan mock; tabel halaman masih memakai contoh dan belum terhubung ke hook. Eksekusi endpoint terhadap database serta alur browser belum diuji pada langkah ini. Kebijakan transaksi/status yang masih menjadi target dijelaskan terpisah di bawah.
 
 Acuan: [AGENTS.md](../AGENTS.md), [Panduan Pengembangan AI](PANDUAN_PENGEMBANGAN_AI.md), dan [Referensi Sistem](REFERENSI_SISTEM.md). Panduan ini memusatkan daftar akun dan perubahan status akses pada `/admin/users`.
 
@@ -16,9 +16,9 @@ Pemeriksaan sumber pada 16 November 2026 menemukan:
 | [UserManageTable](../frontend/src/components/admin/UserManageTable.tsx) | Memakai array tiga akun contoh, angka analisis tetap, dan pencarian lokal. Total berasal dari panjang array. |
 | Tindakan status di tabel | `toggleStatus` hanya memperbarui state React; tidak menyimpan ke server. |
 | Tindakan reset di tabel | `handleResetPassword` hanya menampilkan alert bahwa tautan telah dikirim. |
-| [Router admin](../src/api/routes/admin_routes.py) | Memiliki statistik, threshold, feedback, dan log terkini; belum memiliki endpoint daftar/status pengguna yang direncanakan di sini. |
-| [ManagedUser](../frontend/src/types/admin.ts) | Memiliki tipe dasar baris; belum ada kontrak daftar/pagination khusus. |
-| Hook kelola pengguna | `useAdminUsers.ts` belum tersedia. |
+| [Router admin](../src/api/routes/admin_routes.py) | Sudah mendeklarasikan daftar/status pengguna; belum diuji terhadap database pada langkah ini. Status masih perlu diselaraskan dengan target transaksi/idempotensi bagian 4. |
+| [ManagedUser](../frontend/src/types/admin.ts) | Satu deklarasi memakai `analysis_count`, `has_password`, dan `google_linked`; tipe daftar, parameter, dan hasil mutasi sudah tersedia. |
+| [Hook kelola pengguna](../frontend/src/hooks/useAdminUsers.ts) | Sudah tersedia untuk daftar, filter/pagination, status, validasi respons, dan perlindungan sesi; belum dipasang pada tabel. |
 | [Model akun](../src/database/models.py) | Memiliki UUID, nama, email, role, status aktif, versi sesi, tanggal, dan identitas Google. |
 | [Autorisasi](../src/core/auth_deps.py) | Memeriksa akun aktif, versi JWT, dan role admin dari database. |
 
@@ -40,11 +40,11 @@ Sumber akun adalah tabel aplikasi `public.users` melalui backend. Login Google k
 | `role` | `users.role`; enum `USER` atau `ADMIN`. |
 | `is_active` | `users.is_active`; tidak diturunkan dari aktivitas terakhir. |
 | `created_at` | Waktu pendaftaran tersimpan, ISO 8601 dengan offset. |
-| `total_detections` | Jumlah record `prediction_logs` yang `user_id`-nya sama dengan akun tersebut. |
+| `analysis_count` | Jumlah record `prediction_logs` yang `user_id`-nya sama dengan akun tersebut. |
 | `has_password` | Boolean keberadaan sandi lokal; nilai hash tidak dikirim. |
 | `google_linked` | Boolean keberadaan identitas Google; nilai `google_sub` tidak dikirim. |
 
-Label UI untuk `total_detections` disarankan **Analisis tersimpan**. Angka ini menghitung record yang masih ada, bukan jumlah klik, seluruh percobaan sepanjang umur akun, jumlah berita benar, atau hanya hasil yang berhasil dinilai. Penghapusan riwayat dapat mengubah jumlah pada pembacaan berikutnya.
+Field kanonik endpoint terbaru adalah `analysis_count`, dengan label UI **Analisis tersimpan**. Tabel contoh lama masih memakai `total_detections`; sesuaikan saat menghubungkannya, tanpa membuat fallback kedua pada respons server. Angka ini menghitung record yang masih ada, bukan jumlah klik, seluruh percobaan sepanjang umur akun, jumlah berita benar, atau hanya hasil yang berhasil dinilai. Penghapusan riwayat dapat mengubah jumlah pada pembacaan berikutnya.
 
 Aturan query:
 
@@ -59,7 +59,7 @@ Berdasarkan model yang dibaca, daftar/status tidak membutuhkan kolom total atau 
 
 ## 3. Rencana kontrak daftar
 
-**Endpoint berikut belum tersedia pada pemeriksaan ini:**
+**Deklarasi endpoint berikut sudah ada; eksekusinya terhadap database belum diuji pada langkah ini:**
 
 ```text
 GET /api/v1/admin/users
@@ -75,7 +75,7 @@ Wajib memakai autentikasi aplikasi dan `require_admin` sebelum membaca akun.
 | `skip` | Integer minimal 0; nilai awal 0. |
 | `limit` | Integer 1–100; nilai awal 20. |
 
-Gunakan parameter query database, filter yang sama untuk data/total, dan urutan stabil `created_at DESC, id DESC`. Filter diterapkan sebelum pagination. Perubahan pencarian/filter mengembalikan halaman ke awal.
+Gunakan parameter query database dan filter yang sama untuk data/total. Implementasi sekarang mengurutkan `created_at DESC, id ASC`; pertahankan urutan stabil tersebut ketika menguji pagination. Filter diterapkan sebelum pagination. Perubahan pencarian/filter mengembalikan halaman ke awal. Pencarian literal merupakan target: kode saat ini memakai `ILIKE` dengan pola wildcard dan belum diuji untuk input `%`/`_`.
 
 Respons rencana:
 
@@ -94,7 +94,7 @@ Validasi UUID, role, boolean, timestamp, jumlah nonnegatif, metadata pagination,
 
 ## 4. Rencana perubahan status akses
 
-**Endpoint berikut juga masih rencana:**
+**Deklarasi endpoint berikut sudah ada. Kebijakan di bawah tetap menjadi target untuk menyelaraskan implementasi:**
 
 ```text
 PATCH /api/v1/admin/users/{user_id}/status
@@ -115,7 +115,9 @@ Kebijakan tahap awal:
 5. Jika nilai tujuan sudah sama, kembalikan keadaan yang benar tanpa menaikkan versi lagi. Permintaan ulang tidak membalik status.
 6. Commit sekali; kegagalan tidak boleh menyimpan sebagian perubahan.
 
-Respons sukses rencana memuat `status: "success"` dan `data` berisi `id`, `is_active`, serta `updated_at`. Frontend memvalidasi ID/status sesuai target. Versi sesi digunakan backend dan tidak perlu ditampilkan di tabel.
+Respons yang benar-benar dideklarasikan saat ini memuat `status: "success"`, `message`, dan `data` berisi `id` serta `is_active`. Hook memvalidasi ID/status sesuai permintaan. `updated_at` pada respons masih target tambahan, bukan field yang diasumsikan tersedia. Versi sesi digunakan backend dan tidak perlu ditampilkan di tabel.
+
+Keterbatasan backend yang belum diperbaiki pada langkah hook: endpoint status belum memakai penguncian baris dan menaikkan versi setiap menerima tujuan nonaktif, termasuk ketika akun sudah nonaktif. Pencegahan klik ganda di hook tidak membuktikan idempotensi/transaksi backend atau menggantikan pemeriksaan konkurensi.
 
 Penonaktifan membuat JWT ditolak oleh pemeriksaan akun aktif. Perubahan versi memastikan JWT lama tidak hidup lagi setelah akun diaktifkan. Ini bukan logout dari akun Google pada penyedia; login Google ke VERIDIX tetap memeriksa `is_active`.
 
@@ -123,25 +125,44 @@ Bedakan 401 untuk sesi tidak valid, 403 untuk hak akses/kebijakan target, 404 un
 
 ## 5. Berkas implementasi dan berkas baru
 
-Semua perubahan berikut **belum diterapkan oleh panduan ini**.
+Status berikut membedakan berkas yang sudah diisi dari pekerjaan integrasi yang masih diperlukan.
 
 | Berkas | Pekerjaan yang direncanakan |
 | --- | --- |
-| [src/api/schemas.py](../src/api/schemas.py) | Schema item pengguna, daftar/pagination, permintaan dan respons status; batas nilai/enum. |
-| [src/api/routes/admin_routes.py](../src/api/routes/admin_routes.py) | Endpoint daftar, query/agregasi/filter/total, dan transaksi status dengan `require_admin`. |
-| [frontend/src/types/admin.ts](../frontend/src/types/admin.ts) | Sesuaikan `ManagedUser`; tipe respons daftar, filter, dan status sesuai schema backend. |
-| `frontend/src/hooks/useAdminUsers.ts` — **baru, belum ada** | Request daftar/status, validasi respons, refresh, pagination, error, pembatalan dan pemisahan sesi melalui `apiClient` yang sudah ada. |
+| [src/api/schemas.py](../src/api/schemas.py) | Schema akun/daftar/status sudah dideklarasikan; pemeriksaan backend terisolasi masih diperlukan. |
+| [src/api/routes/admin_routes.py](../src/api/routes/admin_routes.py) | Endpoint daftar/status sudah dideklarasikan; selaraskan kebijakan status bagian 4 dan uji database sebelum menyatakan selesai. |
+| [frontend/src/types/admin.ts](../frontend/src/types/admin.ts) | Tipe daftar, filter, status, serta hasil mutasi sudah diselaraskan dengan `analysis_count`; deklarasi `ManagedUser` ganda dihapus. |
+| [frontend/src/hooks/useAdminUsers.ts](../frontend/src/hooks/useAdminUsers.ts) — **baru, sudah diisi** | Request daftar/status, validasi respons, refresh, pagination, error, pembatalan dan pemisahan sesi melalui `apiClient`; menunggu penghubungan tabel. |
 | [frontend/src/components/admin/UserManageTable.tsx](../frontend/src/components/admin/UserManageTable.tsx) | Hapus array/tindakan contoh; gunakan hook, konfirmasi, proses per baris, keadaan kosong/gagal, pagination dan refresh. |
 | [frontend/src/app/admin/users/page.tsx](../frontend/src/app/admin/users/page.tsx) | Hubungkan konteks admin terverifikasi dan sesuaikan deskripsi dengan kemampuan nyata. |
 | [frontend/src/components/shared/ConfirmDialog.tsx](../frontend/src/components/shared/ConfirmDialog.tsx) | Gunakan dialog yang ada; modifikasi hanya jika kontraknya belum cukup. |
 | `tests/test_admin_users_routes.py` — **baru, belum ada** | Fixture akun/database terisolasi untuk daftar, hitungan, filter, hak akses, status dan pembatalan sesi. |
-| `tests/test_admin_users.cjs` — **baru, belum ada** | Tes hook/tabel dengan mock untuk kontrak, kegagalan, pagination, penyimpanan, dan respons terlambat. |
+| [tests/test_admin_users.cjs](../tests/test_admin_users.cjs) — **baru, sudah tersedia** | Tes hook dengan mock untuk kontrak, kegagalan, pagination, penyimpanan, dan respons terlambat. Belum menguji integrasi tabel/browser. |
 
 [models.py](../src/database/models.py), [auth_deps.py](../src/core/auth_deps.py), dan [apiClient.ts](../frontend/src/lib/apiClient.ts) menjadi acuan yang dipakai ulang. Jangan menambah model, jalur token, atau klien HTTP kedua bila yang ada sudah cukup. Jika implementasi perlu mengubah kontraknya, catat alasan dan perbarui panduan.
 
 ## 6. Perilaku hook dan UI
 
 Hook berjalan setelah sesi/role admin terverifikasi. Identitas sesi/permintaan harus melindungi data, error, loading, dan hasil mutasi. Respons admin lama atau filter lama tidak boleh mengisi konteks baru. Gunakan pembatalan dan pemeriksaan identitas sebagaimana pola [useHistory](../frontend/src/hooks/useHistory.ts); pembatalan belum tentu menghentikan respons server.
+
+Kontrak hook yang sekarang tersedia:
+
+```tsx
+const { user, ready, isAdmin, sessionError } = useAuth();
+const adminUsers = useAdminUsers(ready && isAdmin && !sessionError, user?.id);
+```
+
+Potongan ini merupakan contoh pemanggilan untuk tahap integrasi; tabel saat ini belum memanggil hook tersebut.
+
+- `users`, `total`, `count`, `params`, `loading`, `error`, dan `hasLoaded` mewakili daftar yang sudah divalidasi. `total`/`count` bernilai `null` sebelum diketahui; kegagalan pertama tidak menjadi total nol.
+- `setFilters({search, role, is_active})` menggabungkan field yang diberikan dan mengembalikan `skip` ke 0. `undefined` menghapus filter terkait; `false` tetap menjadi filter nonaktif.
+- `setPage(skip, limit?)` menerima offset, bukan nomor halaman. `reload(signal?)` mengembalikan boolean keberhasilan pemuatan dan membatalkan daftar sebelumnya.
+- `isEmpty` hanya benar untuk hasil sukses dengan total nol. `isPageEmpty` membedakan halaman kosong ketika masih ada akun sesuai filter; UI dapat mengatur ulang offset melalui `setPage`.
+- `updateStatus(id, nextActive, signal?)` mengembalikan hasil terstruktur, menahan permintaan ganda untuk ID yang sama, dan memuat ulang filter terbaru setelah konfirmasi server. Tidak ada perubahan optimistis sebelum konfirmasi.
+- `savingIds`, `mutationError`, dan `clearMutationError()` mengelola proses/error mutasi terpisah dari error daftar. Hasil `cancelled` tidak boleh ditampilkan sebagai pesan dari sesi lama.
+- `success: true, refreshed: false` berarti penyimpanan sudah dikonfirmasi tetapi daftar belum berhasil dimuat ulang. `stale` menandai data yang perlu diperbarui; setelah konfirmasi mutasi, total/count dikosongkan sampai dihitung lagi oleh server. Timeout PATCH tanpa konfirmasi berarti hasil belum pasti, bukan bukti rollback.
+
+Tabel contoh sementara memakai tipe inferensi lokal agar tidak menyamar sebagai DTO API. Menghapus keterikatan tipenya belum menghilangkan data contoh atau menjadikannya tabel database.
 
 Daftar diperbarui saat dibuka, filter/pagination berubah, refresh diminta, dan setelah status disimpan. **Dinamis berarti membaca API terbaru pada pemicu tersebut, bukan pembaruan realtime otomatis.**
 
@@ -194,7 +215,13 @@ Jangan menyentuh database pengguna melalui tes otomatis, menjalankan startup/see
 
 Ikuti pola aplikasi FastAPI kecil dan dependency override pada [test_auth_roles.py](../tests/test_auth_roles.py), bukan impor startup aplikasi utama. SQLite/mocks memeriksa kontrak dasar; klaim penguncian/transaksi bersamaan PostgreSQL memerlukan integrasi terisolasi yang sesuai. Tes frontend dengan mock DOM/HTTP tidak membuktikan browser nyata.
 
-Berkas tes baru di bagian 5 belum ada. Jangan menganggap perintah yang merujuknya dapat dijalankan sebelum fixture/implementasi selesai. Sesudahnya, pilih tes baru, tes role relevan, dan pemeriksaan TypeScript sesuai [panduan pengembangan](PANDUAN_PENGEMBANGAN_AI.md). Catat hasil aktual, kegagalan, dan batas lingkungan secara terpisah.
+Pemeriksaan langkah hook pada 16 November 2026:
+
+- `node --test tests/test_admin_users.cjs`: **31/31 lulus**, memakai mock React, storage, dan HTTP; termasuk pembersihan daftar ketika hak akses ditolak.
+- `node frontend/node_modules/typescript/bin/tsc -p frontend/tsconfig.json --noEmit --incremental false`: **lulus**.
+- Belum menjalankan backend, database nyata, PostgreSQL konkurensi, integrasi tabel, atau browser untuk perubahan ini.
+
+`tests/test_admin_users_routes.py` masih belum tersedia; jangan menjalankan atau mengklaim hasil modul tersebut sebelum fixture/implementasinya dibuat. Pilih pemeriksaan lanjutan sesuai [panduan pengembangan](PANDUAN_PENGEMBANGAN_AI.md), dan catat hasil serta batas lingkungan secara terpisah.
 
 ## 9. Pemeliharaan dan batas selesai
 

@@ -32,19 +32,55 @@ export interface AdminFeedbackItem {
     created_at: string;
 }
 
-export interface ManagedUser {
-    id: string;
-    name: string;
-    email: string;
-    role: "USER" | "ADMIN";
-    total_detections: number;
-    is_active: boolean;
-    created_at: string;
-}
-
 export interface ThresholdConfig {
     current_threshold: number;
     default_threshold: number;
     last_updated_at: string;
     updated_by_admin: string;
 }
+
+export interface ManagedUser {
+    id: string;
+    name: string;
+    email: string;
+    role: "USER" | "ADMIN";
+    analysis_count: number;
+    has_password: boolean;
+    google_linked: boolean;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface AdminUsersParams {
+    search?: string;
+    role?: "USER" | "ADMIN";
+    is_active?: boolean;
+    skip?: number;
+    limit?: number;
+}
+
+export interface AdminUserListResponse {
+    status: "success";
+    data: ManagedUser[];
+    count: number;
+    total: number;
+    skip: number;
+    limit: number;
+}
+
+export interface UserStatusUpdatePayload {
+    is_active: boolean;
+}
+
+export interface UserStatusUpdateResponse {
+    status: "success";
+    message: string;
+    data: {
+        id: string;
+        is_active: boolean;
+    };
+}
+
+export type AdminUserStatusResult =
+    | { success: true; message: string; data: UserStatusUpdateResponse["data"]; refreshed: boolean }
+    | { success: false; message: string; cancelled?: boolean };

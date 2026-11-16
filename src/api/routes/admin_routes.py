@@ -1,12 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from uuid import UUID
+from sqlalchemy import func, or_
 from typing import Optional
 
 from src.database.session import get_db
 from src.database.models import PredictionLog, UserFeedback, User
 from src.core.auth_deps import require_admin
-from src.api.schemas import ThresholdUpdateRequest
+from src.api.schemas import (
+    ThresholdUpdateRequest,
+    ManagedUserItem,
+    AdminUserListResponse,
+    UserStatusUpdateRequest,
+    UserStatusUpdateData,
+    UserStatusUpdateResponse,
+)
 
 router = APIRouter(prefix="/admin", tags=["Admin Portal"])
 
@@ -175,3 +183,139 @@ def get_recent_admin_logs(
         })
 
     return {"status": "success", "data": data}
+
+@router.get("/users", response_model=AdminUserListResponse)
+def list_admin_users(
+    search: Optional[str] = Query(None, description="Cari nama atau email"),
+    role: Optional[str] = Query(None, pattern="^(USER|ADMIN)$"),
+    is_active: Optional[bool] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin),
+):
+    filters = []
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                User.full_name.ilike(term),
+                User.email.ilike(term),
+            )
+        )
+
+    if role is not None:
+        filters.append(func.upper(User.role) == role.upper())
+
+    if is_active is not None:
+        filters.append(User.is_active == is_active)
+
+    # Total seluruh akun yang sesuai filter sebelum pagination
+    total_query = db.query(func.count(User.id))
+    if filters:
+        total_query = total_query.filter(*filters)
+    total = int(total_query.scalar() or 0)
+
+    # Agregasi jumlah analisis tersimpan per user tanpa N+1 query dan tanpa duplikasi baris
+    log_counts_sq = (
+        db.query(
+            PredictionLog.user_id.label("user_id"),
+            func.count(PredictionLog.id).label("analysis_count"),
+        )
+        .filter(PredictionLog.user_id.isnot(None))
+        .group_by(PredictionLog.user_id)
+        .subquery()
+    )
+
+    users_query = (
+        db.query(
+            User.id,
+            User.full_name,
+            User.email,
+            User.role,
+            User.is_active,
+            User.created_at,
+            User.password_hash,
+            User.google_sub,
+            func.coalesce(log_counts_sq.c.analysis_count, 0).label("analysis_count"),
+        )
+        .outerjoin(log_counts_sq, User.id == log_counts_sq.c.user_id)
+    )
+    if filters:
+        users_query = users_query.filter(*filters)
+
+    rows = (
+        users_query
+        .order_by(User.created_at.desc(), User.id.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    data = [
+        ManagedUserItem(
+            id=row.id,
+            name=row.full_name or "",
+            email=row.email,
+            role=row.role,
+            is_active=bool(row.is_active),
+            created_at=row.created_at,
+            analysis_count=int(row.analysis_count or 0),
+            has_password=bool(row.password_hash),
+            google_linked=bool(row.google_sub),
+        )
+        for row in rows
+    ]
+
+    return AdminUserListResponse(
+        status="success",
+        data=data,
+        count=len(data),
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
+
+@router.patch("/users/{user_id}/status", response_model=UserStatusUpdateResponse)
+def update_admin_user_status(
+    user_id: UUID,
+    payload: UserStatusUpdateRequest,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin),
+):
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pengguna tidak ditemukan.",
+        )
+
+    if (target_user.role or "").upper() == "ADMIN" or target_user.id == admin_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Status akun ADMIN tidak dapat diubah.",
+        )
+
+    try:
+        target_user.is_active = payload.is_active
+        if not payload.is_active:
+            target_user.token_version = (target_user.token_version or 0) + 1
+        db.commit()
+        db.refresh(target_user)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal memperbarui status pengguna.",
+        )
+
+    status_label = "diaktifkan" if target_user.is_active else "dinonaktifkan"
+    return UserStatusUpdateResponse(
+        status="success",
+        message=f"Akun pengguna berhasil {status_label}.",
+        data=UserStatusUpdateData(
+            id=target_user.id,
+            is_active=bool(target_user.is_active),
+        ),
+    )

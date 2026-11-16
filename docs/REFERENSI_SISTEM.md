@@ -122,7 +122,7 @@ Tabel mencatat deklarasi route pada sumber, bukan keberhasilan server/database p
 | Notifikasi feedback | Jangan ditampilkan sebagai layanan aktif sebelum terhubung. |
 | Sinkronisasi preferensi cloud | Penyimpanan browser tidak berarti sinkronisasi lintas perangkat. |
 | Bahasa Inggris | Pilihan bahasa memerlukan penerjemahan yang benar-benar tersedia. |
-| Kelola pengguna admin | Pada pembacaan 16 November 2026, tabel masih memakai tiga akun contoh; perubahan status hanya state lokal dan reset sandi hanya alert. Daftar/status dari database masih rencana pada [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md). |
+| Kelola pengguna admin | Pada pembacaan 16 November 2026, schema/endpoint daftar/status dan hook sudah ada, tetapi tabel masih memakai tiga akun contoh, status lokal, dan alert reset. Integrasi tabel/database belum dibuktikan; lihat [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md). |
 
 Contoh payload review sesuai schema yang dibaca:
 
@@ -137,16 +137,18 @@ Cocokkan contoh dengan schema aktual. Nama `status`, `review_notes`, atau nilai 
 
 ### 2.3 Kelola pengguna: implementasi saat diperiksa dan target
 
-Jalur sumber yang diperiksa pada 16 November 2026: [halaman admin pengguna](../frontend/src/app/admin/users/page.tsx) memasang [UserManageTable](../frontend/src/components/admin/UserManageTable.tsx). Komponen memakai array akun contoh, menghitung total dari panjang array, mengubah status tanpa request, dan menampilkan alert reset tanpa pengiriman. [Router admin](../src/api/routes/admin_routes.py) belum mendeklarasikan endpoint daftar/status pengguna di bawah.
+Jalur sumber yang diperiksa pada 16 November 2026: [halaman admin pengguna](../frontend/src/app/admin/users/page.tsx) memasang [UserManageTable](../frontend/src/components/admin/UserManageTable.tsx). Tabel masih memakai array contoh, total dari panjang array, status tanpa request, dan alert reset tanpa pengiriman. [Router admin](../src/api/routes/admin_routes.py) serta [schema](../src/api/schemas.py) kini mendeklarasikan endpoint berikut; keberadaan deklarasi belum membuktikan database nyata telah diuji.
 
-| Kontrak target, belum tersedia pada pemeriksaan ini | Tujuan |
+| Kontrak yang sudah dideklarasikan | Tujuan |
 | --- | --- |
 | `GET /api/v1/admin/users` | Daftar akun melalui `require_admin`, agregasi analisis tersimpan, pencarian/filter, dan pagination. |
 | `PATCH /api/v1/admin/users/{user_id}/status` | Status tujuan eksplisit untuk akun USER, transaksi, dan pembatalan JWT melalui versi sesi. |
 
 Sumber target adalah tabel aplikasi `users` dan relasi `PredictionLog.user_id`, termasuk akun Google yang dipetakan ke UUID aplikasi. Ini tidak membutuhkan perpindahan ke Supabase Auth atau tabel jumlah analisis baru berdasarkan model yang dibaca. Database nyata belum diintrospeksi.
 
-Arti field, metadata `count`/`total`, pembatasan target ADMIN, file baru `useAdminUsers.ts`, dan rencana tes dipusatkan pada [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md). Setelah implementasi dan pemeriksaan selesai, perbarui status pada kedua dokumen dan inventaris route; jangan menyalin endpoint target ke bagian route tersedia sebelum deklarasi serta kontraknya diperiksa.
+Kontrak daftar memakai `analysis_count`, `has_password`, `google_linked`, dan metadata `count`/`total`/`skip`/`limit`. Respons status saat ini memuat `message` dan `data.id`/`data.is_active`, belum `updated_at`. [useAdminUsers](../frontend/src/hooks/useAdminUsers.ts) memvalidasi respons, melindungi konteks sesi/filter, dan membedakan konfirmasi penyimpanan dari kegagalan refresh. Hook belum dipasang pada tabel.
+
+[Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md) memuat status berkas dan hasil tes mock hook. Transaksi/idempotensi endpoint status masih perlu diselaraskan dengan target; tes frontend tidak membuktikan penyimpanan atau konkurensi PostgreSQL. Perbarui kedua dokumen ketika integrasi tabel dan pemeriksaan backend selesai.
 
 ## 3. Relasi data dan kepemilikan
 

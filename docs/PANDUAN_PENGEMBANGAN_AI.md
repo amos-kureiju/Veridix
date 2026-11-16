@@ -4,6 +4,8 @@ Dibagi dan dirapikan: **13 November 2026**.
 
 Mulai dari [AGENTS.md](../AGENTS.md). Gunakan panduan ini untuk cara bekerja dan UX; buka [Referensi Sistem](REFERENSI_SISTEM.md) untuk detail teknis. Riwayat angka/temuan lama dipindahkan ke [Catatan Audit Dokumentasi](../reports/CATATAN_AUDIT_DOKUMENTASI_2026-11-13.md).
 
+Tambahan 16 November 2026: pengembangan daftar akun dan status akses admin mengikuti [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md). Dokumen tersebut memisahkan kondisi kode yang dibaca dari kontrak yang masih direncanakan, termasuk berkas baru dan bukti penerimaannya.
+
 ## 1. Tujuan dan kedudukan panduan
 
 Utamakan fitur yang menyelesaikan kebutuhan pengguna dengan alur singkat, data yang dapat ditelusuri, dan kegagalan yang dijelaskan secara benar.
@@ -67,6 +69,8 @@ Sebelum mengedit, temukan:
 
 Gunakan jalur HTTP dan autentikasi yang sudah ada. Hindari alamat dasar, token, dan penanganan galat kedua yang membuat perilaku berbeda.
 
+Untuk `/admin/users`, telusuri tabel ke hook, endpoint admin, schema, `users`, dan agregasi `prediction_logs`. Daftar contoh, perubahan status yang hanya mengubah state browser, dan alert pengiriman tanpa proses server belum memenuhi alur lengkap. Kontrak target dan urutan penggantiannya dikelola pada [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md); jangan menganggap endpoint rencana sudah tersedia.
+
 Perbaikan UI tidak menjadi alasan untuk mengubah checkpoint, voting, parameter eksperimen, atau dataset. Perubahan metodologi dikerjakan dalam ruang lingkup dan protokol tersendiri.
 
 ## 3. Keadaan UI dan dashboard
@@ -116,6 +120,8 @@ Gunakan akun/fixture terisolasi dan data yang diizinkan protokol. Pemeriksaan kh
 | --- | --- |
 | Akun A/B berbeda | Data dan respons terlambat tidak tertukar antar akun. |
 | Operasi admin | Role diperiksa backend. |
+| Daftar akun admin | Akun lokal/Google berasal dari database terisolasi; nol, total hasil filter, dan panjang halaman dibedakan. |
+| Status akses akun | Perubahan persisten setelah konfirmasi; target ADMIN dilindungi dan JWT lama tetap ditolak setelah aktivasi kembali. |
 | Feedback ulang/bersamaan | Tidak ada duplikasi pasangan logis; status konsisten. |
 | Review tersimpan | Konfirmasi server dan reload menghasilkan nilai sama. |
 | Penyimpanan gagal | Tidak muncul keberhasilan lokal; draf relevan tetap tersedia. |
@@ -199,6 +205,7 @@ Pekerjaan selesai pada cakupannya ketika kebutuhan pengguna, sumber data, kontra
 | Panduan ini | Cara menelusuri masalah, memilih solusi sederhana, menjaga UX, dan menentukan bukti selesai. |
 | [Referensi Sistem](REFERENSI_SISTEM.md) | Sumber kode, arsitektur, API, relasi, status, model, dan batas implementasi. |
 | [Panduan Riwayat](PANDUAN_RIWAYAT.md) / [Pengujian OCR](PANDUAN_PENGUJIAN_OCR.md) | Detail alur dan pemeriksaan khusus yang sudah tersedia. |
+| [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md) | Rencana daftar akun admin dari database, kontrak status akses, berkas implementasi baru, dan bukti penerimaan; status implementasi diperbarui setelah kode berubah. |
 | [README](../README.md) | Pintu masuk proyek dan petunjuk menjalankan; cocokkan keterangan lama dengan kode. |
 | [Protokol](../PROTOKOL_PRAREGISTRASI.md) dan reports/ | Metodologi serta laporan eksperimen/audit bertanggal. |
 

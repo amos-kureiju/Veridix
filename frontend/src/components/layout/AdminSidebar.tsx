@@ -197,27 +197,28 @@ export default function AdminSidebar({
                     </nav>
                 </div>
 
-                {/* Tautan Kembali ke Sisi Pengguna */}
+                {/* Tombol Keluar & Kembali ke Sisi Pengguna */}
                 <div className="pt-4 border-t border-slate-900/[0.08]">
-                    <Link
-                        href="/"
-                        title={collapsed ? "Kembali ke Beranda User" : undefined}
-                        className={`group relative flex items-center rounded-xl text-[13px] font-medium text-emerald-700 transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50 hover:bg-emerald-500/[0.09] hover:text-emerald-900 active:scale-[0.98] active:bg-emerald-500/20 ${collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+                    <button
+                        type="button"
+                        onClick={onLogout}
+                        title={collapsed ? "Keluar & ke Beranda" : undefined}
+                        className={`w-full group relative flex items-center rounded-xl text-[13px] font-medium text-emerald-700 transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50 hover:bg-emerald-500/[0.09] hover:text-emerald-900 active:scale-[0.98] active:bg-emerald-500/20 ${collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
                             }`}
                     >
                         <ExternalLink
                             strokeWidth={1.75}
                             className="w-[18px] h-[18px] shrink-0 text-emerald-600 transition-all duration-300 group-hover:text-emerald-500 group-hover:scale-110 group-hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]"
                         />
-                        {!collapsed && <span>Kembali ke Beranda User</span>}
+                        {!collapsed && <span>Keluar & ke Beranda</span>}
 
                         {/* Tooltip kaca saat collapsed */}
                         {collapsed && (
                             <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-white/90 backdrop-blur-xl ring-1 ring-emerald-900/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-900 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
-                                Kembali ke Beranda User
+                                Keluar & ke Beranda
                             </span>
                         )}
-                    </Link>
+                    </button>
                 </div>
 
             </div>

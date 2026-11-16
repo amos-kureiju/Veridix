@@ -44,7 +44,6 @@ export default function UserManageTable() {
         clearMutationError,
         users,
         total,
-        count,
         params,
         loading,
         error,
@@ -57,7 +56,25 @@ export default function UserManageTable() {
     } = useAdminUsers(ready && isAdmin && !sessionError, user?.id);
 
     const [searchInput, setSearchInput] = useState(params.search ?? "");
-    const [confirmTarget, setConfirmTarget] = useState<ManagedUser | null>(null);
+    const [confirmState, setConfirmState] = useState<{
+        target: ManagedUser;
+        adminId: string;
+    } | null>(null);
+    const [statusNotice, setStatusNotice] = useState<{
+        type: "success" | "warning";
+        text: string;
+    } | null>(null);
+
+    const activeAdminId =
+        ready && isAdmin && !sessionError && user?.id ? user.id : "";
+
+    // Reset state UI saat sesi atau admin berubah
+    useEffect(() => {
+        setConfirmState(null);
+        setSearchInput("");
+        setStatusNotice(null);
+        clearMutationError();
+    }, [activeAdminId, clearMutationError]);
 
     // Debounce pencarian agar tidak memicu request di setiap ketikan
     useEffect(() => {
@@ -79,16 +96,41 @@ export default function UserManageTable() {
     );
 
     const handleConfirmStatusChange = async () => {
-        if (!confirmTarget) return;
-        const target = confirmTarget;
-        setConfirmTarget(null);
-        await updateStatus(target.id, !target.is_active);
+        if (!confirmState) return;
+        if (!activeAdminId || confirmState.adminId !== activeAdminId) {
+            setConfirmState(null);
+            return;
+        }
+
+        const { target } = confirmState;
+        const result = await updateStatus(target.id, !target.is_active);
+
+        if (!result.success && result.cancelled) return;
+
+        if (result.success) {
+            setConfirmState(null);
+            setStatusNotice(
+                result.refreshed
+                    ? {
+                        type: "success",
+                        text: `Status akun ${target.email} berhasil diperbarui.`,
+                    }
+                    : {
+                        type: "warning",
+                        text: `Status akun ${target.email} sudah tersimpan, tetapi daftar belum berhasil diperbarui.`,
+                    }
+            );
+        }
     };
 
     const resetAllFilters = () => {
         setSearchInput("");
         setFilters({ search: undefined, role: undefined, is_active: undefined });
     };
+
+    const isConfirmSaving = confirmState
+        ? savingIds.includes(confirmState.target.id)
+        : false;
 
     return (
         <div className="space-y-4">
@@ -148,9 +190,11 @@ export default function UserManageTable() {
 
                 <div className="flex items-center gap-3">
                     <span className="text-xs text-slate-500">
-                        {total === null
+                        {!hasLoaded && loading
                             ? "Total Pengguna: Memuat..."
-                            : `Total Pengguna: ${total} akun`}
+                            : total === null
+                                ? "Jumlah belum tersedia"
+                                : `${hasActiveFilter ? "Akun ditemukan" : "Total Pengguna"}: ${total} akun${stale ? " (belum diperbarui)" : ""}`}
                     </span>
                     <button
                         type="button"
@@ -165,12 +209,16 @@ export default function UserManageTable() {
                 </div>
             </div>
 
-            {/* Banner Error Refresh (ketika data lama masih ada) */}
-            {error && total !== null && (
+            {/* Banner Data Stale / Gagal Refresh setelah pernah berhasil */}
+            {hasLoaded && (error || stale) && (
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 text-xs flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>Gagal memperbarui data terbaru: {error}. Menampilkan data terakhir yang berhasil dimuat.</span>
+                        <span>
+                            {error
+                                ? `Gagal memperbarui data terbaru: ${error}. Menampilkan data terakhir yang berhasil dimuat.`
+                                : "Daftar dan jumlah akun belum berhasil diperbarui."}
+                        </span>
                     </div>
                     <button
                         type="button"
@@ -182,8 +230,27 @@ export default function UserManageTable() {
                 </div>
             )}
 
-            {/* Banner Error Mutasi Status */}
-            {mutationError && (
+            {/* Banner Hasil Perubahan Status */}
+            {statusNotice && (
+                <div
+                    className={`rounded-2xl px-4 py-3 text-xs flex items-center justify-between gap-3 border ${statusNotice.type === "success"
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                            : "bg-amber-50 border-amber-200 text-amber-800"
+                        }`}
+                >
+                    <span>{statusNotice.text}</span>
+                    <button
+                        type="button"
+                        onClick={() => setStatusNotice(null)}
+                        className="font-semibold underline shrink-0"
+                    >
+                        Tutup
+                    </button>
+                </div>
+            )}
+
+            {/* Banner Error Mutasi Status (jika dialog tidak terbuka) */}
+            {mutationError && !confirmState && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl px-4 py-3 text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{mutationError}</span>
@@ -207,7 +274,7 @@ export default function UserManageTable() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {/* Kondisi 1: Memuat pertama kali */}
-                            {loading && total === null ? (
+                            {!hasLoaded && loading ? (
                                 <tr>
                                     <td colSpan={7} className="py-12 px-6 text-center text-slate-400">
                                         <div className="inline-flex items-center gap-2">
@@ -216,7 +283,7 @@ export default function UserManageTable() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : /* Kondisi 2: Gagal memuat awal */ error && total === null ? (
+                            ) : /* Kondisi 2: Gagal memuat awal */ !hasLoaded && error ? (
                                 <tr>
                                     <td colSpan={7} className="py-12 px-6 text-center">
                                         <div className="max-w-md mx-auto space-y-2.5">
@@ -231,7 +298,28 @@ export default function UserManageTable() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : /* Kondisi 3 & 4: Daftar kosong / filter tidak cocok */ users.length === 0 ? (
+                            ) : /* Kondisi 3: Halaman kosong karena offset melewati total */ isPageEmpty ? (
+                                <tr>
+                                    <td colSpan={7} className="py-12 px-6 text-center text-slate-500">
+                                        <div className="space-y-2">
+                                            <p>Halaman ini melewati batas data yang tersedia.</p>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setPage(
+                                                        total !== null && total > 0
+                                                            ? Math.floor((total - 1) / limit) * limit
+                                                            : 0
+                                                    )
+                                                }
+                                                className="text-xs font-semibold text-slate-800 underline"
+                                            >
+                                                Kembali ke halaman terakhir yang valid
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : /* Kondisi 4: Daftar kosong / filter tidak cocok */ isEmpty || users.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="py-12 px-6 text-center text-slate-500">
                                         {hasActiveFilter ? (
@@ -303,8 +391,15 @@ export default function UserManageTable() {
                                                 ) : (
                                                     <button
                                                         type="button"
-                                                        disabled={isSaving}
-                                                        onClick={() => setConfirmTarget(u)}
+                                                        disabled={isSaving || !activeAdminId}
+                                                        onClick={() => {
+                                                            clearMutationError();
+                                                            setStatusNotice(null);
+                                                            setConfirmState({
+                                                                target: u,
+                                                                adminId: activeAdminId,
+                                                            });
+                                                        }}
                                                         aria-label={
                                                             u.is_active
                                                                 ? `Nonaktifkan akun ${u.email}`
@@ -339,7 +434,10 @@ export default function UserManageTable() {
                 {total !== null && total > 0 && (
                     <div className="border-t border-slate-100 px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                         <span>
-                            Menampilkan {skip + 1}–{skip + (count ?? users.length)} dari {total} akun (Halaman {currentPage} / {totalPages})
+                            {users.length > 0
+                                ? `Menampilkan ${skip + 1}–${skip + users.length} dari ${total} akun`
+                                : `Menampilkan 0 dari ${total} akun`}{" "}
+                            (Halaman {currentPage} / {totalPages})
                         </span>
                         <div className="flex items-center gap-2">
                             <button
@@ -368,7 +466,7 @@ export default function UserManageTable() {
             </div>
 
             {/* Dialog Konfirmasi Perubahan Status */}
-            {confirmTarget && (
+            {confirmState && (
                 <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center p-4">
                     <div
                         role="dialog"
@@ -378,34 +476,48 @@ export default function UserManageTable() {
                     >
                         <div className="space-y-1.5">
                             <h3 id="confirm-status-title" className="text-sm font-bold text-slate-900">
-                                {confirmTarget.is_active
+                                {confirmState.target.is_active
                                     ? "Nonaktifkan Akun Pengguna?"
                                     : "Aktifkan Kembali Akun Pengguna?"}
                             </h3>
                             <p className="text-xs text-slate-600 leading-relaxed">
-                                {confirmTarget.is_active
-                                    ? `Akun ${confirmTarget.email} tidak akan bisa masuk atau memakai fitur deteksi, dan sesi aktifnya akan diputus.`
-                                    : `Akun ${confirmTarget.email} akan diizinkan kembali untuk masuk dan menggunakan layanan.`}
+                                {confirmState.target.is_active
+                                    ? `Akun ${confirmState.target.email} tidak akan bisa masuk atau memakai fitur deteksi, dan sesi aktifnya akan diputus.`
+                                    : `Akun ${confirmState.target.email} akan diizinkan kembali untuk masuk dan menggunakan layanan.`}
                             </p>
                         </div>
+
+                        {mutationError && (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2 text-xs">
+                                {mutationError}
+                            </div>
+                        )}
 
                         <div className="flex justify-end gap-2 pt-1">
                             <button
                                 type="button"
-                                onClick={() => setConfirmTarget(null)}
-                                className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+                                disabled={isConfirmSaving}
+                                onClick={() => {
+                                    setConfirmState(null);
+                                    clearMutationError();
+                                }}
+                                className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
                             >
                                 Batal
                             </button>
                             <button
                                 type="button"
+                                disabled={isConfirmSaving}
                                 onClick={handleConfirmStatusChange}
-                                className={`px-3.5 py-2 rounded-xl text-xs font-semibold text-white transition ${confirmTarget.is_active
+                                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50 transition ${confirmState.target.is_active
                                         ? "bg-rose-600 hover:bg-rose-700"
                                         : "bg-emerald-600 hover:bg-emerald-700"
                                     }`}
                             >
-                                {confirmTarget.is_active ? "Ya, Nonaktifkan" : "Ya, Aktifkan"}
+                                {isConfirmSaving && (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                )}
+                                {confirmState.target.is_active ? "Ya, Nonaktifkan" : "Ya, Aktifkan"}
                             </button>
                         </div>
                     </div>

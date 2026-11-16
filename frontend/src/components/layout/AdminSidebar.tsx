@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import {
     LayoutDashboard,
     FileText,
@@ -11,7 +12,6 @@ import {
     Users,
     Download,
     LogOut,
-    Sparkles,
     Search,
     ExternalLink,
     PanelLeftClose,
@@ -119,7 +119,7 @@ export default function AdminSidebar({
                         }`}
                 >
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:from-emerald-400 group-hover:to-emerald-600">
-                        <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        <AIAnalysisIcon className="h-6 w-6" />
                     </div>
                     {!collapsed && (
                         <>

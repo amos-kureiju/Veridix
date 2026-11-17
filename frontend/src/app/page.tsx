@@ -16,9 +16,13 @@ import VerdictCard from "@/components/detector/VerdictCard";
 export default function Home() {
     const router = useRouter();
     const { user, ready, logout, refreshUser } = useAuth();
+    const isAdminUser = ready && user?.role === "ADMIN";
+    const isRegularUser = ready && user?.role === "USER";
+    const isGuest = ready && !user;
+
     const d = useDetection();
-    const history = useHistory(ready && Boolean(user));
-    const isGuest = !user;
+    const history = useHistory(isRegularUser);
+
     // Sesi berakhir atau pengguna berganti: bersihkan hasil dan permintaan aktif
     const userId = user?.id ?? null;
     useEffect(() => {
@@ -26,11 +30,18 @@ export default function Home() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
+    // Alihkan ADMIN langsung ke /admin jika membuka beranda "/"
+    useEffect(() => {
+        if (isAdminUser) {
+            router.replace("/admin");
+        }
+    }, [isAdminUser, router]);
+
     const requireLogin = () => router.push("/auth/login");
 
     const analyze = async (
         text: string,
-        source: InputSourceType = "TEXT",   
+        source: InputSourceType = "TEXT",
         imageUrl?: string | null
     ) => {
         if (!ready) return;
@@ -38,13 +49,24 @@ export default function Home() {
             requireLogin();
             return;
         }
+        if (user.role !== "USER") return;
         const result = await d.detectText(text, source, imageUrl);
         if (result) await Promise.all([history.reload(), refreshUser()]);
     };
 
     const refreshAfterFeedback = async () => {
+        if (!isRegularUser) return;
         await Promise.all([history.reload(), refreshUser()]);
     };
+
+    // Tahan render UserShell saat sesi masih diperiksa atau sedang dialihkan ke /admin
+    if (!ready || isAdminUser) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-xs text-slate-500">
+                {isAdminUser ? "Mengalihkan ke Panel Admin..." : "Memeriksa sesi..."}
+            </div>
+        );
+    }
 
     return (
         <UserShell
@@ -85,7 +107,7 @@ export default function Home() {
                     onRequestExplanation={d.requestExplanation}
                     limeLoading={d.limeLoading}
                     limeError={d.limeError}
-                    canAct={ready && Boolean(user)}
+                    canAct={isRegularUser}
                     onFeedbackSubmitted={refreshAfterFeedback}
                 />
             </div>

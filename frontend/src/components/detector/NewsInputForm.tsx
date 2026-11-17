@@ -9,13 +9,16 @@ import {
     RefreshCw,
     CheckCircle2,
     X,
-    Edit3
+    Edit3,
+    Camera
 } from "lucide-react";
 import { getApiConnectionMessage } from "@/lib/apiClient";
 import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
+import CameraCapture from "@/components/detector/CameraCapture";
 import type { InputSourceType, OCRResponse } from "@/types/detector";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 20_000_000;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
 interface NewsInputFormProps {
@@ -42,6 +45,7 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
     const [ocrAccepted, setOCRAccepted] = useState(false);
     const [ocrFailed, setOCRFailed] = useState(false);
     const [serverImageUrl, setServerImageUrl] = useState<string | null>(null);
+    const [cameraOpen, setCameraOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const ocrGenerationRef = useRef(0);
     const ocrAbortRef = useRef<AbortController | null>(null);
@@ -156,6 +160,27 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
         }
     };
 
+    useEffect(() => {
+    if (
+        activeTab !== "image" ||
+        blocked ||
+        loginRequired ||
+        loading ||
+        readingImage
+    ) {
+        setCameraOpen(false);
+    }
+}, [activeTab, blocked, loginRequired, loading, readingImage]);
+
+    const handleOpenCamera = () => {
+        if (blocked || loading || readingImage) return;
+        if (loginRequired) {
+            onRequireLogin();
+            return;
+        }
+        setCameraOpen(true);
+    };
+
     const handleSubmit = async () => {
         if (blocked || loading || readingImage || submitBusyRef.current) return;
         if (loginRequired) {
@@ -188,7 +213,10 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                     <div className="flex gap-1.5 p-1 bg-slate-100/80 rounded-2xl">
                         <button
                             type="button"
-                            onClick={() => setActiveTab("text")}
+                            onClick={() => {
+                                setCameraOpen(false);
+                                setActiveTab("text");
+                            }}
                             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === "text"
                                     ? "bg-white text-slate-900 shadow-xs"
                                     : "text-slate-500 hover:text-slate-800"
@@ -199,7 +227,10 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                         </button>
                         <button
                             type="button"
-                            onClick={() => setActiveTab("image")}
+                            onClick={() => {
+                                setCameraOpen(false);
+                                setActiveTab("image");
+                            }}
                             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === "image"
                                     ? "bg-white text-slate-900 shadow-xs"
                                     : "text-slate-500 hover:text-slate-800"
@@ -249,30 +280,49 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                     {activeTab === "image" && (
                         <div className="space-y-3">
                             {!imagePreview ? (
-                                <div
-                                    onClick={() => {
-                                        if (blocked || loading || readingImage) return;
-                                        if (loginRequired) onRequireLogin();
-                                        else fileInputRef.current?.click();
-                                    }}
-                                    className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition text-center"
-                                >
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/png, image/jpeg, image/webp"
-                                        className="hidden"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            e.target.value = "";
-                                            if (file) await handleImageSelect(file);
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div
+                                        onClick={() => {
+                                            if (blocked || loading || readingImage) return;
+                                            if (loginRequired) onRequireLogin();
+                                            else fileInputRef.current?.click();
                                         }}
-                                    />
-                                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100 shadow-xs">
-                                        <UploadCloud className="w-6 h-6" />
+                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition text-center"
+                                    >
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/png, image/jpeg, image/webp"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                e.target.value = "";
+                                                if (file) await handleImageSelect(file);
+                                            }}
+                                        />
+                                        <div className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100 shadow-xs">
+                                            <UploadCloud className="w-5 h-5" />
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800">Unggah Tangkapan Layar Berita Medsos</p>
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                            PNG, JPG, atau WEBP, maks. 10 MB (Twitter/X, WhatsApp, Facebook)
+                                        </p>
                                     </div>
-                                    <p className="text-xs font-bold text-slate-800">Unggah Tangkapan Layar Berita Medsos</p>
-                                    <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, atau WEBP, maksimal 10 MB (Twitter/X, WhatsApp, Facebook)</p>
+
+                                    <button
+                                        type="button"
+                                        disabled={blocked || loading || readingImage}
+                                        onClick={handleOpenCamera}
+                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 mb-2 border border-slate-200 shadow-xs">
+                                            <Camera className="w-5 h-5" />
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800">Ambil Foto</p>
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                            Potret berita kertas langsung dari kamera
+                                        </p>
+                                    </button>
                                 </div>
                             ) : (
                                 /* HUMAN-IN-THE-LOOP TEXT CORRECTION BOX */
@@ -375,6 +425,22 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                     </span>
                 </button>
             </div>
+            {cameraOpen &&
+                activeTab === "image" &&
+                !blocked &&
+                !loginRequired &&
+                !loading &&
+                !readingImage && (
+                    <CameraCapture
+                        maxBytes={MAX_IMAGE_BYTES}
+                        maxPixels={MAX_IMAGE_PIXELS}
+                        onClose={() => setCameraOpen(false)}
+                        onUsePhoto={(file) => {
+                            setCameraOpen(false);
+                            void handleImageSelect(file);
+                        }}
+                    />
+                )}
         </div>
     );
 }

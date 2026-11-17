@@ -118,8 +118,8 @@ export default function AdminSidebar({
                     className={`group bg-white/60 border border-white/90 rounded-2xl flex items-center text-xs text-slate-700 shadow-[0_4px_16px_-8px_rgba(15,23,42,0.22)] backdrop-blur-md transition-all duration-300 hover:border-emerald-300/60 hover:shadow-[0_6px_20px_-8px_rgba(16,185,129,0.35)] ${collapsed ? "justify-center p-2.5" : "p-3 gap-2.5"
                         }`}
                 >
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:from-emerald-400 group-hover:to-emerald-600">
-                        <AIAnalysisIcon className="h-6 w-6" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-[0_2px_8px_rgba(6,95,70,0.06)] transition-colors duration-200 group-hover:border-emerald-300 group-hover:bg-emerald-50 motion-reduce:transition-none">
+                        <AIAnalysisIcon className="h-6 w-6 stroke-[2.2]" />
                     </div>
                     {!collapsed && (
                         <>

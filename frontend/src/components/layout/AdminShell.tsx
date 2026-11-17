@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import AdminSidebar from "./AdminSidebar";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import {
     Search,
     Bell,
@@ -141,8 +142,10 @@ export default function AdminShell({ children }: AdminShellProps) {
                         </div>
 
                         {/* Model Badge */}
-                        <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-700 border border-emerald-500/25 px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md">
-                            <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                        <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-1.5 text-xs font-bold tracking-wide text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-md">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-[0_2px_8px_rgba(6,95,70,0.06)]">
+                                <AIAnalysisIcon className="h-6 w-6 stroke-[2.2]" />
+                            </span>
                             <span>IndoBERT Focal Loss</span>
                         </div>
 

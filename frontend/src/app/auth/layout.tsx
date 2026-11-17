@@ -94,7 +94,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                         <div className="flex items-center gap-3.5">
                             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0a2b23] p-2.5 shadow-lg shadow-emerald-950/30 ring-1 ring-white/20">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/logo.png" alt="" className="h-full w-full object-contain" />
+                                <img src="/logo2.png" alt="" className="h-full w-full object-contain" />
                             </span>
                             <div className="leading-tight">
                                 <span className="block text-lg font-bold tracking-[0.2em] text-white">VERIDIX</span>

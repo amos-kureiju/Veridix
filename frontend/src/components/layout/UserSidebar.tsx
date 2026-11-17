@@ -185,7 +185,7 @@ export default function UserSidebar({
                         <div className="group/logo w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/25 flex items-center justify-center p-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out hover:bg-white/[0.06] hover:border-white/50 hover:shadow-[0_0_16px_rgba(255,255,255,0.14)] motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                                src="/logo.png"
+                                src="/logo2.png"
                                 alt="VERIDIX Logo"
                                 className="w-full h-full object-contain brightness-110 drop-shadow-[0_0_0.5px_rgba(255,255,255,0.5)] transition-[transform,filter] duration-300 ease-out group-hover/logo:brightness-125 group-hover/logo:drop-shadow-[0_0_3px_rgba(167,243,208,0.5)] motion-safe:group-hover/logo:scale-110 motion-safe:group-hover/logo:-rotate-3 motion-reduce:transition-none"
                             />

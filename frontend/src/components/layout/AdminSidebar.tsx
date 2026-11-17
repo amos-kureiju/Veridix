@@ -79,16 +79,16 @@ export default function AdminSidebar({
                     className={`flex items-center pt-1 pb-4 border-b border-slate-900/[0.08] ${collapsed ? "flex-col gap-3" : "justify-between px-1"
                         }`}
                 >
-                    <div className={`flex items-center ${collapsed ? "" : "gap-2.5"}`}>
-                        <div className="w-9 h-9 rounded-xl bg-white/70 border border-white shadow-[0_2px_10px_-2px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] flex items-center justify-center p-1.5 shrink-0 backdrop-blur-md">
+                    <div className={`group/brand flex items-center ${collapsed ? "" : "gap-2.5"}`}>
+                        <div className="w-9 h-9 rounded-xl bg-white/70 border border-white shadow-[0_2px_10px_-2px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] flex items-center justify-center p-1.5 shrink-0 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 group-hover/brand:border-emerald-300/80 group-hover/brand:bg-emerald-50/90 group-hover/brand:shadow-[0_0_16px_-3px_rgba(16,185,129,0.5)] motion-reduce:transition-none">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/logo.png" alt="VERIDIX Logo" className="w-full h-full object-contain drop-shadow-sm" />
+                            <img src="/logo.png" alt="VERIDIX Logo" className="w-full h-full object-contain drop-shadow-sm transition-transform duration-300 ease-out motion-safe:group-hover/brand:scale-110 motion-safe:group-hover/brand:-rotate-3 motion-reduce:transition-none" />
                         </div>
                         {!collapsed && (
                             <div className="leading-tight">
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-sm font-extrabold text-slate-900 tracking-wider">VERIDIX</span>
-                                    <span className="text-[10px] bg-slate-900 text-white font-mono px-1.5 py-0.5 rounded-md font-bold leading-none shadow-sm">
+                                    <span className="text-sm font-extrabold text-slate-900 tracking-wider transition-colors duration-300 group-hover/brand:text-emerald-700 motion-reduce:transition-none">VERIDIX</span>
+                                    <span className="text-[10px] bg-slate-900 text-white font-mono px-1.5 py-0.5 rounded-md font-bold leading-none shadow-sm transition-colors duration-300 group-hover/brand:bg-emerald-600 motion-reduce:transition-none">
                                         ADMIN
                                     </span>
                                 </div>
@@ -115,7 +115,7 @@ export default function AdminSidebar({
                 {/* Status AI Engine Banner */}
                 <div
                     title={collapsed ? "IndoBERT Engine v2 — Siap Inferensi" : undefined}
-                    className={`group bg-white/60 border border-white/90 rounded-2xl flex items-center text-xs text-slate-700 shadow-[0_4px_16px_-8px_rgba(15,23,42,0.22)] backdrop-blur-md transition-all duration-300 hover:border-emerald-300/60 hover:shadow-[0_6px_20px_-8px_rgba(16,185,129,0.35)] ${collapsed ? "justify-center p-2.5" : "p-3 gap-2.5"
+                    className={`group bg-white/60 border border-white/90 rounded-2xl flex items-center text-xs text-slate-700 shadow-[0_4px_16px_-8px_rgba(15,23,42,0.22)] backdrop-blur-md transition-all duration-300 hover:bg-emerald-50/90 hover:border-emerald-300/60 hover:shadow-[0_6px_20px_-8px_rgba(16,185,129,0.35)] ${collapsed ? "justify-center p-2.5" : "p-3 gap-2.5"
                         }`}
                 >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-[0_2px_8px_rgba(6,95,70,0.06)] transition-colors duration-200 group-hover:border-emerald-300 group-hover:bg-emerald-50 motion-reduce:transition-none">
@@ -125,7 +125,7 @@ export default function AdminSidebar({
                         <>
                             <div className="leading-tight truncate">
                                 <p className="font-bold text-slate-900 truncate">IndoBERT Engine v2</p>
-                                <p className="text-[10px] text-slate-500 truncate">Status: Siap Inferensi</p>
+                                <p className="text-[10px] text-slate-500 truncate transition-colors duration-200 group-hover:text-emerald-700 motion-reduce:transition-none">Status: Siap Inferensi</p>
                             </div>
                             <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse shrink-0" />
                         </>

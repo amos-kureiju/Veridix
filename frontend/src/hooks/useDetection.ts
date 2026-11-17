@@ -88,8 +88,9 @@ export function useDetection() {
 
     // 2. Permintaan penjelasan LIME untuk hasil yang sedang tampil (tidak membuat riwayat baru)
     const requestExplanation = async () => {
-        const id = activeIdRef.current;
+        const id = activeIdRef.current || result?.data?.id;
         if (!id || limeBusyRef.current) return;
+        activeIdRef.current = id;
         limeBusyRef.current = true;
         setLimeLoading(true);
         setLimeError(null);

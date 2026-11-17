@@ -110,8 +110,12 @@ class Penilai:
             n_uniq = len(set(text.lower().split()))
             exp = self._explainer.explain_instance(text, self._mean_probs, labels=(1,), num_features=max(1, min(8, n_uniq)),
                                                    num_samples=LIME_NUM_SAMPLES)
-            out["tokens"] = [{"word": str(w), "weight": round(float(s), 4),
-                              "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in exp.as_list(label=1)]
+            tokens = [{"word": str(w), "weight": round(float(s), 4),
+                       "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in exp.as_list(label=1)]
+            out["tokens"] = tokens
+            out["top_hoax_words"] = [{"word": t["word"], "score": t["weight"]} for t in tokens if t["weight"] > 0]
+            out["top_fact_words"] = [{"word": t["word"], "score": abs(t["weight"])} for t in tokens if t["weight"] < 0]
+            out["teks_dijelaskan"] = text
             out["diagnostik"] = self._diagnostik_lime(exp)
             out["explanation_available"] = True
         except Exception as e:  # penjelasan gagal tidak boleh menggagalkan vonis
@@ -152,6 +156,11 @@ class Penilai:
 
     def explain_text(self, text: Any) -> Dict[str, Any]:
         x = self.siapkan_teks(text)
+        if x is None and isinstance(text, str):
+            cleaned = praproses(text, self.sambung)
+            words = cleaned.split() if cleaned else []
+            if len(words) >= 3:
+                x = " ".join(words[:MAX_WORDS])
         if x is None:
             return {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
                     "num_samples": LIME_NUM_SAMPLES,
@@ -330,21 +339,6 @@ class BackendIndoBERT:
         return sd
 
     # -- inferensi ------------------------------------------------------------------
-    def seed_probs_each(self, texts: List[str]) -> np.ndarray:
-        torch = self.torch
-        texts = [str(t) for t in texts]
-        enc = self.tokenizer(texts, max_length=MAX_LEN, padding="max_length", truncation=True, return_tensors="pt")
-        out = np.zeros((len(texts), len(self.seeds)), dtype=np.float64)
-        with self._lock, torch.no_grad():
-            for j, s in enumerate(self.seeds):
-                self.clf.load_state_dict(self.states[s], strict=False)   # menimpa SEMUA kunci terlatih
-                for i in range(0, len(texts), BATCH):
-                    ids = enc["input_ids"][i:i + BATCH].to(self.device)
-                    am = enc["attention_mask"][i:i + BATCH].to(self.device)
-                    p = torch.softmax(self.clf(ids, am), dim=1)[:, 1].cpu().numpy()
-                    out[i:i + len(p), j] = p
-        return out
-
     # -- Tambahkan helper method thread-safe ini di dalam BackendIndoBERT --
     def count_tokens(self, text: str) -> Optional[int]:
         """Menghitung jumlah token sub-kata secara thread-safe."""

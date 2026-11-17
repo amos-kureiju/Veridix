@@ -354,6 +354,7 @@ export default function VerdictCard({
                     {showLime && (
                         <LimeHighlighter
                             tokens={limeTokens}
+                            text={d.explanation?.teks_dijelaskan || d.teks_dinilai || d.input_text}
                             topHoax={d.explanation?.top_hoax_words}
                             topFact={d.explanation?.top_fact_words}
                             showChart={viewSettings.show_lime_chart}
@@ -367,7 +368,9 @@ export default function VerdictCard({
                             confidenceScore={
                                 typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
                                     ? d.confidence_score
-                                    : undefined
+                                    : typeof d.agreement_ratio === "number" && !isNaN(d.agreement_ratio)
+                                        ? d.agreement_ratio
+                                        : undefined
                             }
                         />
                     )}

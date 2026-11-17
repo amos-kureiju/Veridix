@@ -18,7 +18,7 @@ export default function Home() {
     const { user, ready, logout, refreshUser } = useAuth();
     const isAdminUser = ready && user?.role === "ADMIN";
     const isRegularUser = ready && user?.role === "USER";
-    const isGuest = ready && !user;
+    const isGuest = !user;
 
     const d = useDetection();
     const history = useHistory(isRegularUser);
@@ -59,11 +59,11 @@ export default function Home() {
         await Promise.all([history.reload(), refreshUser()]);
     };
 
-    // Tahan render UserShell saat sesi masih diperiksa atau sedang dialihkan ke /admin
-    if (!ready || isAdminUser) {
+    // Tahan render UserShell hanya saat dialihkan ke /admin
+    if (isAdminUser) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-xs text-slate-500">
-                {isAdminUser ? "Mengalihkan ke Panel Admin..." : "Memeriksa sesi..."}
+                Mengalihkan ke Panel Admin...
             </div>
         );
     }

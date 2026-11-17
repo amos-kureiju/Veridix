@@ -39,6 +39,7 @@ class DetectionResultData(BaseModel):
     sub_topik: Optional[str] = None
     reason: Optional[str] = None
     terpotong: bool = False
+    teks_dinilai: Optional[str] = None
     explanation: Optional[Dict[str, Any]] = None
     narrative_text: Optional[str] = None
     created_at: Optional[datetime] = None

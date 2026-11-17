@@ -80,7 +80,6 @@ export function useAuth() {
     );
 
     const refreshUser = useCallback(async () => {
-        setReady(false);
         setSessionError(null);
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
         if (!token) {

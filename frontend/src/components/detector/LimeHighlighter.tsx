@@ -6,6 +6,7 @@ import { Sparkles, Info } from "lucide-react";
 
 interface LimeHighlighterProps {
     tokens?: LimeToken[];
+    text?: string;
     topHoax?: Array<{ word: string; score: number }>;
     topFact?: Array<{ word: string; score: number }>;
     showChart?: boolean;
@@ -32,6 +33,7 @@ const parseWeightStrict = (raw: any): number | null => {
 
 export default function LimeHighlighter({
     tokens = [],
+    text,
     topHoax = [],
     topFact = [],
     prediction = "TIDAK BERPOLA HOAKS",
@@ -73,6 +75,73 @@ export default function LimeHighlighter({
     const hasUnavailableWeights = useMemo(() => {
         return validTokens.some((t) => t.weight === null);
     }, [validTokens]);
+
+    // Peta kata untuk penyorotan inline pada teks asli/OCR
+    const tokenMap = useMemo(() => {
+        const map = new Map<string, { weight: number | null; influence: "hoax" | "fact" | "neutral" }>();
+        for (const t of validTokens) {
+            const key = t.word.toLowerCase();
+            if (!map.has(key)) {
+                map.set(key, { weight: t.weight, influence: t.influence });
+            }
+        }
+        return map;
+    }, [validTokens]);
+
+    const displayTextTokens = useMemo(() => {
+        if (typeof text === "string" && text.trim().length > 0) {
+            const segments = text.split(/(\s+|[^\w\s]+)/);
+            return segments.map((part, idx) => {
+                if (!part) return null;
+                const cleanWord = part.toLowerCase().trim();
+                const matched = cleanWord ? tokenMap.get(cleanWord) : undefined;
+                if (!matched) {
+                    return <span key={idx}>{part}</span>;
+                }
+                let badgeStyle = "";
+                if (matched.weight !== null) {
+                    if (matched.influence === "hoax" && matched.weight > 0) {
+                        badgeStyle = "bg-rose-100 text-rose-800 font-bold px-1 py-0.5 rounded border border-rose-200 mx-0.5 shadow-2xs inline-block";
+                    } else if (matched.influence === "fact" && matched.weight < 0) {
+                        badgeStyle = "bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded border border-emerald-200 mx-0.5 shadow-2xs inline-block";
+                    }
+                }
+                const tooltipTitle = matched.weight !== null
+                    ? `Bobot Pengaruh: ${matched.weight > 0 ? "+" : ""}${matched.weight.toFixed(4)}`
+                    : "Bobot Pengaruh: Tidak tersedia";
+                return (
+                    <span key={idx} className={badgeStyle} title={tooltipTitle}>
+                        {part}
+                    </span>
+                );
+            });
+        }
+
+        return validTokens.map((item, idx) => {
+            let badgeStyle = "";
+            if (item.weight !== null) {
+                if (item.influence === "hoax" && item.weight > 0) {
+                    badgeStyle = "bg-rose-100 text-rose-800 font-bold px-1 py-0.5 rounded border border-rose-200 mx-0.5 shadow-2xs inline-block";
+                } else if (item.influence === "fact" && item.weight < 0) {
+                    badgeStyle = "bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded border border-emerald-200 mx-0.5 shadow-2xs inline-block";
+                }
+            }
+
+            const tooltipTitle = item.weight !== null
+                ? `Bobot Pengaruh: ${item.weight > 0 ? "+" : ""}${item.weight.toFixed(4)}`
+                : "Bobot Pengaruh: Tidak tersedia";
+
+            return (
+                <span
+                    key={idx}
+                    className={badgeStyle}
+                    title={tooltipTitle}
+                >
+                    {item.word}{" "}
+                </span>
+            );
+        });
+    }, [text, tokenMap, validTokens]);
 
     // Ekstraksi kata pendorong hoaks (hanya yang memiliki bobot numerik valid > 0)
     const computedTopHoax = useMemo(() => {
@@ -153,31 +222,7 @@ export default function LimeHighlighter({
                         </div>
 
                         <div className="p-3 bg-white border border-slate-200/60 rounded-xl leading-relaxed text-xs text-slate-800 max-h-48 overflow-y-auto shadow-2xs">
-                            {validTokens.map((item, idx) => {
-                                let badgeStyle = "";
-                                if (item.weight !== null) {
-                                    if (item.influence === "hoax" && item.weight > 0) {
-                                        badgeStyle = "bg-rose-100 text-rose-800 font-bold px-1 py-0.5 rounded border border-rose-200 mx-0.5 shadow-2xs inline-block";
-                                    } else if (item.influence === "fact" && item.weight < 0) {
-                                        badgeStyle = "bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded border border-emerald-200 mx-0.5 shadow-2xs inline-block";
-                                    }
-                                }
-
-                                // PERBAIKAN: Jika bobot null, judul bertuliskan "Tidak tersedia", bukan 0.0000
-                                const tooltipTitle = item.weight !== null
-                                    ? `Bobot Pengaruh: ${item.weight > 0 ? "+" : ""}${item.weight.toFixed(4)}`
-                                    : "Bobot Pengaruh: Tidak tersedia";
-
-                                return (
-                                    <span
-                                        key={idx}
-                                        className={badgeStyle}
-                                        title={tooltipTitle}
-                                    >
-                                        {item.word}{" "}
-                                    </span>
-                                );
-                            })}
+                            {displayTextTokens}
                         </div>
                     </div>
 

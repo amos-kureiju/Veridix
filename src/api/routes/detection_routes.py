@@ -182,6 +182,7 @@ def detect_text(
             sub_topik=sub_topik,
             reason=reason,
             terpotong=terpotong,
+            teks_dinilai=result.get("teks_dinilai"),
             explanation=log_entry.lime_explanation,
             narrative_text=log_entry.narrative_text,
             created_at=log_entry.created_at
@@ -226,7 +227,7 @@ def explain_detection(
             detail="Penjelasan LIME belum tersedia pada mesin AI."
         )
 
-    if not _lime_lock.acquire(blocking=False):
+    if not _lime_lock.acquire(timeout=15.0):
         raise HTTPException(
             status_code=503,
             detail="Penjelasan lain sedang diproses. Coba lagi sebentar."

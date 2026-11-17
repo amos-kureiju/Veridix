@@ -52,6 +52,7 @@ export interface ExplanationData {
     num_samples?: number;
     catatan?: string;
     error?: string;
+    teks_dijelaskan?: string;
     diagnostik?: {
         local_r2?: number;
         intercept?: number;
@@ -94,6 +95,7 @@ export interface DetectionResult {
         sub_topik?: string | null;
         reason?: string | null;
         terpotong?: boolean;
+        teks_dinilai?: string | null;
     };
 }
 

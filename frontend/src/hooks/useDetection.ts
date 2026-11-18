@@ -2,9 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import { isCancel } from "axios";
 import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
 import { isUsableExplanationResponse, isUsableOCRResponse, persistentImageUrl } from "@/types/detector";
-import type { DetectionRequestPayload, DetectionResult, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
+import type { DetectionRequestPayload, DetectionResult, ExplanationData, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
 import { isUsableDocumentResult } from "@/types/document-analysis";
-import type { DocumentAnalysisRequest, DocumentAnalysisResult } from "@/types/document-analysis";
+import type { DocumentAnalysisRequest, DocumentAnalysisResult, DocumentSegment } from "@/types/document-analysis";
 
 // Proses yang bisa lebih lama memakai batas waktu sendiri.
 const LIME_TIMEOUT_MS = 180000;
@@ -48,7 +48,11 @@ export function useDetection(ownerId?: string | null) {
     // State penjelasan LIME dipisah dari klasifikasi
     const [limeLoading, setLimeLoading] = useState<boolean>(false);
     const [limeError, setLimeError] = useState<string | null>(null);
+    const [documentExplanations, setDocumentExplanations] = useState<Record<number, ExplanationData>>({});
+    const [documentExplanationLoadingFor, setDocumentExplanationLoadingFor] = useState<number | null>(null);
+    const [documentExplanationError, setDocumentExplanationError] = useState<{ startChar: number; message: string } | null>(null);
     const activeIdRef = useRef<string | null>(null); // ID hasil yang sedang tampil
+    const activeDocumentRef = useRef<DocumentAnalysisResult | null>(null);
     const detectGenRef = useRef(0);          // nomor generasi permintaan klasifikasi
     const detectAbortRef = useRef<AbortController | null>(null);
     const limeBusyRef = useRef(false);       // cegah permintaan LIME ganda
@@ -60,28 +64,37 @@ export function useDetection(ownerId?: string | null) {
         detectGenRef.current++;
         detectAbortRef.current?.abort();
         activeIdRef.current = null;
+        activeDocumentRef.current = null;
         limeAbortRef.current?.abort();
         limeAbortRef.current = null;
         ocrGenRef.current++;
         ocrAbortRef.current?.abort();
     }, []);
 
+    const clearExplanations = () => {
+        limeAbortRef.current?.abort();
+        limeAbortRef.current = null;
+        limeBusyRef.current = false;
+        setLimeLoading(false);
+        setLimeError(null);
+        setDocumentExplanations({});
+        setDocumentExplanationLoadingFor(null);
+        setDocumentExplanationError(null);
+    };
+
     const beginAnalysis = (mode: AnalysisMode) => {
         const gen = ++detectGenRef.current;
         detectAbortRef.current?.abort();
         const controller = new AbortController();
         detectAbortRef.current = controller;
-        limeAbortRef.current?.abort();
-        limeAbortRef.current = null;
+        clearExplanations();
         setAnalysisContext({ mode, ownerId });
         setLoading(true);
         setError(null);
         setResult(null);
         setDocumentResult(null);
-        setLimeError(null);
-        setLimeLoading(false);
-        limeBusyRef.current = false;
         activeIdRef.current = null;
+        activeDocumentRef.current = null;
         return { gen, controller };
     };
 
@@ -134,6 +147,7 @@ export function useDetection(ownerId?: string | null) {
                 setError("Cakupan analisis tidak dapat dikonfirmasi karena respons server tidak sesuai dengan naskah yang dikirim.");
                 return null;
             }
+            activeDocumentRef.current = response.data;
             setDocumentResult(response.data);
             return response.data;
         } catch (err: unknown) {
@@ -194,6 +208,56 @@ export function useDetection(ownerId?: string | null) {
                 limeAbortRef.current = null;
                 limeBusyRef.current = false;
                 setLimeLoading(false);
+            }
+        }
+    };
+
+    const requestDocumentExplanation = async (segment: DocumentSegment) => {
+        const activeDocument = activeDocumentRef.current;
+        const { explanation_token: token, text, start_char: startChar, status } = segment;
+        if (!visibleAnalysis || !activeDocument || activeDocument !== documentResult ||
+            !activeDocument.segments.includes(segment) || (status !== "dinilai" && status !== "ambigu") ||
+            !token || documentExplanations[startChar] || limeBusyRef.current) return;
+
+        const gen = detectGenRef.current;
+        const controller = new AbortController();
+        limeAbortRef.current = controller;
+        limeBusyRef.current = true;
+        setDocumentExplanationLoadingFor(startChar);
+        setDocumentExplanationError(null);
+        const isCurrent = () => gen === detectGenRef.current && activeDocumentRef.current === activeDocument &&
+            limeAbortRef.current === controller && !controller.signal.aborted;
+
+        try {
+            const { data } = await apiClient.post<unknown>("/api/v1/detect/document/explain", {
+                text,
+                explanation_token: token,
+            }, { timeout: LIME_TIMEOUT_MS, signal: controller.signal });
+            if (!isCurrent()) return;
+            if (!isUsableExplanationResponse(data) || data.explanation.teks_dijelaskan !== text ||
+                !data.explanation.tokens.every(token => token && typeof token.word === "string" && token.word.trim() &&
+                    typeof token.weight === "number" && Number.isFinite(token.weight))) {
+                setDocumentExplanationError({ startChar, message: "Respons LIME tidak sesuai dengan segmen ini." });
+                return;
+            }
+            setDocumentExplanations(previous =>
+                gen === detectGenRef.current && activeDocumentRef.current === activeDocument
+                    ? { ...previous, [startChar]: data.explanation }
+                    : previous
+            );
+        } catch (err: unknown) {
+            if (!isCurrent() || isCancel(err)) return;
+            const { status, message } = responseDetails(err);
+            setDocumentExplanationError({
+                startChar,
+                message: status === 401 ? "Sesi login berakhir. Masuk kembali untuk meminta penjelasan."
+                    : getApiConnectionMessage(err) ?? (message || "Penjelasan segmen gagal dibuat. Silakan coba lagi."),
+            });
+        } finally {
+            if (isCurrent()) {
+                limeAbortRef.current = null;
+                limeBusyRef.current = false;
+                setDocumentExplanationLoadingFor(null);
             }
         }
     };
@@ -267,16 +331,13 @@ export function useDetection(ownerId?: string | null) {
         detectAbortRef.current?.abort();
         detectAbortRef.current = null;
         activeIdRef.current = null;
-        limeAbortRef.current?.abort();
-        limeAbortRef.current = null;
-        limeBusyRef.current = false;
+        activeDocumentRef.current = null;
+        clearExplanations();
         setResult(null);
         setDocumentResult(null);
         setAnalysisContext(null);
         setError(null);
         setLoading(false);
-        setLimeLoading(false);
-        setLimeError(null);
         cancelImageExtraction();
     };
 
@@ -286,6 +347,7 @@ export function useDetection(ownerId?: string | null) {
         extractTextFromImage,
         cancelImageExtraction,
         requestExplanation,
+        requestDocumentExplanation,
         reset,
         analysisMode: visibleAnalysis ? analysisContext?.mode ?? null : null,
         loading: visibleAnalysis && loading,
@@ -296,5 +358,8 @@ export function useDetection(ownerId?: string | null) {
         ocrError,
         limeLoading: visibleAnalysis && limeLoading,
         limeError: visibleAnalysis ? limeError : null,
+        documentExplanations: visibleAnalysis ? documentExplanations : {},
+        documentExplanationLoadingFor: visibleAnalysis ? documentExplanationLoadingFor : null,
+        documentExplanationError: visibleAnalysis ? documentExplanationError : null,
     };
 }

@@ -26,6 +26,7 @@ export interface DocumentSegment {
     votes_hoax: string | null;
     reason: string | null;
     page_numbers: number[];
+    explanation_token?: string | null;
 }
 
 export interface DocumentAnalysisResult {
@@ -35,6 +36,8 @@ export interface DocumentAnalysisResult {
     missing_pages: number[];
     segments: DocumentSegment[];
     reason: string | null;
+    sub_topik?: string | null;
+    latency_seconds?: number | null;
 }
 
 // Match Python str.split whitespace in the document API, including its Unicode separators.
@@ -62,6 +65,9 @@ function matchesNumbers(value: unknown, expected: number[]): boolean {
 
 export function isUsableDocumentResult(value: unknown, request: DocumentAnalysisRequest): value is DocumentAnalysisResult {
     if (!isRecord(value) || !documentStatuses.some(status => status === value.status) || !Array.isArray(value.segments)) return false;
+    if ((value.sub_topik != null && !isMessage(value.sub_topik)) ||
+        (value.latency_seconds != null && (typeof value.latency_seconds !== "number" ||
+            !Number.isFinite(value.latency_seconds) || value.latency_seconds < 0))) return false;
 
     const suppliedPages = request.pages?.filter(page => page.text !== null) ?? [];
     const expectedMissing = request.pages?.filter(page => page.text === null).map(page => page.page_number) ?? [];
@@ -101,9 +107,11 @@ export function isUsableDocumentResult(value: unknown, request: DocumentAnalysis
         const wordCount = segment.end_word - expectedWord + 1;
         const expectedPages = pageSpans.filter(page => page.start < end && page.end > start)
             .map(page => page.number);
+        const token = segment.explanation_token;
         if (!matchesNumbers(segment.page_numbers, expectedPages) ||
             expectedPages.some((page, index) => index > 0 && page !== expectedPages[index - 1] + 1) ||
-            (segment.token_count !== null && !isCount(segment.token_count))) return false;
+            (segment.token_count !== null && !isCount(segment.token_count)) ||
+            (token != null && !isMessage(token))) return false;
 
         if (segment.status === "dinilai" || segment.status === "ambigu") {
             const label = segment.status === "ambigu" ? segment.label === "PERLU VERIFIKASI (SEED TIDAK SEPAKAT)"
@@ -112,7 +120,7 @@ export function isUsableDocumentResult(value: unknown, request: DocumentAnalysis
                 segment.token_count === 0 || segment.token_count > DOCUMENT_SEGMENT_TOKEN_LIMIT || segment.reason !== null ||
                 typeof segment.votes_hoax !== "string" || !/^[0-3]\/3$/.test(segment.votes_hoax)) return false;
             analyzed += wordCount;
-        } else if (!isMessage(segment.reason) || segment.label !== null || segment.votes_hoax !== null ||
+        } else if (!isMessage(segment.reason) || segment.label !== null || segment.votes_hoax !== null || token != null ||
             (segment.status !== "belum_dinilai" && wordCount > DOCUMENT_SEGMENT_WORD_LIMIT)) return false;
 
         expectedWord = segment.end_word + 1;

@@ -1,10 +1,15 @@
+import hashlib
+import hmac
 import inspect
 import logging
 import math
 import threading
-from uuid import UUID
+from time import perf_counter
+from datetime import datetime, timedelta, timezone
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
+from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -14,6 +19,7 @@ from src.api.schemas import (
     DetectionResultData,
     DocumentAnalysisRequest,
     DocumentAnalysisResponse,
+    DocumentExplanationRequest,
     DocumentSegmentResult,
     ExplanationResponse,
     OCRResponse,
@@ -22,6 +28,7 @@ from src.api.schemas import (
 from src.database.session import get_db
 from src.database.models import PredictionLog, User
 from src.core.auth_deps import get_current_user
+from src.core.security import SECRET_KEY
 from src.ml.inference import predictor
 from starlette.concurrency import run_in_threadpool
 
@@ -43,6 +50,11 @@ router = APIRouter(prefix="/detect", tags=["Detection"])
 # Satu komputasi LIME pada satu waktu (per proses) agar CPU dan kunci inferensi tidak berebut
 _lime_lock = threading.Lock()
 _document_lock = threading.Lock()
+_DOCUMENT_EXPLANATION_AUDIENCE = "veridix:document-explanation:v1"
+_DOCUMENT_EXPLANATION_TTL = timedelta(hours=1)
+_DOCUMENT_EXPLANATION_KEY = hmac.digest(
+    SECRET_KEY.encode("utf-8"), _DOCUMENT_EXPLANATION_AUDIENCE.encode("ascii"), "sha256",
+)
 
 # Kirim explain=False hanya jika predict_and_explain memang menerimanya
 try:
@@ -96,7 +108,8 @@ def _analyze_document_blocks(blocks):
     from src.ml.document_analysis import analyze_document
     from src.ml.inference import get_predictor
 
-    return analyze_document(blocks, get_predictor())
+    penilai = get_predictor()
+    return analyze_document(blocks, penilai), penilai.document_model_identity()
 
 
 def _document_words_analyzed(text, blocks, segments):
@@ -142,12 +155,52 @@ def _document_words_analyzed(text, blocks, segments):
     return analyzed_words
 
 
+def _document_explanation_token(user: User, segment: DocumentSegmentResult, model_identity: str) -> str:
+    claims = {
+        "aud": _DOCUMENT_EXPLANATION_AUDIENCE,
+        "exp": datetime.now(timezone.utc) + _DOCUMENT_EXPLANATION_TTL,
+        "sub": str(user.id),
+        "jti": uuid4().hex,
+        "token_version": user.token_version,
+        "model": model_identity,
+        "text_sha256": hashlib.sha256(segment.text.encode("utf-8")).hexdigest(),
+        "token_count": segment.token_count,
+    }
+    return jwt.encode(claims, _DOCUMENT_EXPLANATION_KEY, algorithm="HS256")
+
+
+def _document_explanation_claims(payload: DocumentExplanationRequest, user: User) -> dict:
+    not_found = HTTPException(status_code=404, detail="Segmen analisis tidak ditemukan.")
+    try:
+        claims = jwt.decode(
+            payload.explanation_token, _DOCUMENT_EXPLANATION_KEY,
+            algorithms=["HS256"], audience=_DOCUMENT_EXPLANATION_AUDIENCE,
+            options={"require_exp": True, "require_aud": True, "require_sub": True},
+        )
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=409, detail="Akses penjelasan telah berakhir. Analisis ulang naskah.") from None
+    except JWTError:
+        raise not_found from None
+    if claims.get("sub") != str(user.id) or claims.get("token_version") != user.token_version:
+        raise not_found
+    try:
+        text_hash = hashlib.sha256(payload.text.encode("utf-8")).hexdigest()
+    except UnicodeEncodeError:
+        raise not_found from None
+    if claims.get("text_sha256") != text_hash or type(claims.get("token_count")) is not int:
+        raise not_found
+    return claims
+
+
 @router.post("/document", response_model=DocumentAnalysisResponse)
 def detect_document(
     payload: DocumentAnalysisRequest,
+    response: Response,
     current_user: User = Depends(get_current_user),
 ):
     """Analisis naskah eksperimental untuk sesi aktif."""
+    started = perf_counter()
+    response.headers["Cache-Control"] = "no-store"
     blocks, missing_pages = _document_blocks(payload)
     text = "\n\n".join(block["text"] for block in blocks)
     if len(text) > MAX_CHARS:
@@ -156,21 +209,31 @@ def detect_document(
     total_words = len(text.split())
     validation = validate_input_text(text)
     rejection = None
+    sub_topik = None
     if not validation["ok"]:
         rejection = validation["reason"]
-    elif not check_political_domain(validation["text"])[0]:
-        rejection = "Naskah berada di luar cakupan politik Indonesia."
+    else:
+        in_domain, topic, _ = check_political_domain(validation["text"])
+        if in_domain:
+            sub_topik = topic
+        else:
+            rejection = "Naskah berada di luar cakupan politik Indonesia."
     if rejection:
         return DocumentAnalysisResponse(
             status="ditolak", total_words=total_words, analyzed_words=0,
             missing_pages=missing_pages, segments=[], reason=rejection,
+            latency_seconds=round(perf_counter() - started, 3),
         )
 
     if not _document_lock.acquire(blocking=False):
         raise HTTPException(status_code=503, detail="Analisis naskah lain sedang diproses. Silakan coba lagi.")
     try:
-        segments = [DocumentSegmentResult.model_validate(row) for row in _analyze_document_blocks(blocks)]
+        rows, model_identity = _analyze_document_blocks(blocks)
+        segments = [DocumentSegmentResult.model_validate(row) for row in rows]
         analyzed_words = _document_words_analyzed(text, blocks, segments)
+        for segment in segments:
+            if model_identity and segment.status in ("dinilai", "ambigu"):
+                segment.explanation_token = _document_explanation_token(current_user, segment, model_identity)
     except Exception as exc:
         logger.error("Analisis naskah gagal (%s)", type(exc).__name__)
         raise HTTPException(status_code=500, detail="Analisis naskah gagal. Silakan coba lagi.") from None
@@ -189,7 +252,44 @@ def detect_document(
     return DocumentAnalysisResponse(
         status=outcome, total_words=total_words, analyzed_words=analyzed_words,
         missing_pages=missing_pages, segments=segments, reason=reason,
+        sub_topik=sub_topik, latency_seconds=round(perf_counter() - started, 3),
     )
+
+
+@router.post("/document/explain", response_model=ExplanationResponse)
+def explain_document(
+    payload: DocumentExplanationRequest,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+):
+    """Jelaskan segmen utuh yang telah dinilai untuk akun ini."""
+    from src.ml.inference import get_predictor
+
+    response.headers["Cache-Control"] = "no-store"
+    claims = _document_explanation_claims(payload, current_user)
+
+    if not _lime_lock.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Penjelasan lain sedang diproses. Coba lagi sebentar.")
+    try:
+        penilai = get_predictor()
+        if penilai.document_model_identity() != claims.get("model"):
+            raise HTTPException(status_code=409, detail="Model telah berubah. Analisis ulang naskah untuk meminta penjelasan.")
+        explanation = penilai.explain_document_segment(payload.text, claims["token_count"])
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("LIME segmen naskah gagal (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Penjelasan segmen gagal dibuat. Silakan coba lagi.") from None
+    finally:
+        _lime_lock.release()
+
+    if (
+        not isinstance(explanation, dict)
+        or explanation.get("explanation_available") is not True
+        or explanation.get("teks_dijelaskan") != payload.text
+    ):
+        raise HTTPException(status_code=502, detail="Penjelasan segmen gagal dibuat. Hasil klasifikasi tetap berlaku.")
+    return ExplanationResponse(status="success", message="Penjelasan segmen tersedia.", explanation=explanation)
 
 
 # =====================================================================

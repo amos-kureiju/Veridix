@@ -3,6 +3,8 @@ from typing import List, Optional, Any, Dict, Literal
 from uuid import UUID
 from datetime import datetime
 
+from src.utils.input_validation import MAX_CHARS
+
 # DETECTION SCHEMAS
 class TextDetectionRequest(BaseModel):
     text: str = Field(..., min_length=30, description="Naskah berita minimal 30 karakter")
@@ -48,6 +50,7 @@ class DocumentSegmentResult(BaseModel):
     votes_hoax: Optional[str]
     reason: Optional[str]
     page_numbers: List[StrictInt]
+    explanation_token: Optional[str] = None
 
 
 class DocumentAnalysisResponse(BaseModel):
@@ -57,6 +60,14 @@ class DocumentAnalysisResponse(BaseModel):
     missing_pages: List[int]
     segments: List[DocumentSegmentResult]
     reason: Optional[str]
+    sub_topik: Optional[str] = None
+    latency_seconds: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+
+
+class DocumentExplanationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=MAX_CHARS)
+    explanation_token: str = Field(min_length=1, max_length=2048)
 
 
 class OCRResultData(BaseModel):

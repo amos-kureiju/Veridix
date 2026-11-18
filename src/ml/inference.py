@@ -7,6 +7,7 @@ Struktur:
   BackendIndoBERT    : satu model dasar + tiga keadaan terlatih (layer 8-11, pooler, kepala) yang ditukar per seed.
                        Memuat hanya SATU salinan model dasar (memuat tiga sekaligus pernah menyebabkan 'bad allocation'). """
 import hashlib
+import json
 import os
 import sys
 import threading
@@ -40,6 +41,7 @@ EXPECTED_BASE_REVISION = "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2"
 
 DECISION_RULE = os.environ.get("VERIDIX_DECISION_RULE", "unanimous")   # unanimous | majority
 LIME_NUM_SAMPLES = int(os.environ.get("VERIDIX_LIME_SAMPLES", "200"))
+_DOCUMENT_LIME_POLICY = "segment-source-v1"
 
 DISCLAIMER = ("Sistem mendeteksi kemiripan pola penulisan klaim yang pernah dilabeli hoaks oleh pemeriksa fakta; "
               "ia bukan pemverifikasi kebenaran. Hasil pada teks hasil OCR yang berderau kurang andal.")
@@ -113,19 +115,57 @@ class Penilai:
         p = self.backend.seed_probs_each(list(texts)).mean(axis=1)
         return np.column_stack([1.0 - p, p])
 
-    def _lime(self, text: str) -> Dict[str, Any]:
-        out = {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
-               "num_samples": LIME_NUM_SAMPLES}
+    def _document_token_count(self, text: str) -> int:
+        count = self.backend.count_tokens(text)
+        if isinstance(count, bool) or not isinstance(count, (int, np.integer)) or not 1 <= count <= MAX_LEN:
+            raise ValueError("Jumlah token segmen tidak valid.")
+        return int(count)
+
+    def _mean_document_probs(self, texts) -> np.ndarray:
+        variants = list(texts)
+        counts = [self._document_token_count(text) for text in variants]
+        scores = np.asarray(self.backend.seed_probs_each_untruncated(variants, counts))
+        n_seeds = len(self.backend.seeds)
+        if (
+            not n_seeds or scores.shape != (len(variants), n_seeds)
+            or scores.dtype.kind not in "iuf"
+            or not np.all(np.isfinite(scores) & (scores >= 0) & (scores <= 1))
+        ):
+            raise ValueError("Skor model untuk penjelasan segmen tidak valid.")
+        p = scores.mean(axis=1)
+        return np.column_stack([1.0 - p, p])
+
+    @staticmethod
+    def _empty_lime() -> Dict[str, Any]:
+        return {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
+                "num_samples": LIME_NUM_SAMPLES}
+
+    def _lime(self, text: str, *, document: bool = False) -> Dict[str, Any]:
+        out = self._empty_lime()
         try:
-            if self._explainer is None:
+            # Segmen memakai RNG sendiri agar permintaan naskah tidak mengubah urutan sampel jalur singkat.
+            explainer = None if document else self._explainer
+            if explainer is None:
                 from lime.lime_text import LimeTextExplainer
-                self._explainer = LimeTextExplainer(class_names=["TIDAK_HOAKS", "HOAKS"], split_expression=r"\W+",
-                                                    random_state=42)
+                explainer = LimeTextExplainer(class_names=["TIDAK_HOAKS", "HOAKS"], split_expression=r"\W+",
+                                              random_state=42)
+                if not document:
+                    self._explainer = explainer
             n_uniq = len(set(text.lower().split()))
-            exp = self._explainer.explain_instance(text, self._mean_probs, labels=(1,), num_features=max(1, min(8, n_uniq)),
-                                                   num_samples=LIME_NUM_SAMPLES)
+            mean_probs = self._mean_document_probs if document else self._mean_probs
+            exp = explainer.explain_instance(text, mean_probs, labels=(1,), num_features=max(1, min(8, n_uniq)),
+                                             num_samples=LIME_NUM_SAMPLES)
+            weights = exp.as_list(label=1)
+            if document and (
+                not weights or any(
+                    not isinstance(word, str) or not word.strip()
+                    or isinstance(weight, (bool, np.bool_)) or not np.isfinite(weight)
+                    for word, weight in weights
+                )
+            ):
+                raise ValueError("Bobot penjelasan segmen tidak valid.")
             tokens = [{"word": str(w), "weight": round(float(s), 4),
-                       "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in exp.as_list(label=1)]
+                       "influence": "KE_HOAKS" if s > 0 else "KE_TIDAK_HOAKS"} for w, s in weights]
             out["tokens"] = tokens
             out["top_hoax_words"] = [{"word": t["word"], "score": t["weight"]} for t in tokens if t["weight"] > 0]
             out["top_fact_words"] = [{"word": t["word"], "score": abs(t["weight"])} for t in tokens if t["weight"] < 0]
@@ -133,7 +173,7 @@ class Penilai:
             out["diagnostik"] = self._diagnostik_lime(exp)
             out["explanation_available"] = True
         except Exception as e:  # penjelasan gagal tidak boleh menggagalkan vonis
-            out["error"] = f"{type(e).__name__}: {e}"
+            out["error"] = "Penjelasan segmen gagal dibuat." if document else f"{type(e).__name__}: {e}"
         return out
 
     @staticmethod
@@ -171,10 +211,46 @@ class Penilai:
     def explain_text(self, text: Any) -> Dict[str, Any]:
         x = self.siapkan_teks(text)
         if x is None:
-            return {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
-                    "num_samples": LIME_NUM_SAMPLES,
-                    "error": "Teks tidak layak untuk dijelaskan."}
+            return {**self._empty_lime(), "error": "Teks tidak layak untuk dijelaskan."}
         return self._lime(x)
+
+    def document_model_identity(self) -> Optional[str]:
+        """Ikat penjelasan sesi ke konfigurasi dan checkpoint aktif yang terverifikasi."""
+        audit = getattr(self.backend, "audit", None)
+        if not isinstance(audit, dict) or getattr(self.backend, "allow_unverified", True):
+            return None
+        if (
+            list(self.backend.seeds) != SEEDS
+            or audit.get("base_revision") != EXPECTED_BASE_REVISION
+            or audit.get("text_pipeline_sha256") != EXPECTED_PIPELINE_SHA256
+            or any(audit.get(f"sha256_seed_{seed}") != EXPECTED_SHA256[seed] for seed in SEEDS)
+        ):
+            return None
+        identity = {
+            "policy": _DOCUMENT_LIME_POLICY,
+            "model": MODEL_NAME,
+            "base_revision": audit["base_revision"],
+            "pipeline_sha256": audit["text_pipeline_sha256"],
+            "checkpoint_sha256": [audit[f"sha256_seed_{seed}"] for seed in SEEDS],
+            "rule": self.rule,
+            "max_len": MAX_LEN,
+            "max_words": MAX_WORDS,
+            "lime_samples": LIME_NUM_SAMPLES,
+        }
+        return hashlib.sha256(json.dumps(identity, sort_keys=True).encode("utf-8")).hexdigest()
+
+    def explain_document_segment(self, text: str, token_count: int) -> Dict[str, Any]:
+        """Jelaskan teks sumber yang sudah dinilai tanpa praproses atau pemotongan tambahan."""
+        unavailable = {**self._empty_lime(), "error": "Teks segmen tidak cocok dengan tokenisasi model."}
+        if not isinstance(text, str) or not 1 <= len(text.split()) <= MAX_WORDS or type(token_count) is not int:
+            return unavailable
+        try:
+            measured = self._document_token_count(text)
+            if measured != token_count or measured <= self._document_token_count(""):
+                return unavailable
+        except Exception:
+            return unavailable
+        return self._lime(text, document=True)
 
     def nilai(self, text: Any, explain: bool = False, debug: bool = False) -> Dict[str, Any]:
         t0 = time.time()

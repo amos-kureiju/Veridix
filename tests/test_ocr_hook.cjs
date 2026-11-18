@@ -514,6 +514,97 @@ function limeResponse(word = 'klaim') {
     } };
 }
 
+test('document LIME uses the selected segment and retains measured weights per segment', async () => {
+    const requests = [];
+    const pending = deferred();
+    const result = documentResult();
+    const segment = result.segments[1];
+    segment.explanation_token = 'signed-for-second-segment';
+    const explained = limeResponse('hasil');
+    explained.explanation.teks_dijelaskan = segment.text;
+    explained.explanation.tokens[0].weight = -0.019;
+    const runtime = hook(async (url, body, config) => {
+        requests.push({ url, body, config });
+        return url.endsWith('/document') ? { data: result } : pending.promise;
+    }, { deferFunctionalUpdates: true });
+    await runtime.render('owner').detectDocument(documentPayload());
+    const start = runtime.render('owner').requestDocumentExplanation;
+    await start({ ...segment });
+    await start(result.segments[0]);
+    const request = start(segment);
+    assert.equal(runtime.render('owner').documentExplanationLoadingFor, segment.start_char);
+    await start(segment);
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].url, '/api/v1/detect/document/explain');
+    assert.deepEqual(JSON.parse(JSON.stringify(requests[1].body)), {
+        text: segment.text, explanation_token: 'signed-for-second-segment',
+    });
+    pending.resolve({ data: explained });
+    await request;
+    const finished = runtime.render('owner');
+    assert.equal(finished.documentResult, result);
+    assert.equal(finished.documentExplanationLoadingFor, null);
+    assert.equal(finished.documentExplanations[segment.start_char], explained.explanation);
+    assert.equal(finished.documentExplanations[0], undefined);
+    assert.equal(runtime.render('different-owner').documentExplanations[segment.start_char], undefined);
+});
+
+test('document LIME rejects wrong text and invalid weights while keeping the verdict for retry', async () => {
+    const result = documentResult();
+    const segment = result.segments[0];
+    segment.explanation_token = 'signed-for-first-segment';
+    const explanation = limeResponse('pemilu');
+    const runtime = hook(async (url) => ({ data: url.endsWith('/document') ? result : explanation }));
+    await runtime.render().detectDocument(documentPayload());
+
+    await runtime.render().requestDocumentExplanation(segment);
+    assert.equal(runtime.render().documentExplanations[0], undefined);
+    assert.match(runtime.render().documentExplanationError.message, /tidak sesuai/);
+
+    explanation.explanation.teks_dijelaskan = segment.text;
+    explanation.explanation.tokens[0].weight = NaN;
+    await runtime.render().requestDocumentExplanation(segment);
+    assert.equal(runtime.render().documentExplanations[0], undefined);
+    assert.equal(runtime.render().documentResult, result);
+
+    explanation.explanation.tokens[0].weight = 0;
+    await runtime.render().requestDocumentExplanation(segment);
+    assert.equal(runtime.render().documentExplanations[0].tokens[0].weight, 0);
+    assert.equal(runtime.render().documentExplanationError, null);
+});
+
+test('a new analysis cancels document LIME and ignores its late reply and retained handler', async () => {
+    const result = documentResult();
+    const segment = result.segments[0];
+    segment.explanation_token = 'signed-for-first-segment';
+    const pending = deferred();
+    const explained = limeResponse('pemilu');
+    explained.explanation.teks_dijelaskan = segment.text;
+    let signal;
+    let limeCalls = 0;
+    const runtime = hook(async (url, _payload, config) => {
+        if (url.endsWith('/document')) return { data: result };
+        if (url.endsWith('/text')) return { data: verdict() };
+        signal = config.signal;
+        limeCalls++;
+        return pending.promise;
+    });
+    await runtime.render().detectDocument(documentPayload());
+    const start = runtime.render().requestDocumentExplanation;
+    const first = start(segment);
+    await runtime.render().detectText('KPU membahas jadwal untuk pemilu yang akan datang.');
+    assert.equal(signal.aborted, true);
+    pending.resolve({ data: explained });
+    await first;
+    await start(segment);
+    assert.equal(limeCalls, 1);
+    const state = runtime.render();
+    assert.equal(state.analysisMode, 'claim');
+    assert.equal(state.documentExplanations[0], undefined);
+    assert.equal(state.documentExplanationLoadingFor, null);
+    assert.equal(state.result.data.explanation, undefined);
+});
+
 test('LIME attaches a confirmed explanation to its result without changing the classification', async () => {
     const requests = [];
     const classified = verdict();

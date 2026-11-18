@@ -1,7 +1,8 @@
 """Kontrak teks/LIME dan metadata pemotongan; backend tiruan tanpa checkpoint/DB."""
 
+import sys
 import unittest
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -158,6 +159,98 @@ class TestTruncationMetadata(unittest.TestCase):
                 self.assertIs(result["terpotong"], expected)
                 self.assertIsNone(result["debug"]["pemotongan"]["terpotong_kata"])
                 backend.seed_probs_each.assert_called_once_with([praproses(TEXT)])
+
+
+class TestDocumentExplanation(unittest.TestCase):
+    def setUp(self):
+        self.backend = SimpleNamespace(
+            seeds=list(inference.SEEDS),
+            count_tokens=Mock(side_effect=lambda text: 2 + len(text.split())),
+            seed_probs_each=Mock(),
+            seed_probs_each_untruncated=Mock(),
+            allow_unverified=False,
+            audit={
+                "base_revision": inference.EXPECTED_BASE_REVISION,
+                "text_pipeline_sha256": inference.EXPECTED_PIPELINE_SHA256,
+                **{f"sha256_seed_{seed}": digest for seed, digest in inference.EXPECTED_SHA256.items()},
+            },
+        )
+        self.penilai = inference.Penilai(self.backend)
+
+    def test_original_source_and_variants_use_strict_model_path(self):
+        original = "Klarifikasi: DPR tidak pernah mengumumkan."
+        variants = [original, "Klarifikasi: DPR pernah mengumumkan.", ""]
+        self.backend.seed_probs_each_untruncated.return_value = [
+            [0.2, 0.4, 0.6], [0.5, 0.75, 1], [0, 0, 0],
+        ]
+        explanation = SimpleNamespace(
+            as_list=Mock(return_value=[("DPR", 0.125), ("tidak", -0.375)]),
+            score=0.8, intercept={1: 0.2}, local_pred=[0.41],
+        )
+
+        def explain(text, classifier, **kwargs):
+            self.assertEqual(text, original)
+            self.assertEqual(kwargs["labels"], (1,))
+            self.assertEqual(kwargs["num_samples"], inference.LIME_NUM_SAMPLES)
+            np.testing.assert_allclose(classifier(variants), [[0.6, 0.4], [0.25, 0.75], [1.0, 0.0]])
+            return explanation
+
+        lime_module = ModuleType("lime.lime_text")
+        lime_module.LimeTextExplainer = Mock(return_value=SimpleNamespace(explain_instance=explain))
+        prior_explainer = Mock()
+        self.penilai._explainer = prior_explainer
+        with patch.dict(sys.modules, {"lime": ModuleType("lime"), "lime.lime_text": lime_module}), \
+                patch.object(self.penilai, "siapkan_teks", side_effect=AssertionError("unexpected preprocessing")):
+            result = self.penilai.explain_document_segment(original, token_count=7)
+
+        self.assertTrue(result["explanation_available"])
+        self.assertEqual(result["teks_dijelaskan"], original)
+        self.assertEqual(result["tokens"], [
+            {"word": "DPR", "weight": 0.125, "influence": "KE_HOAKS"},
+            {"word": "tidak", "weight": -0.375, "influence": "KE_TIDAK_HOAKS"},
+        ])
+        self.assertEqual(result["diagnostik"]["local_r2"], 0.8)
+        self.backend.seed_probs_each_untruncated.assert_called_once_with(variants, [7, 6, 2])
+        self.backend.seed_probs_each.assert_not_called()
+        self.assertIs(self.penilai._explainer, prior_explainer)
+        prior_explainer.explain_instance.assert_not_called()
+
+    def test_invalid_original_is_not_explained(self):
+        cases = [
+            ("", 2), (" ".join(["teks"] * 61), 63), ("teks", 2), ("teks", True), ("teks", 3.0),
+        ]
+        with patch.object(self.penilai, "_lime") as explain:
+            for text, count in cases:
+                with self.subTest(count=count):
+                    result = self.penilai.explain_document_segment(text, count)
+                    self.assertFalse(result["explanation_available"])
+                    self.assertEqual(result["tokens"], [])
+            explain.assert_not_called()
+
+    def test_overlong_variant_fails_before_forward(self):
+        self.backend.count_tokens.side_effect = None
+        self.backend.count_tokens.return_value = inference.MAX_LEN + 1
+        with self.assertRaisesRegex(ValueError, "Jumlah token"):
+            self.penilai._mean_document_probs(["varian terlalu panjang"])
+        self.backend.seed_probs_each_untruncated.assert_not_called()
+
+    def test_invalid_scores_cannot_produce_document_weights(self):
+        for scores in ([[0.1, 0.2]], [[True, True, True]], [[0.1, np.nan, 0.2]], [[0, 0, 1.01]]):
+            with self.subTest(scores=scores):
+                self.backend.seed_probs_each_untruncated.return_value = scores
+                with self.assertRaisesRegex(ValueError, "Skor model"):
+                    self.penilai._mean_document_probs(["teks segmen"])
+
+    def test_identity_depends_on_config_and_verified_backend(self):
+        identity = self.penilai.document_model_identity()
+        self.assertRegex(identity, r"^[0-9a-f]{64}$")
+        with patch.object(inference, "LIME_NUM_SAMPLES", inference.LIME_NUM_SAMPLES + 1):
+            self.assertNotEqual(self.penilai.document_model_identity(), identity)
+        self.backend.allow_unverified = True
+        self.assertIsNone(self.penilai.document_model_identity())
+        self.backend.allow_unverified = False
+        self.backend.audit["sha256_seed_42"] = "changed-checkpoint"
+        self.assertIsNone(self.penilai.document_model_identity())
 
 
 if __name__ == "__main__":

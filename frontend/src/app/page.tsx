@@ -115,8 +115,14 @@ export default function Home() {
                     />
                     {d.error && <p role="alert" className="text-sm text-rose-600">{d.error}</p>}
                 </div>
-                {d.analysisMode === "document" ? (
-                    <DocumentResultCard result={d.documentResult} loading={d.loading} />
+                {d.analysisMode === "document" && !d.loading ? (
+                    <DocumentResultCard
+                        result={d.documentResult}
+                        explanations={d.documentExplanations}
+                        explanationLoadingFor={d.documentExplanationLoadingFor}
+                        explanationError={d.documentExplanationError}
+                        onRequestExplanation={d.requestDocumentExplanation}
+                    />
                 ) : (
                     <VerdictCard
                         result={d.result}

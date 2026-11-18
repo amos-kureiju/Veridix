@@ -171,8 +171,8 @@ test('verified user refreshes history and profile counts after detection and fee
 test('home submits the entire document and the confirmed photo text through the document route only', async () => {
     const auth = { user: { id: 'user-test', role: 'USER' }, ready: true };
     const { form, card, documentCard, calls } = home(auth, { analysisMode: 'document', loading: true });
-    assert.equal(card, undefined);
-    assert.equal(documentCard.loading, true);
+    assert.equal(card.loading, true);
+    assert.equal(documentCard, undefined);
     const longText = '  ' + Array.from({ length: 61 }, (_, index) => `kata${index + 1}`).join(' ') + '\n\n';
     const edited = 'Baris hasil foto yang sudah diperiksa pengguna.';
     const pages = [{ page_number: 1, text: edited }, { page_number: 2, text: null }];
@@ -185,6 +185,24 @@ test('home submits the entire document and the confirmed photo text through the 
     assert.equal(calls.detections, 0);
     assert.equal(calls.reloads, 0);
     assert.equal(calls.profileRefreshes, 0);
+});
+
+test('home connects the active segment explanation and retains the existing analysis loader', async () => {
+    const auth = { user: { id: 'user-test', role: 'USER' }, ready: true };
+    const segment = { start_char: 12, explanation_token: 'signed-segment-token' };
+    const documentResult = { segments: [segment] };
+    const documentExplanations = { 12: { tokens: [] } };
+    const calls = [];
+    const { card, documentCard } = home(auth, {
+        analysisMode: 'document', documentResult, documentExplanations, documentExplanationLoadingFor: 12,
+        requestDocumentExplanation: async value => calls.push(value),
+    });
+    assert.equal(card, undefined);
+    assert.equal(documentCard.result, documentResult);
+    assert.equal(documentCard.explanations, documentExplanations);
+    assert.equal(documentCard.explanationLoadingFor, 12);
+    await documentCard.onRequestExplanation(segment);
+    assert.deepEqual(calls, [segment]);
 });
 
 test('home requires an authenticated user before submitting confirmed pages', async () => {
@@ -218,6 +236,9 @@ test('document size limits and busy responses remain visible without a Next dev 
         ['/api/v1/detect/document', 413, 'warn'],
         ['/api/v1/detect/document', 503, 'warn'],
         ['/api/v1/detect/document', 500, 'error'],
+        ['/api/v1/detect/document/explain', 409, 'warn'],
+        ['/api/v1/detect/document/explain', 503, 'warn'],
+        ['/api/v1/detect/document/explain', 502, 'error'],
         ['/api/v1/detect/text', 503, 'error'],
     ]) {
         const logs = [];

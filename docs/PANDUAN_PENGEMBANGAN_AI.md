@@ -205,6 +205,7 @@ Pekerjaan selesai pada cakupannya ketika kebutuhan pengguna, sumber data, kontra
 | Panduan ini | Cara menelusuri masalah, memilih solusi sederhana, menjaga UX, dan menentukan bukti selesai. |
 | [Referensi Sistem](REFERENSI_SISTEM.md) | Sumber kode, arsitektur, API, relasi, status, model, dan batas implementasi. |
 | [Panduan Riwayat](PANDUAN_RIWAYAT.md) / [Pengujian OCR](PANDUAN_PENGUJIAN_OCR.md) | Detail alur dan pemeriksaan khusus yang sudah tersedia. |
+| [Integrasi LIME](PANDUAN_INTEGRASI_LIME.md) | Arsitektur penjelasan teks/OCR, kontrak metadata, konteks permintaan, penyimpanan, dan batas bukti pengujian. |
 | [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md) | Rencana daftar akun admin dari database, kontrak status akses, berkas implementasi baru, dan bukti penerimaan; status implementasi diperbarui setelah kode berubah. |
 | [README](../README.md) | Pintu masuk proyek dan petunjuk menjalankan; cocokkan keterangan lama dengan kode. |
 | [Protokol](../PROTOKOL_PRAREGISTRASI.md) dan reports/ | Metodologi serta laporan eksperimen/audit bertanggal. |

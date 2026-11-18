@@ -355,6 +355,8 @@ Teks, token, dan OCR dapat mengandung data pribadi. Kebutuhan reproduksi tidak o
 
 ## 7. LIME dan preferensi tampilan
 
+Pembaruan integrasi **18 November 2026** dijelaskan pada [Panduan Arsitektur dan Integritas Integrasi LIME](PANDUAN_INTEGRASI_LIME.md). Dokumen tersebut menelusuri kode aktif, perbedaan teks masukan/praproses/penjelasan, nullability pemotongan, konteks permintaan frontend, serta cache dan penyimpanan penjelasan. Hasil mock, browser, dan model nyata dibedakan secara eksplisit.
+
 ### 7.1 Integritas bobot
 
 - Gunakan fungsi prediksi yang sesuai kontrak penjelasan.

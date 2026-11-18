@@ -1,8 +1,8 @@
 # Panduan Pengembangan Kamera dan OCR VERIDIX
 
-Dibuat: **17 November 2026**.
+Dibuat: **17 November 2026**. Status diperbarui: **18 November 2026**.
 
-**Status: rencana pengembangan; fitur kamera belum diimplementasikan atau diuji melalui panduan ini.** Pembacaan awal mengacu pada kode commit `088c889`. Ketika implementasi berubah, perbarui status dan bukti di dokumen ini; jangan menganggap snapshot sebagai keadaan runtime terbaru.
+**Status: implementasi dasar kamera dan integrasi form sudah ada; verifikasi kamera/browser serta evaluasi kualitas belum selesai.** Rencana awal mengacu pada commit `088c889`; komponen kamera masuk pada `53f73b3`. Pembaruan integrasi LIME dijelaskan dalam [Panduan Integrasi LIME](PANDUAN_INTEGRASI_LIME.md). Keberadaan komponen bukan bukti bahwa semua kriteria kamera sudah terpenuhi.
 
 Panduan menetapkan alur, batas perubahan, dan bukti penerimaan fitur **Ambil foto**. Dokumen tidak menjamin sistem bebas kesalahan atau manipulasi; aturan harus ditegakkan oleh kode dan pengujian. VERIDIX menganalisis kemiripan pola bahasa dengan klaim politik Indonesia yang dilabeli hoaks pada korpus penelitian. Keluarannya bukan pembuktian kebenaran berita.
 
@@ -24,7 +24,8 @@ Tabel ini mencatat pembacaan kode, bukan hasil pengujian kamera atau klaim selur
 
 | Bagian | Keadaan pada pembacaan awal | Implikasi |
 | --- | --- | --- |
-| [NewsInputForm.tsx](../frontend/src/components/detector/NewsInputForm.tsx) | `handleImageSelect(file)` memvalidasi berkas, membuat preview, dan langsung meminta OCR. Belum ada pengambilan kamera. | Foto draf jangan diteruskan ke fungsi ini sebelum pengguna memilih **Gunakan foto**. |
+| [NewsInputForm.tsx](../frontend/src/components/detector/NewsInputForm.tsx) | `handleImageSelect(file)` memvalidasi berkas, membuat preview, dan langsung meminta OCR; form kini menerima hasil dari komponen kamera. | Foto draf diteruskan setelah **Gunakan foto**; pembatalan dan konteks akun perlu diuji. |
+| [CameraCapture.tsx](../frontend/src/components/detector/CameraCapture.tsx) | Implementasi pengambilan/pratinjau foto sudah ada. | Aturan lifecycle di bawah adalah kriteria penerimaan; bukan klaim seluruhnya telah dibuktikan. |
 | [useDetection.ts](../frontend/src/hooks/useDetection.ts) | `extractTextFromImage` menerima `File` dan sinyal pembatalan, lalu mengirim multipart field `file` lewat `apiClient`. | Gunakan pemanggilan yang sama untuk foto kamera dan gambar pilihan. |
 | [Halaman deteksi](../frontend/src/app/page.tsx) | Hook direset saat identitas pengguna berubah; form diberi `key` berdasarkan akun. | Pertahankan pembatas konteks ini dan tambahkan cleanup kamera pada unmount. |
 | [Route deteksi](../src/api/routes/detection_routes.py) | `POST /api/v1/detect/image` memerlukan autentikasi dan menjalankan pipeline gambar; respons sukses saat ini berisi `image_url=None`. | Tidak memerlukan endpoint kamera baru; jangan menjanjikan foto dapat dibuka kembali dari riwayat. Autentikasi tetap dapat membaca akun dari database. |
@@ -120,11 +121,11 @@ PWA merupakan rencana lain jika aplikasi perlu dipasang pada layar utama. Kamera
 
 ## 8. Urutan pengerjaan berkas
 
-Nama berkas baru berikut adalah **rencana**, bukan implementasi yang sudah tersedia. Periksa status Git dan kode aktif lagi sebelum setiap tahap.
+Tahap berikut membedakan berkas yang sudah tersedia dan pengujian yang masih direncanakan. Periksa status Git dan kode aktif lagi sebelum setiap tahap.
 
 | Tahap | Berkas | Pekerjaan / batas selesai tahap |
 | --- | --- | --- |
-| 1 | `frontend/src/components/detector/CameraCapture.tsx` — baru | Komponen kamera: izin, video, pengambilan foto, konfirmasi, error, cleanup, dan callback `File`. Belum memanggil OCR/model sendiri. |
+| 1 | [CameraCapture.tsx](../frontend/src/components/detector/CameraCapture.tsx) — tersedia | Komponen kamera dasar sudah ada; tuntaskan pemeriksaan izin, capture, error, cleanup, dan callback `File` sesuai kriteria. Tidak memanggil OCR/model sendiri. |
 | 2 | [NewsInputForm.tsx](../frontend/src/components/detector/NewsInputForm.tsx) | Dua pilihan masukan; setelah konfirmasi, teruskan foto ke `handleImageSelect`. Pertahankan guard login/loading, editor, dan pembatalan. |
 | 3 | [Halaman deteksi](../frontend/src/app/page.tsx) dan [useDetection.ts](../frontend/src/hooks/useDetection.ts) | Periksa integrasi konteks akun, reset, dan pemakaian API. Ubah hanya jika ada kebutuhan integrasi yang belum didukung. |
 | 4 | `tests/test_camera_capture.cjs` — rencana; tes frontend OCR yang ada | Tambah pengujian lifecycle/race kamera dengan media API tiruan, lalu regresi jalur gambar dan akun. Sesuaikan harness untuk video/Canvas; nama tes baru bukan perintah yang sudah dapat dijalankan. |
@@ -222,4 +223,4 @@ Fitur dapat dinyatakan selesai **pada cakupan perangkat dan penggunaan yang diuj
 - [ ] Tidak ada perubahan algoritma/artefak/data penelitian yang terselip atau hasil buatan sebagai data nyata.
 - [ ] Status dan bukti pada dokumen utama diperbarui sesuai implementasi yang benar-benar diperiksa.
 
-Pada pembuatan dokumen ini seluruh kriteria fitur di atas masih **belum diverifikasi**. Pemeriksaan dokumen, keberhasilan build, tes mock, uji perangkat, dan evaluasi kualitas mempunyai cakupan bukti yang berbeda.
+Pada pembaruan 18 November 2026, checklist fitur kamera di atas masih **belum dinyatakan terverifikasi seluruhnya**. Keberhasilan tes integrasi LIME tidak mengesahkan checklist kamera. Pemeriksaan dokumen, build, mock, uji perangkat, dan evaluasi kualitas mempunyai cakupan bukti yang berbeda.

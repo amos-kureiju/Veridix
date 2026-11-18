@@ -11,12 +11,15 @@ import {
     X,
     Edit3,
     Camera,
+    Images,
     Info
 } from "lucide-react";
 import { getApiConnectionMessage } from "@/lib/apiClient";
 import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
 import CameraCapture from "@/components/detector/CameraCapture";
+import MultiImageOcrForm from "@/components/detector/MultiImageOcrForm";
 import type { InputSourceType, OCRResponse } from "@/types/detector";
+import { DOCUMENT_SEGMENT_WORD_LIMIT, documentWordCount, type DocumentPage } from "@/types/document-analysis";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 20_000_000;
@@ -29,13 +32,15 @@ interface NewsInputFormProps {
     blocked: boolean;
     loginRequired: boolean;
     onRequireLogin: () => void;
-    onAnalyze: (text: string, source: InputSourceType, imageUrl?: string | null) => Promise<void>;
-    onExtractImage: (file: File, signal?: AbortSignal) => Promise<OCRResponse | null>;
+    onAnalyze: (text: string, source: InputSourceType, imageUrl?: string | null, forceDocument?: boolean) => Promise<void>;
+    onAnalyzePages?: (pages: DocumentPage[]) => Promise<void>;
+    onExtractImage: (file: File, signal?: AbortSignal, onFailure?: (message: string) => void) => Promise<OCRResponse | null>;
 }
 
-export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, loginRequired, onRequireLogin, onAnalyze, onExtractImage }: NewsInputFormProps) {
-    const [activeTab, setActiveTab] = useState<"text" | "image">("text");
+export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, loginRequired, onRequireLogin, onAnalyze, onAnalyzePages, onExtractImage }: NewsInputFormProps) {
+    const [activeTab, setActiveTab] = useState<"text" | "image" | "pages">("text");
     const [inputText, setInputText] = useState("");
+    const [forceDocument, setForceDocument] = useState(false);
 
     // State untuk OCR
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -53,7 +58,7 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
     const ocrBusyRef = useRef(false);
     const submitBusyRef = useRef(false);
     const previewUrlRef = useRef<string | null>(null);
-    const readingImage = localOCRLoading || (Boolean(imageFile) && ocrLoading);
+    const readingImage = localOCRLoading || ocrLoading;
     const imageError = localOCRError || (imageFile && ocrFailed ? ocrError : null) ||
         (ocrFailed ? "Gagal membaca gambar. Coba unggah ulang gambar yang lebih jelas." : null);
 
@@ -84,6 +89,8 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
     // Kata kunci Guardrail Politik Indonesia
     const politicalKeywords = ["kpu", "dpr", "mpr", "presiden", "pemilu", "pilpres", "korupsi", "partai", "mk", "bansos", "menteri", "pemerintah", "bawaslu", "suara", "rekapitulasi"];
     const currentText = activeTab === "text" ? inputText : ocrText;
+    const isLongText = documentWordCount(currentText) > DOCUMENT_SEGMENT_WORD_LIMIT;
+    const usesDocumentAnalysis = Boolean(onAnalyzePages) && (isLongText || forceDocument);
     const isPoliticalDetected = politicalKeywords.some(kw => currentText.toLowerCase().includes(kw));
 
     const handleImageSelect = async (file: File) => {
@@ -183,7 +190,7 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
     };
 
     const handleSubmit = async () => {
-        if (blocked || loading || readingImage || submitBusyRef.current) return;
+        if (activeTab === "pages" || blocked || loading || readingImage || submitBusyRef.current) return;
         if (loginRequired) {
             onRequireLogin();
             return;
@@ -199,7 +206,9 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
         const source: InputSourceType = activeTab === "image" ? "IMAGE" : "TEXT";
         submitBusyRef.current = true;
         try {
-            await onAnalyze(textToSend.trim(), source, source === "IMAGE" ? serverImageUrl : null);
+            const imageUrl = source === "IMAGE" ? serverImageUrl : null;
+            if (usesDocumentAnalysis) await onAnalyze(textToSend, source, imageUrl, true);
+            else await onAnalyze(textToSend.trim(), source, imageUrl);
         } finally {
             submitBusyRef.current = false;
         }
@@ -229,6 +238,8 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
         analyzeHint = "Teks gambar belum dapat dipakai. Unggah gambar yang lebih jelas.";
     } else if (remainingChars > 0) {
         analyzeHint = `Tambahkan ${remainingChars} karakter lagi agar naskah dapat dianalisis.`;
+    } else if (usesDocumentAnalysis) {
+        analyzeHint = "Hasil ditampilkan per segmen, dengan cakupan analisis untuk naskah Anda.";
     }
 
     return (
@@ -252,7 +263,7 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
 
                     {/* 1. TAB SELEKSI: TEKS LANGSUNG VS UPLOAD GAMBAR */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-200/60 pb-4">
-                        <div role="tablist" className="flex gap-1.5 rounded-2xl border border-emerald-200/60 bg-emerald-100/50 p-1">
+                        <div role="tablist" className="flex flex-wrap gap-1.5 rounded-2xl border border-emerald-200/60 bg-emerald-100/50 p-1">
                             <button
                                 type="button"
                                 role="tab"
@@ -285,10 +296,28 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                                 <ImageIcon className="h-3.5 w-3.5" />
                                 Unggah Gambar (OCR)
                             </button>
+                            {onAnalyzePages && (
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === "pages"}
+                                    onClick={() => {
+                                        setCameraOpen(false);
+                                        setActiveTab("pages");
+                                    }}
+                                    className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${activeTab === "pages"
+                                        ? "bg-emerald-900 text-white shadow-sm"
+                                        : "text-emerald-900/70 hover:bg-white/70 hover:text-emerald-950"
+                                        }`}
+                                >
+                                    <Images className="h-3.5 w-3.5" />
+                                    Beberapa Gambar (OCR)
+                                </button>
+                            )}
                         </div>
 
                         {/* Indikator Domain Guardrail Politik */}
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                        {activeTab !== "pages" && <div className="flex items-center gap-1.5 text-xs font-medium">
                             {isPoliticalDetected ? (
                                 <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-emerald-300/70 bg-emerald-100 px-2.5 py-1 text-emerald-800">
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Kata kunci politik terdeteksi
@@ -298,7 +327,7 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                                     <AlertCircle className="h-3.5 w-3.5" /> Topik belum terdeteksi
                                 </span>
                             )}
-                        </div>
+                        </div>}
                     </div>
 
                     {/* 2. AREA MASUKAN SESUAI TAB */}
@@ -436,17 +465,36 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                             </div>
                         )}
 
+                        {onAnalyzePages && (
+                            <div hidden={activeTab !== "pages"}>
+                                <MultiImageOcrForm
+                                    active={activeTab === "pages" && !blocked}
+                                    disabled={blocked || loading}
+                                    ocrLoading={ocrLoading}
+                                    loginRequired={loginRequired}
+                                    onRequireLogin={onRequireLogin}
+                                    onExtractImage={onExtractImage}
+                                    onAnalyzePages={onAnalyzePages}
+                                />
+                            </div>
+                        )}
                     </div>
                     {activeTab === "image" && imageError && (
-                        <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            <span>{imageError}</span>
+                        <p className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                            <AlertCircle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span role="alert">{imageError}</span>
                         </p>
+                    )}
+                    {onAnalyzePages && activeTab !== "pages" && !isLongText && !loginRequired && remainingChars === 0 && (
+                        <label className="mt-4 flex w-fit cursor-pointer items-center gap-2 text-xs text-emerald-950">
+                            <input type="checkbox" checked={forceDocument} disabled={blocked || loading} onChange={(event) => setForceDocument(event.currentTarget.checked)} />
+                            Analisis per segmen (uji coba)
+                        </label>
                     )}
                 </div>
 
                 {/* 3. TOMBOL EKSEKUSI PIPELINE */}
-                <div className="mt-5 flex flex-col gap-4 border-t border-emerald-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                {activeTab !== "pages" && <div className="mt-5 flex flex-col gap-4 border-t border-emerald-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
                     <p
                         aria-live="polite"
                         className={`flex min-w-0 flex-1 items-start gap-2 text-xs leading-relaxed ${analyzeDisabled && !loading ? "text-amber-800" : "text-slate-600"}`}
@@ -483,10 +531,10 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                                 ? "Memproses naskah..."
                                 : loginRequired
                                     ? "Masuk untuk Analisis"
-                                    : "Analisis Sekarang"}
+                                    : usesDocumentAnalysis ? "Analisis per segmen" : "Analisis Sekarang"}
                         </span>
                     </button>
-                </div>
+                </div>}
             </div>
 
             {cameraOpen &&

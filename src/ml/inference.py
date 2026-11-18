@@ -366,13 +366,32 @@ class BackendIndoBERT:
             return None
 
     def seed_probs_each(self, texts: List[str]) -> np.ndarray:
+        return self._seed_probs_each(texts)
+
+    def seed_probs_each_untruncated(self, texts: List[str], token_counts: List[int]) -> np.ndarray:
+        """Nilai segmen persis seperti dicek, tanpa pemotongan tokenizer."""
+        return self._seed_probs_each(texts, expected_tokens=token_counts)
+
+    def _seed_probs_each(
+        self, texts: List[str], expected_tokens: Optional[List[int]] = None,
+    ) -> np.ndarray:
         torch = self.torch
         texts = [str(t) for t in texts]
         out = np.zeros((len(texts), len(self.seeds)), dtype=np.float64)
 
         with self._lock:
-            # Tokenisasi wajib di dalam lock agar tidak ada kebocoran batas token
-            enc = self.tokenizer(texts, max_length=MAX_LEN, padding="max_length", truncation=True, return_tensors="pt")
+            enc = self.tokenizer(
+                texts, max_length=MAX_LEN, padding="max_length",
+                truncation=expected_tokens is None, return_tensors="pt",
+            )
+            if expected_tokens is not None:
+                shape = (len(texts), MAX_LEN)
+                if (
+                    enc["input_ids"].shape != shape
+                    or enc["attention_mask"].shape != shape
+                    or enc["attention_mask"].sum(dim=1).tolist() != expected_tokens
+                ):
+                    raise ValueError("Tokenisasi batch tidak sesuai dengan pemeriksaan segmen.")
             with torch.no_grad():
                 for j, s in enumerate(self.seeds):
                     self.clf.load_state_dict(self.states[s], strict=False)

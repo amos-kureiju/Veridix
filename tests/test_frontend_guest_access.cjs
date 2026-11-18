@@ -87,7 +87,7 @@ function* elements(node) {
 function home(auth, detectionState = {}) {
     const hooks = reactHooks();
     const calls = { routes: [], history: [], detections: 0, detectionPayloads: [], extractions: [],
-        reloads: 0, explanations: 0, resets: 0, profileRefreshes: 0 };
+        documents: [], reloads: 0, explanations: 0, resets: 0, profileRefreshes: 0 };
     const extractImage = async (...args) => {
         calls.extractions.push(args);
         const extracted = 'KPU mengumumkan jadwal pemilu kepada seluruh warga Indonesia melalui pengumuman resmi.';
@@ -111,6 +111,7 @@ function home(auth, detectionState = {}) {
                 calls.detectionPayloads.push(args);
                 return { status: 'success' };
             },
+            detectDocument: async payload => { calls.documents.push(payload); },
             extractTextFromImage: extractImage,
             cancelImageExtraction: () => {},
             requestExplanation: async () => { calls.explanations++; },
@@ -124,14 +125,15 @@ function home(auth, detectionState = {}) {
         } },
     };
     for (const name of ['layout/UserShell', 'layout/HeaderStats', 'shared/GuestBanner',
-        'detector/NewsInputForm', 'detector/VerdictCard']) {
+        'detector/NewsInputForm', 'detector/VerdictCard', 'detector/DocumentResultCard']) {
         mocks['@/components/' + name] = { default: name };
     }
     const tree = load('app/page.tsx', mocks).default();
     const form = [...elements(tree)].find(node => node.type === 'detector/NewsInputForm');
     const card = [...elements(tree)].find(node => node.type === 'detector/VerdictCard');
+    const documentCard = [...elements(tree)].find(node => node.type === 'detector/DocumentResultCard');
     for (const effect of hooks.effects) effect();
-    return { tree, formElement: form, form: form.props, card: card.props, calls, extractImage };
+    return { tree, formElement: form, form: form.props, card: card?.props, documentCard: documentCard?.props, calls, extractImage };
 }
 
 test('public homepage stays visible and never enables history before verified login', async () => {
@@ -164,6 +166,77 @@ test('verified user refreshes history and profile counts after detection and fee
     assert.equal(calls.reloads, 2);
     assert.equal(calls.profileRefreshes, 2);
     assert.deepEqual(calls.routes, []);
+});
+
+test('home submits the entire document and the confirmed photo text through the document route only', async () => {
+    const auth = { user: { id: 'user-test', role: 'USER' }, ready: true };
+    const { form, card, documentCard, calls } = home(auth, { analysisMode: 'document', loading: true });
+    assert.equal(card, undefined);
+    assert.equal(documentCard.loading, true);
+    const longText = '  ' + Array.from({ length: 61 }, (_, index) => `kata${index + 1}`).join(' ') + '\n\n';
+    const edited = 'Baris hasil foto yang sudah diperiksa pengguna.';
+    const pages = [{ page_number: 1, text: edited }, { page_number: 2, text: null }];
+    await form.onAnalyze(longText);
+    await form.onAnalyze(edited, 'IMAGE', 'https://images.example.test/photo.png', true);
+    await form.onAnalyzePages(pages);
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.documents)), [
+        { text: longText }, { pages: [pages[0]] }, { pages },
+    ]);
+    assert.equal(calls.detections, 0);
+    assert.equal(calls.reloads, 0);
+    assert.equal(calls.profileRefreshes, 0);
+});
+
+test('home requires an authenticated user before submitting confirmed pages', async () => {
+    const { form, calls } = home({ user: null, ready: true });
+    await form.onAnalyzePages([{ page_number: 1, text: 'cuplikan hasil pembacaan foto' }]);
+    assert.deepEqual(calls.routes, ['/auth/login']);
+    assert.equal(calls.documents.length, 0);
+});
+
+test('document coverage card explains a missing page even when every submitted word was scored', () => {
+    const React = frontendRequire('react');
+    const { renderToStaticMarkup } = frontendRequire('react-dom/server');
+    const Card = load('components/detector/DocumentResultCard.tsx').default;
+    const html = renderToStaticMarkup(React.createElement(Card, { loading: false, result: {
+        status: 'parsial', total_words: 3, analyzed_words: 3, missing_pages: [2], reason: null,
+        segments: [{ start_char: 0, start_word: 1, end_word: 3, text: 'KPU membuka penghitungan.', page_numbers: [1],
+            status: 'dinilai', label: 'BERPOLA HOAKS', votes_hoax: '3/3', reason: null }],
+    } }));
+    assert.match(html, /Cakupan sebagian/);
+    assert.match(html, /3 dari 3 kata/);
+    assert.match(html, /Halaman 2 belum memiliki teks yang dikonfirmasi/);
+    assert.match(html, /Segmen 1/);
+    assert.match(html, /Kata 1–3/);
+    assert.match(html, /KPU membuka penghitungan/);
+    assert.match(html, /Suara hoaks 3\/3/);
+});
+
+test('document size limits and busy responses remain visible without a Next dev error overlay', async () => {
+    const axios = frontendRequire('axios');
+    for (const [endpoint, status, expected] of [
+        ['/api/v1/detect/document', 413, 'warn'],
+        ['/api/v1/detect/document', 503, 'warn'],
+        ['/api/v1/detect/document', 500, 'error'],
+        ['/api/v1/detect/text', 503, 'error'],
+    ]) {
+        const logs = [];
+        const { apiClient } = load('lib/apiClient.ts', {}, {
+            console: { warn: (...args) => logs.push(['warn', args]), error: (...args) => logs.push(['error', args]) },
+        });
+        const privateText = 'Teks privat pengguna.';
+        apiClient.defaults.adapter = async config => {
+            throw new axios.AxiosError('Server response', 'ERR_BAD_RESPONSE', config, undefined, {
+                status, data: { detail: privateText }, headers: {}, config,
+            });
+        };
+        await assert.rejects(apiClient.post(endpoint, { text: privateText }), error => error.response.status === status);
+        assert.equal(logs.length, 1);
+        assert.equal(logs[0][0], expected);
+        assert.equal(logs[0][1][1].endpoint, endpoint);
+        assert.equal(logs[0][1][1].status, status);
+        assert.ok(!JSON.stringify(logs).includes(privateText));
+    }
 });
 
 test('guest analyze and image upload controls ask for login without API calls', async () => {

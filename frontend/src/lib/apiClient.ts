@@ -96,7 +96,9 @@ apiClient.interceptors.response.use(
                 timeout: typeof timeout === "number" && Number.isFinite(timeout) && timeout >= 0 ? timeout : null,
             };
 
-            if (status === 400 || status === 422) {
+            const expectedDocumentResponse = diagnostic.method === "POST" &&
+                diagnostic.endpoint === "/api/v1/detect/document" && (status === 413 || status === 503);
+            if (status === 400 || status === 422 || expectedDocumentResponse) {
                 console.warn("[API Validation]:", diagnostic);
             } else {
                 console.error("[API Error]:", diagnostic);

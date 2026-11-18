@@ -6,12 +6,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDetection } from "@/hooks/useDetection";
 import { useHistory } from "@/hooks/useHistory";
 import type { InputSourceType } from "@/types/detector";
+import { DOCUMENT_SEGMENT_WORD_LIMIT, documentWordCount } from "@/types/document-analysis";
+import type { DocumentPage } from "@/types/document-analysis";
 
 import UserShell from "@/components/layout/UserShell";
 import HeaderStats from "@/components/layout/HeaderStats";
 import GuestBanner from "@/components/shared/GuestBanner";
 import NewsInputForm from "@/components/detector/NewsInputForm";
 import VerdictCard from "@/components/detector/VerdictCard";
+import DocumentResultCard from "@/components/detector/DocumentResultCard";
 
 export default function Home() {
     const router = useRouter();
@@ -20,15 +23,16 @@ export default function Home() {
     const isRegularUser = ready && user?.role === "USER";
     const isGuest = !user;
 
-    const d = useDetection();
+    const userId = user?.id ?? null;
+    const analysisOwnerId = isRegularUser ? userId : null;
+    const d = useDetection(analysisOwnerId);
     const history = useHistory(isRegularUser);
 
     // Sesi berakhir atau pengguna berganti: bersihkan hasil dan permintaan aktif
-    const userId = user?.id ?? null;
     useEffect(() => {
         d.reset();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userId]);
+    }, [analysisOwnerId]);
 
     // Alihkan ADMIN langsung ke /admin jika membuka beranda "/"
     useEffect(() => {
@@ -39,19 +43,28 @@ export default function Home() {
 
     const requireLogin = () => router.push("/auth/login");
 
+    const canAnalyze = () => {
+        if (ready && !user) requireLogin();
+        return isRegularUser;
+    };
+
     const analyze = async (
         text: string,
         source: InputSourceType = "TEXT",
-        imageUrl?: string | null
+        imageUrl?: string | null,
+        forceDocument = false,
     ) => {
-        if (!ready) return;
-        if (!user) {
-            requireLogin();
+        if (!canAnalyze()) return;
+        if (forceDocument || documentWordCount(text) > DOCUMENT_SEGMENT_WORD_LIMIT) {
+            await d.detectDocument(source === "IMAGE" ? { pages: [{ page_number: 1, text }] } : { text });
             return;
         }
-        if (user.role !== "USER") return;
         const result = await d.detectText(text, source, imageUrl);
         if (result) await Promise.all([history.reload(), refreshUser()]);
+    };
+
+    const analyzePages = async (pages: DocumentPage[]) => {
+        if (canAnalyze()) await d.detectDocument({ pages });
     };
 
     const refreshAfterFeedback = async () => {
@@ -96,20 +109,25 @@ export default function Home() {
                         loginRequired={isGuest}
                         onRequireLogin={requireLogin}
                         onAnalyze={analyze}
+                        onAnalyzePages={analyzePages}
                         onExtractImage={d.extractTextFromImage}
                         ocrError={d.ocrError}
                     />
                     {d.error && <p role="alert" className="text-sm text-rose-600">{d.error}</p>}
                 </div>
-                <VerdictCard
-                    result={d.result}
-                    loading={d.loading}
-                    onRequestExplanation={d.requestExplanation}
-                    limeLoading={d.limeLoading}
-                    limeError={d.limeError}
-                    canAct={isRegularUser}
-                    onFeedbackSubmitted={refreshAfterFeedback}
-                />
+                {d.analysisMode === "document" ? (
+                    <DocumentResultCard result={d.documentResult} loading={d.loading} />
+                ) : (
+                    <VerdictCard
+                        result={d.result}
+                        loading={d.loading}
+                        onRequestExplanation={d.requestExplanation}
+                        limeLoading={d.limeLoading}
+                        limeError={d.limeError}
+                        canAct={isRegularUser}
+                        onFeedbackSubmitted={refreshAfterFeedback}
+                    />
+                )}
             </div>
         </UserShell>
     );

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 from typing import List, Optional, Any, Dict, Literal
 from uuid import UUID
 from datetime import datetime
@@ -8,6 +8,56 @@ class TextDetectionRequest(BaseModel):
     text: str = Field(..., min_length=30, description="Naskah berita minimal 30 karakter")
     input_type: str = Field("TEXT", pattern="^(TEXT|IMAGE)$")
     image_url: Optional[str] = None
+
+DOCUMENT_MAX_PAGES = 4
+
+
+class DocumentPageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    page_number: StrictInt = Field(ge=1, le=DOCUMENT_MAX_PAGES)
+    text: Optional[str]
+
+
+class DocumentAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: Optional[str] = None
+    pages: Optional[List[DocumentPageRequest]] = Field(default=None, min_length=1, max_length=DOCUMENT_MAX_PAGES)
+
+    @model_validator(mode="after")
+    def check_source(self):
+        if (self.text is None) == (self.pages is None):
+            raise ValueError("Kirim satu naskah teks atau halaman dari satu dokumen.")
+        if self.pages is not None:
+            for position, page in enumerate(self.pages, start=1):
+                if page.page_number != position:
+                    raise ValueError("Nomor halaman harus berurutan mulai dari satu.")
+                if page.text is not None and not page.text.strip():
+                    raise ValueError("Isi teks halaman atau tandai halaman belum terbaca dengan null.")
+        return self
+
+
+class DocumentSegmentResult(BaseModel):
+    start_char: StrictInt = Field(ge=0)
+    end_char: StrictInt = Field(gt=0)
+    start_word: StrictInt = Field(gt=0)
+    end_word: StrictInt = Field(gt=0)
+    text: str
+    token_count: Optional[StrictInt] = Field(gt=0)
+    status: Literal["dinilai", "ambigu", "ditolak", "gagal", "belum_dinilai"]
+    label: Optional[str]
+    votes_hoax: Optional[str]
+    reason: Optional[str]
+    page_numbers: List[StrictInt]
+
+
+class DocumentAnalysisResponse(BaseModel):
+    status: Literal["lengkap", "parsial", "gagal", "ditolak"]
+    total_words: int
+    analyzed_words: int
+    missing_pages: List[int]
+    segments: List[DocumentSegmentResult]
+    reason: Optional[str]
+
 
 class OCRResultData(BaseModel):
     extracted_text: str

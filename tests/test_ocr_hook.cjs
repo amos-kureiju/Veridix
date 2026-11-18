@@ -71,11 +71,11 @@ function hook(post, { deferFunctionalUpdates = false } = {}) {
         react, '@/lib/apiClient': { apiClient: { post }, getApiConnectionMessage },
     });
     return {
-        render() {
+        render(ownerId) {
             stateUpdates.splice(0).forEach(update => update());
             cursor = 0;
             pendingEffects = [];
-            const state = useDetection();
+            const state = useDetection(ownerId);
             pendingEffects.forEach(effect => effect());
             return state;
         },
@@ -158,6 +158,123 @@ test('detectText preserves edited image text/source/server URL and defaults ordi
     await runtime.render().detectText('Naskah teks langsung yang dimasukkan oleh pengguna.');
     assert.equal(requests[1].body.input_type, 'TEXT');
     assert.ok(requests[1].body.image_url == null);
+});
+
+const documentText = 'Pemilu 🗳️ dimulai serentak.';
+const documentSecondPage = ' KPU mengabarkan hasil. ';
+
+function documentResult() {
+    return {
+        status: 'parsial', total_words: 7, analyzed_words: 7, missing_pages: [2], reason: 'Halaman belum dikonfirmasi.',
+        segments: [
+            { start_char: 0, end_char: Array.from(documentText).length, start_word: 1, end_word: 4,
+                text: documentText, token_count: 13, status: 'dinilai', label: 'TIDAK BERPOLA HOAKS',
+                votes_hoax: '0/3', reason: null, page_numbers: [1] },
+            { start_char: Array.from(documentText).length + 3,
+                end_char: Array.from(documentText + '\n\n' + documentSecondPage).length - 1,
+                start_word: 5, end_word: 7, text: documentSecondPage.trim(), token_count: 8,
+                status: 'ambigu', label: 'PERLU VERIFIKASI (SEED TIDAK SEPAKAT)', votes_hoax: '2/3',
+                reason: null, page_numbers: [3] },
+        ],
+    };
+}
+
+function documentPayload() {
+    return { pages: [{ page_number: 1, text: documentText }, { page_number: 2, text: null },
+        { page_number: 3, text: documentSecondPage }] };
+}
+
+test('document mode preserves exact Unicode and page ranges with full supplied words but a missing page', async () => {
+    const result = documentResult();
+    const requests = [];
+    const runtime = hook(async (...args) => { requests.push(args); return { data: result }; });
+    const payload = documentPayload();
+    assert.equal(await runtime.render('first-account').detectDocument(payload), result);
+    const state = runtime.render('first-account');
+    assert.equal(state.result, null);
+    assert.equal(state.documentResult, result);
+    assert.equal(state.analysisMode, 'document');
+    await state.requestExplanation();
+    assert.equal(requests.length, 1);
+    const [[url, sent, config]] = requests;
+    assert.equal(url, '/api/v1/detect/document');
+    assert.equal(sent, payload);
+    assert.equal(config.timeout, 180000);
+    assert.equal(runtime.render('different-account').documentResult, null);
+});
+
+test('document response coverage must match the submitted page text and model limits', async () => {
+    for (const change of [
+        result => { result.status = 'lengkap'; result.reason = null; },
+        result => { result.missing_pages = []; },
+        result => { result.segments.pop(); },
+        result => { result.segments[0].text = 'Pemilu pengganti.'; },
+        result => { result.segments[0].token_count = 129; },
+        result => { result.segments[1].end_char = result.segments[0].end_char; },
+        result => { result.analyzed_words = 6; },
+    ]) {
+        const result = documentResult();
+        change(result);
+        const runtime = hook(async () => ({ data: result }));
+        assert.equal(await runtime.render().detectDocument(documentPayload()), null);
+        const state = runtime.render();
+        assert.equal(state.documentResult, null);
+        assert.match(state.error, /cakupan analisis tidak dapat dikonfirmasi/i);
+    }
+});
+
+test('a newer short detection supersedes a document request even if its response arrives late', async () => {
+    const old = deferred();
+    const next = deferred();
+    let documentSignal;
+    const runtime = hook((url, _payload, config) => {
+        if (url.endsWith('/document')) {
+            documentSignal = config.signal;
+            return old.promise;
+        }
+        return next.promise;
+    });
+    const started = runtime.render().detectDocument(documentPayload());
+    const replacement = runtime.render().detectText('KPU menyiapkan kegiatan pemilu nasional.');
+    assert.equal(documentSignal.aborted, true);
+    old.resolve({ data: documentResult() });
+    assert.equal(await started, null);
+    assert.equal(runtime.render().loading, true);
+    assert.equal(runtime.render().documentResult, null);
+    const actual = verdict();
+    next.resolve({ data: actual });
+    assert.equal(await replacement, actual);
+    assert.equal(runtime.render().result, actual);
+    assert.equal(runtime.render().analysisMode, 'claim');
+});
+
+test('a document reset discards a late response and leaves no result or loading state', async () => {
+    const pending = deferred();
+    let signal;
+    const runtime = hook((_url, _payload, config) => { signal = config.signal; return pending.promise; });
+    const started = runtime.render('old').detectDocument(documentPayload());
+    const switched = runtime.render('new');
+    assert.equal(switched.loading, false);
+    switched.reset();
+    assert.equal(signal.aborted, true);
+    pending.resolve({ data: documentResult() });
+    assert.equal(await started, null);
+    const current = runtime.render('new');
+    assert.equal(current.documentResult, null);
+    assert.equal(current.loading, false);
+    assert.equal(current.error, null);
+});
+
+test('a page OCR failure reports to the matching page without changing the single image error', async () => {
+    let detail = 'Gambar tunggal tidak terbaca.';
+    const runtime = hook(async () => { throw { response: { status: 422, data: { detail } } }; });
+    assert.equal(await runtime.render().extractTextFromImage(file()), null);
+    assert.equal(runtime.render().ocrError, detail);
+    detail = 'Foto halaman tidak terbaca.';
+    const pageErrors = [];
+    assert.equal(await runtime.render().extractTextFromImage(file(), undefined, message => pageErrors.push(message)), null);
+    assert.deepEqual(pageErrors, [detail]);
+    assert.equal(runtime.render().ocrError, 'Gambar tunggal tidak terbaca.');
 });
 
 test('OCR FormData survives the actual Axios JSON defaults without serializing image bytes as JSON', async () => {

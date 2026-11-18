@@ -12,6 +12,9 @@ from src.api.schemas import (
     TextDetectionRequest,
     DetectionResponse,
     DetectionResultData,
+    DocumentAnalysisRequest,
+    DocumentAnalysisResponse,
+    DocumentSegmentResult,
     ExplanationResponse,
     OCRResponse,
     OCRResultData,
@@ -23,6 +26,7 @@ from src.ml.inference import predictor
 from starlette.concurrency import run_in_threadpool
 
 from src.utils.political_guardrail import check_political_domain
+from src.utils.input_validation import MAX_CHARS, validate_input_text
 from src.utils.ocr_extractor import MAX_BYTES
 from src.utils.ocr_pipeline import (
     proses_gambar,
@@ -38,6 +42,7 @@ router = APIRouter(prefix="/detect", tags=["Detection"])
 
 # Satu komputasi LIME pada satu waktu (per proses) agar CPU dan kunci inferensi tidak berebut
 _lime_lock = threading.Lock()
+_document_lock = threading.Lock()
 
 # Kirim explain=False hanya jika predict_and_explain memang menerimanya
 try:
@@ -50,6 +55,141 @@ def _classify_without_lime(text: str) -> dict:
     if _SUPPORTS_EXPLAIN_FLAG:
         return predictor.predict_and_explain(text, explain=False)
     return predictor.predict_and_explain(text)
+
+
+def _document_blocks(payload: DocumentAnalysisRequest):
+    if payload.text is not None:
+        return [{"text": payload.text, "start_char": 0, "pages": []}], []
+
+    groups = [[]]
+    missing_pages = []
+    for page in payload.pages or []:
+        if page.text is None:
+            missing_pages.append(page.page_number)
+            if groups[-1]:
+                groups.append([])
+        else:
+            groups[-1].append((page.page_number, page.text))
+
+    blocks = []
+    cursor = 0
+    for group in groups:
+        if not group:
+            continue
+        if blocks:
+            cursor += 2  # Separator dalam teks sumber gabungan, tanpa jendela yang melintasi celah.
+        block_start = cursor
+        texts = []
+        pages = []
+        for page_number, page_text in group:
+            if texts:
+                cursor += 2
+            start = cursor
+            cursor += len(page_text)
+            texts.append(page_text)
+            pages.append((page_number, start, cursor))
+        blocks.append({"text": "\n\n".join(texts), "start_char": block_start, "pages": pages})
+    return blocks, missing_pages
+
+
+def _analyze_document_blocks(blocks):
+    from src.ml.document_analysis import analyze_document
+    from src.ml.inference import get_predictor
+
+    return analyze_document(blocks, get_predictor())
+
+
+def _document_words_analyzed(text, blocks, segments):
+    cursor = 0
+    next_word = 1
+    analyzed_words = 0
+    for segment in segments:
+        start, end = segment.start_char, segment.end_char
+        expected = text[start:end]
+        if (
+            not cursor <= start < end <= len(text)
+            or text[cursor:start].strip()
+            or (start and not text[start - 1].isspace())
+            or (end < len(text) and not text[end].isspace())
+            or expected != segment.text
+            or expected != expected.strip()
+        ):
+            raise ValueError("Rentang segmen tidak cocok dengan sumber.")
+        count = len(expected.split())
+        if segment.start_word != next_word or segment.end_word != next_word + count - 1:
+            raise ValueError("Nomor kata segmen tidak cocok dengan sumber.")
+
+        block = next((
+            block for block in blocks
+            if block["start_char"] <= start and end <= block["start_char"] + len(block["text"])
+        ), None)
+        if block is None:
+            raise ValueError("Segmen melintasi bagian sumber yang hilang.")
+        pages = [page for page, first, last in block["pages"] if start < last and first < end]
+        if segment.page_numbers != pages:
+            raise ValueError("Halaman segmen tidak cocok dengan sumber.")
+
+        if segment.status in ("dinilai", "ambigu"):
+            if not segment.label or not segment.votes_hoax or not segment.token_count:
+                raise ValueError("Keluaran penilaian segmen tidak lengkap.")
+            analyzed_words += count
+        elif segment.label is not None or segment.votes_hoax is not None or not segment.reason:
+            raise ValueError("Status segmen yang belum dinilai tidak sesuai.")
+        cursor = end
+        next_word += count
+    if text[cursor:].strip():
+        raise ValueError("Bagian akhir sumber tidak tercatat.")
+    return analyzed_words
+
+
+@router.post("/document", response_model=DocumentAnalysisResponse)
+def detect_document(
+    payload: DocumentAnalysisRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Analisis naskah eksperimental untuk sesi aktif."""
+    blocks, missing_pages = _document_blocks(payload)
+    text = "\n\n".join(block["text"] for block in blocks)
+    if len(text) > MAX_CHARS:
+        raise HTTPException(status_code=413, detail=f"Naskah melebihi {MAX_CHARS} karakter. Bagi naskah menjadi beberapa pengiriman.")
+
+    total_words = len(text.split())
+    validation = validate_input_text(text)
+    rejection = None
+    if not validation["ok"]:
+        rejection = validation["reason"]
+    elif not check_political_domain(validation["text"])[0]:
+        rejection = "Naskah berada di luar cakupan politik Indonesia."
+    if rejection:
+        return DocumentAnalysisResponse(
+            status="ditolak", total_words=total_words, analyzed_words=0,
+            missing_pages=missing_pages, segments=[], reason=rejection,
+        )
+
+    if not _document_lock.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Analisis naskah lain sedang diproses. Silakan coba lagi.")
+    try:
+        segments = [DocumentSegmentResult.model_validate(row) for row in _analyze_document_blocks(blocks)]
+        analyzed_words = _document_words_analyzed(text, blocks, segments)
+    except Exception as exc:
+        logger.error("Analisis naskah gagal (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Analisis naskah gagal. Silakan coba lagi.") from None
+    finally:
+        _document_lock.release()
+
+    if not analyzed_words:
+        outcome = "gagal"
+        reason = "Tidak ada segmen yang berhasil dinilai. Periksa alasan pada segmen."
+    elif missing_pages or analyzed_words < total_words:
+        outcome = "parsial"
+        reason = "Sebagian sumber belum dinilai. Periksa halaman dan segmen yang belum tersedia."
+    else:
+        outcome = "lengkap"
+        reason = None
+    return DocumentAnalysisResponse(
+        status=outcome, total_words=total_words, analyzed_words=analyzed_words,
+        missing_pages=missing_pages, segments=segments, reason=reason,
+    )
 
 
 # =====================================================================

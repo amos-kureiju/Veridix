@@ -100,6 +100,7 @@ Rujukan implementasi yang dibaca:
 | --- | --- | --- |
 | Ekstraksi gambar | `POST /api/v1/detect/image` | Autentikasi, unggahan, dan respons OCR; mekanisme penyimpanan gambar perlu diperiksa. |
 | Analisis teks/editor OCR | `POST /api/v1/detect/text` | Format body, sumber `TEXT`/`IMAGE`, dan hasil validasi. |
+| Analisis naskah eksperimental | `POST /api/v1/detect/document` | Satu naskah teks atau teks dari maksimal empat halaman. Hasil sesi berisi cakupan dan keputusan per segmen. Lihat [panduan teks panjang](PANDUAN_TEKS_PANJANG_DAN_MULTI_GAMBAR.md). |
 | Penjelasan LIME | `POST /api/v1/detect/{id}/explain` | Pemilik dan kelayakan hasil; pencocokan versi lengkap masih merupakan target integritas. |
 | Daftar riwayat | `GET /api/v1/users/history` | Kepemilikan, pagination, dan field respons. |
 | Detail/hapus riwayat | `GET`/`DELETE /api/v1/users/history/{id}` | Hak akses dan konsistensi penghapusan. |

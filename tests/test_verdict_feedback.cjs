@@ -452,15 +452,15 @@ test('unknown truncation stays visible and does not fabricate analyzed text from
         result.data.terpotong = truncation;
         result.data.input_text = Array.from({ length: 90 }, (_, i) => 'kata' + i).join(' ');
         const tree = card({ result }).render();
-        assert.match(text(tree), /Status Pemotongan Belum Diketahui/);
+        assert.match(text(tree), /Status pemotongan belum diketahui/);
         assert.match(text(tree), /Teks hasil praproses tidak tersedia/);
         assert.equal([...elements(tree)].some(node => node.type === 'button' &&
-            text(node).includes('Lihat Teks Praproses')), false);
+            text(node).includes('Lihat teks praproses')), false);
         assert.doesNotMatch(text(tree), /kata0 kata1/);
     }
     const known = detection();
     known.data.terpotong = false;
-    assert.doesNotMatch(text(card({ result: known }).render()), /Status Pemotongan Belum Diketahui/);
+    assert.doesNotMatch(text(card({ result: known }).render()), /Status pemotongan belum diketahui/);
 });
 
 test('available analyzed text is labelled as preprocessing before tokenizer limits', () => {
@@ -468,9 +468,9 @@ test('available analyzed text is labelled as preprocessing before tokenizer limi
     result.data.terpotong = true;
     result.data.teks_dinilai = 'Teks hasil praproses dari server.';
     const parent = card({ result });
-    button(parent.render(), 'Lihat Teks Praproses').props.onClick();
+    button(parent.render(), 'Lihat teks praproses').props.onClick();
     const tree = parent.render();
-    assert.match(text(tree), /Teks Hasil Praproses Sebelum Batas Tokenizer:/);
+    assert.match(text(tree), /Teks hasil praproses sebelum batas tokenizer:/);
     assert.match(text(tree), /Teks hasil praproses dari server\./);
 });
 

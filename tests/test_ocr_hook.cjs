@@ -30,8 +30,9 @@ function load(relativePath, mocks = {}) {
 
 const { getApiConnectionMessage } = load('lib/apiClient.ts');
 
-function hook(post) {
+function hook(post, { deferFunctionalUpdates = false } = {}) {
     const slots = [];
+    const stateUpdates = [];
     let cursor = 0;
     let pendingEffects = [];
     const changed = (previous, deps) => !previous || !deps ||
@@ -41,6 +42,10 @@ function hook(post) {
             const i = cursor++;
             if (!(i in slots)) slots[i] = { value: typeof initial === 'function' ? initial() : initial };
             return [slots[i].value, next => {
+                if (deferFunctionalUpdates && typeof next === 'function') {
+                    stateUpdates.push(() => { slots[i].value = next(slots[i].value); });
+                    return;
+                }
                 slots[i].value = typeof next === 'function' ? next(slots[i].value) : next;
             }];
         },
@@ -67,6 +72,7 @@ function hook(post) {
     });
     return {
         render() {
+            stateUpdates.splice(0).forEach(update => update());
             cursor = 0;
             pendingEffects = [];
             const state = useDetection();
@@ -381,4 +387,200 @@ test('a new OCR request clears an earlier OCR error without resetting the model 
     second.resolve({ data: ocr() });
     assert.ok(await next);
     assert.equal(runtime.render().ocrError, null);
+});
+
+function limeResponse(word = 'klaim') {
+    return { status: 'success', message: 'Penjelasan tersedia.', explanation: {
+        explanation_available: true,
+        tokens: [{ word, weight: 0.2, influence: 'KE_HOAKS' }],
+        teks_dijelaskan: 'Naskah yang telah dianalisis.',
+    } };
+}
+
+test('LIME attaches a confirmed explanation to its result without changing the classification', async () => {
+    const requests = [];
+    const classified = verdict();
+    const explained = limeResponse();
+    const runtime = hook(async (url, body, config) => {
+        requests.push({ url, body, config });
+        return { data: url === '/api/v1/detect/text' ? classified : explained };
+    });
+    await runtime.render().detectText(classified.data.input_text);
+    await runtime.render().requestExplanation();
+    const state = runtime.render();
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].url, '/api/v1/detect/existing-verdict/explain');
+    assert.equal(requests[1].body, null);
+    assert.equal(requests[1].config.timeout, 180000);
+    assert.ok(requests[1].config.signal instanceof AbortSignal);
+    assert.equal(state.result.data.explanation, explained.explanation);
+    assert.equal(state.result.data.input_text, classified.data.input_text);
+    assert.equal(state.result.data.pattern_label, classified.data.pattern_label);
+    assert.equal(state.limeLoading, false);
+    assert.equal(state.limeError, null);
+    assert.equal(classified.data.explanation, undefined, 'The previous result object must not be mutated');
+});
+
+test('LIME applies a queued React result update after request cleanup without losing the explanation', async () => {
+    const explained = limeResponse();
+    const runtime = hook(async (url) => ({
+        data: url === '/api/v1/detect/text' ? verdict() : explained,
+    }), { deferFunctionalUpdates: true });
+    await runtime.render().detectText('Naskah yang sudah dianalisis oleh model.');
+    await runtime.render().requestExplanation();
+    const state = runtime.render();
+    assert.equal(state.result.data.explanation, explained.explanation);
+    assert.equal(state.limeLoading, false);
+    assert.equal(state.limeError, null);
+});
+
+test('a retained result callback cannot revive its explanation request after reset', async () => {
+    const requests = [];
+    const runtime = hook(async (url) => {
+        requests.push(url);
+        return { data: verdict() };
+    });
+    await runtime.render().detectText('Naskah yang sebelumnya sudah dinilai oleh model.');
+    const oldRequest = runtime.render().requestExplanation;
+    runtime.render().reset();
+    await oldRequest();
+    assert.deepEqual(requests, ['/api/v1/detect/text']);
+    assert.equal(runtime.render().result, null);
+    assert.equal(runtime.render().limeLoading, false);
+    assert.equal(runtime.render().limeError, null);
+});
+
+test('LIME prevents duplicate requests while the current explanation is pending', async () => {
+    const pending = deferred();
+    let count = 0;
+    const runtime = hook((url) => {
+        if (url === '/api/v1/detect/text') return Promise.resolve({ data: verdict() });
+        count++;
+        return pending.promise;
+    });
+    await runtime.render().detectText('Naskah yang sudah dinilai oleh model.');
+    const first = runtime.render().requestExplanation();
+    await runtime.render().requestExplanation();
+    assert.equal(count, 1);
+    assert.equal(runtime.render().limeLoading, true);
+    pending.resolve({ data: limeResponse() });
+    await first;
+    assert.equal(runtime.render().limeLoading, false);
+});
+
+for (const outcome of ['success', 'failure']) {
+    test('LIME ignores an old ' + outcome + ' and finalizer after reset even when the record ID repeats', async () => {
+        const old = deferred(), current = deferred();
+        const signals = [];
+        const runtime = hook((url, _body, config) => {
+            if (url === '/api/v1/detect/text') return Promise.resolve({ data: verdict() });
+            signals.push(config.signal);
+            return signals.length === 1 ? old.promise : current.promise;
+        });
+        await runtime.render().detectText('Naskah akun pertama yang sebelumnya dinilai.');
+        const first = runtime.render().requestExplanation();
+        runtime.render().reset();
+        assert.equal(signals[0].aborted, true);
+        await runtime.render().detectText('Naskah konteks baru yang akan dinilai.');
+        const second = runtime.render().requestExplanation();
+        if (outcome === 'success') old.resolve({ data: limeResponse('lama') });
+        else old.reject({ response: { status: 503, data: { detail: 'Galat penjelasan lama.' } } });
+        await first;
+        assert.equal(runtime.render().limeLoading, true);
+        assert.equal(runtime.render().limeError, null);
+        assert.equal(runtime.render().result.data.explanation, undefined);
+        assert.equal(signals[1].aborted, false);
+        await runtime.render().requestExplanation();
+        assert.equal(signals.length, 2, 'The old finalizer must not release the new request guard');
+        const latest = limeResponse('terbaru');
+        current.resolve({ data: latest });
+        await second;
+        assert.equal(runtime.render().result.data.explanation, latest.explanation);
+        assert.equal(runtime.render().limeLoading, false);
+    });
+}
+
+test('starting a new classification aborts LIME and ignores its late response', async () => {
+    const pending = deferred();
+    let signal;
+    const runtime = hook((url, _body, config) => {
+        if (url === '/api/v1/detect/text') return Promise.resolve({ data: verdict() });
+        signal = config.signal;
+        return pending.promise;
+    });
+    await runtime.render().detectText('Naskah pertama yang sudah dianalisis.');
+    const first = runtime.render().requestExplanation();
+    await runtime.render().detectText('Naskah kedua yang baru dianalisis.');
+    assert.equal(signal.aborted, true);
+    pending.resolve({ data: limeResponse('lama') });
+    await first;
+    assert.equal(runtime.render().result.data.explanation, undefined);
+    assert.equal(runtime.render().limeLoading, false);
+    assert.equal(runtime.render().limeError, null);
+});
+
+test('unmount aborts LIME and ignores a late response', async () => {
+    const pending = deferred();
+    let signal;
+    const runtime = hook((url, _body, config) => {
+        if (url === '/api/v1/detect/text') return Promise.resolve({ data: verdict() });
+        signal = config.signal;
+        return pending.promise;
+    });
+    await runtime.render().detectText('Naskah yang sudah dianalisis oleh model.');
+    const submitted = runtime.render().requestExplanation();
+    const saved = runtime.render().result;
+    runtime.unmount();
+    assert.equal(signal.aborted, true);
+    pending.resolve({ data: limeResponse() });
+    await submitted;
+    assert.equal(runtime.render().result, saved);
+    assert.equal(runtime.render().limeError, null);
+});
+
+const invalidExplanations = [
+    ['missing body', null],
+    ['error envelope', { ...limeResponse(), status: 'error' }],
+    ['missing acknowledgement', { explanation: limeResponse().explanation }],
+    ['unavailable explanation', { ...limeResponse(), explanation: { explanation_available: false, tokens: [] } }],
+    ['missing token array', { ...limeResponse(), explanation: { explanation_available: true } }],
+    ['empty token array', { ...limeResponse(), explanation: { explanation_available: true, tokens: [] } }],
+    ['no named tokens', { ...limeResponse(), explanation: { explanation_available: true, tokens: [null, {}, { word: ' ' }] } }],
+    ['invalid explained text', { ...limeResponse(), explanation: { ...limeResponse().explanation, teks_dijelaskan: null } }],
+];
+for (const [name, invalid] of invalidExplanations) {
+    test('LIME preserves the classification and reports an invalid response: ' + name, async () => {
+        const classified = verdict();
+        const runtime = hook(async (url) => ({ data: url === '/api/v1/detect/text' ? classified : invalid }));
+        await runtime.render().detectText('Naskah yang sudah dianalisis oleh model.');
+        await runtime.render().requestExplanation();
+        assert.equal(runtime.render().result, classified);
+        assert.equal(runtime.render().limeLoading, false);
+        assert.equal(typeof runtime.render().limeError, 'string');
+        assert.equal(runtime.render().error, null);
+    });
+}
+
+test('a failed LIME request exposes its reason while preserving the model verdict', async () => {
+    const classified = verdict();
+    const runtime = hook(async (url) => {
+        if (url === '/api/v1/detect/text') return { data: classified };
+        throw { response: { status: 503, data: { detail: 'Penjelasan lain sedang diproses.' } } };
+    });
+    await runtime.render().detectText('Naskah yang sudah dianalisis oleh model.');
+    await runtime.render().requestExplanation();
+    assert.equal(runtime.render().result, classified);
+    assert.equal(runtime.render().limeError, 'Penjelasan lain sedang diproses.');
+    assert.equal(runtime.render().limeLoading, false);
+});
+
+test('LIME retains a named token with unavailable weight for explicit rendering of partial data', async () => {
+    const explained = limeResponse();
+    explained.explanation.tokens = [null, { word: 'tersedia', weight: null, influence: 'KE_HOAKS' }];
+    const runtime = hook(async (url) => ({ data: url === '/api/v1/detect/text' ? verdict() : explained }));
+    await runtime.render().detectText('Naskah yang sudah dianalisis oleh model.');
+    await runtime.render().requestExplanation();
+    assert.equal(runtime.render().result.data.explanation, explained.explanation);
+    assert.equal(runtime.render().result.data.explanation.tokens[1].weight, null);
+    assert.equal(runtime.render().limeError, null);
 });

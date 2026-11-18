@@ -38,7 +38,7 @@ class DetectionResultData(BaseModel):
     seed_decisions: Optional[Dict[int, Literal[0, 1]]] = None
     sub_topik: Optional[str] = None
     reason: Optional[str] = None
-    terpotong: bool = False
+    terpotong: Optional[bool] = None
     teks_dinilai: Optional[str] = None
     explanation: Optional[Dict[str, Any]] = None
     narrative_text: Optional[str] = None

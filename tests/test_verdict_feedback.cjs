@@ -406,3 +406,84 @@ test('feedback still submits correctly while an existing LIME explanation is col
     assert.equal([...elements(parent.render())].some(node => node.type === 'LimeHighlighter'), false);
     assert.equal(explanationRequests, 0);
 });
+
+test('consensus uses verified decisions, never invents a missing seed denominator, and stays out of confidence', () => {
+    for (const [decisions, expected] of [
+        [{ 42: 1, 123: 1, 999: 0 }, 'Kesepakatan seed: 2/3'],
+        [undefined, 'Kesepakatan seed: 66.7%'],
+        [{}, 'Kesepakatan seed: 66.7%'],
+        [[1, 1, 0], 'Kesepakatan seed: 66.7%'],
+        [{ 42: true, 123: 1, 999: 0 }, 'Kesepakatan seed: 66.7%'],
+    ]) {
+        const result = detection();
+        result.data.agreement_ratio = 2 / 3;
+        result.data.seed_decisions = decisions;
+        result.data.explanation = { explanation_available: true,
+            tokens: [{ word: 'klaim', weight: 0.2, influence: 'KE_HOAKS' }] };
+        const tree = card({ result }).render();
+        assert.match(text(tree), new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+        const highlighter = [...elements(tree)].find(node => node.type === 'LimeHighlighter');
+        assert.equal(highlighter.props.confidenceScore, undefined);
+    }
+});
+
+test('conflicting consensus metadata is visible instead of rounding it into a vote count', () => {
+    const result = detection();
+    result.data.agreement_ratio = 1;
+    result.data.seed_decisions = { 42: 1, 123: 1, 999: 0 };
+    assert.match(text(card({ result }).render()), /Kesepakatan seed: data tidak konsisten/);
+});
+
+test('unavailable consensus and rejected inputs do not receive a consensus label', () => {
+    for (const agreement of [null, undefined, NaN, Infinity, -0.1, 1.1]) {
+        const result = detection();
+        result.data.agreement_ratio = agreement;
+        assert.doesNotMatch(text(card({ result }).render()), /Kesepakatan seed:/);
+    }
+    const rejected = detection(undefined, 'TIDAK DAPAT DINILAI', 'ditolak');
+    rejected.data.agreement_ratio = 1;
+    rejected.data.seed_decisions = { 42: 1 };
+    assert.doesNotMatch(text(card({ result: rejected }).render()), /Kesepakatan seed:/);
+});
+
+test('unknown truncation stays visible and does not fabricate analyzed text from the raw input', () => {
+    for (const truncation of [null, undefined]) {
+        const result = detection();
+        result.data.terpotong = truncation;
+        result.data.input_text = Array.from({ length: 90 }, (_, i) => 'kata' + i).join(' ');
+        const tree = card({ result }).render();
+        assert.match(text(tree), /Status Pemotongan Belum Diketahui/);
+        assert.match(text(tree), /Teks hasil praproses tidak tersedia/);
+        assert.equal([...elements(tree)].some(node => node.type === 'button' &&
+            text(node).includes('Lihat Teks Praproses')), false);
+        assert.doesNotMatch(text(tree), /kata0 kata1/);
+    }
+    const known = detection();
+    known.data.terpotong = false;
+    assert.doesNotMatch(text(card({ result: known }).render()), /Status Pemotongan Belum Diketahui/);
+});
+
+test('available analyzed text is labelled as preprocessing before tokenizer limits', () => {
+    const result = detection();
+    result.data.terpotong = true;
+    result.data.teks_dinilai = 'Teks hasil praproses dari server.';
+    const parent = card({ result });
+    button(parent.render(), 'Lihat Teks Praproses').props.onClick();
+    const tree = parent.render();
+    assert.match(text(tree), /Teks Hasil Praproses Sebelum Batas Tokenizer:/);
+    assert.match(text(tree), /Teks hasil praproses dari server\./);
+});
+
+test('LIME inline text uses supplied explanation/preprocessing metadata without substituting raw text', () => {
+    const result = detection();
+    result.data.explanation = { explanation_available: true,
+        tokens: [{ word: 'klaim', weight: 0.2, influence: 'KE_HOAKS' }] };
+    let tree = card({ result }).render();
+    assert.equal([...elements(tree)].find(node => node.type === 'LimeHighlighter').props.text, undefined);
+    result.data.teks_dinilai = 'Teks praproses.';
+    tree = card({ result }).render();
+    assert.equal([...elements(tree)].find(node => node.type === 'LimeHighlighter').props.text, 'Teks praproses.');
+    result.data.explanation.teks_dijelaskan = 'Teks penjelasan LIME.';
+    tree = card({ result }).render();
+    assert.equal([...elements(tree)].find(node => node.type === 'LimeHighlighter').props.text, 'Teks penjelasan LIME.');
+});

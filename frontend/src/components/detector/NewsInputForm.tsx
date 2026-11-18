@@ -10,7 +10,8 @@ import {
     CheckCircle2,
     X,
     Edit3,
-    Camera
+    Camera,
+    Info
 } from "lucide-react";
 import { getApiConnectionMessage } from "@/lib/apiClient";
 import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
@@ -161,16 +162,16 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
     };
 
     useEffect(() => {
-    if (
-        activeTab !== "image" ||
-        blocked ||
-        loginRequired ||
-        loading ||
-        readingImage
-    ) {
-        setCameraOpen(false);
-    }
-}, [activeTab, blocked, loginRequired, loading, readingImage]);
+        if (
+            activeTab !== "image" ||
+            blocked ||
+            loginRequired ||
+            loading ||
+            readingImage
+        ) {
+            setCameraOpen(false);
+        }
+    }, [activeTab, blocked, loginRequired, loading, readingImage]);
 
     const handleOpenCamera = () => {
         if (blocked || loading || readingImage) return;
@@ -204,227 +205,290 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
         }
     };
 
+    const analyzeDisabled =
+        loading || blocked || readingImage ||
+        (!loginRequired && (
+            currentText.trim().length < 30 ||
+            (activeTab === "image" && (!ocrAccepted || Boolean(imageError)))
+        ));
+
+    // Petunjuk spesifik mengapa tombol Analisis belum aktif
+    const remainingChars = Math.max(0, 30 - currentText.trim().length);
+    let analyzeHint = "Naskah siap dianalisis. Periksa kembali sebelum menekan tombol.";
+    if (loginRequired) {
+        analyzeHint = "Masuk ke akun Anda untuk mulai menganalisis.";
+    } else if (blocked) {
+        analyzeHint = "Analisis sedang tidak tersedia untuk akun ini.";
+    } else if (loading) {
+        analyzeHint = "Naskah sedang diproses. Mohon tunggu.";
+    } else if (readingImage) {
+        analyzeHint = "Menunggu OCR selesai membaca gambar.";
+    } else if (activeTab === "image" && !imagePreview) {
+        analyzeHint = "Pilih gambar atau ambil foto terlebih dahulu.";
+    } else if (activeTab === "image" && (!ocrAccepted || imageError)) {
+        analyzeHint = "Teks gambar belum dapat dipakai. Unggah gambar yang lebih jelas.";
+    } else if (remainingChars > 0) {
+        analyzeHint = `Tambahkan ${remainingChars} karakter lagi agar naskah dapat dianalisis.`;
+    }
+
     return (
-        <div className="bg-white border border-slate-200/80 rounded-3xl shadow-2xs p-6 flex flex-col justify-between min-h-[490px] font-sans">
-            <div>
+        <section className="relative flex min-h-[490px] min-w-0 flex-col overflow-hidden rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-[#f1f8f4] to-slate-50 font-sans shadow-[0_12px_36px_rgba(6,78,59,0.07)]">
 
-                {/* 1. TAB SELEKSI: TEKS LANGSUNG VS UPLOAD GAMBAR */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div className="flex gap-1.5 p-1 bg-slate-100/80 rounded-2xl">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setCameraOpen(false);
-                                setActiveTab("text");
-                            }}
-                            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === "text"
-                                    ? "bg-white text-slate-900 shadow-xs"
-                                    : "text-slate-500 hover:text-slate-800"
-                                }`}
-                        >
-                            <FileText className="w-3.5 h-3.5" />
-                            Teks Langsung
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setCameraOpen(false);
-                                setActiveTab("image");
-                            }}
-                            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === "image"
-                                    ? "bg-white text-slate-900 shadow-xs"
-                                    : "text-slate-500 hover:text-slate-800"
-                                }`}
-                        >
-                            <ImageIcon className="w-3.5 h-3.5" />
-                            Upload Gambar (OCR)
-                        </button>
-                    </div>
-
-                    {/* Indikator Domain Guardrail Politik */}
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                        {isPoliticalDetected ? (
-                            <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Kata Kunci Politik Terdeteksi
-                            </span>
-                        ) : (
-                            <span className="flex items-center gap-1 text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200/60">
-                                <AlertCircle className="w-3.5 h-3.5" /> Topik Belum Terdeteksi
-                            </span>
-                        )}
-                    </div>
+            {/* HEADER PANEL */}
+            <header className="flex items-center gap-3 bg-gradient-to-r from-emerald-950 to-emerald-800 px-5 py-4 text-white sm:px-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-emerald-100 ring-1 ring-white/15">
+                    <FileText className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                    <h2 className="text-base font-semibold tracking-tight">Tambahkan berita Anda</h2>
+                    <p className="mt-0.5 text-xs leading-relaxed text-emerald-100/90">
+                        Pilih teks atau gambar, lalu periksa naskah sebelum dianalisis.
+                    </p>
                 </div>
+            </header>
 
-                {/* 2. AREA MASUKAN SESUAI TAB */}
-                <div className="mt-4 space-y-4">
+            <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
+                <div>
 
-                    {/* TAB A: INPUT TEKS BERITA */}
-                    {activeTab === "text" && (
-                        <div className="space-y-3">
-                            <textarea
-                                rows={7}
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                                placeholder="Tempelkan teks artikel atau kutipan pernyataan berita di sini (minimal 30 karakter)..."
-                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-2xl p-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition resize-none leading-relaxed"
-                            />
-
-                            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                                <span>{inputText.trim().length} karakter (Min. 30 karakter)</span>
-                                <span>Arsitektur: IndoBERT Base P1 • 124.5M Parameter</span>
-                            </div>
+                    {/* 1. TAB SELEKSI: TEKS LANGSUNG VS UPLOAD GAMBAR */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-200/60 pb-4">
+                        <div role="tablist" className="flex gap-1.5 rounded-2xl border border-emerald-200/60 bg-emerald-100/50 p-1">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === "text"}
+                                onClick={() => {
+                                    setCameraOpen(false);
+                                    setActiveTab("text");
+                                }}
+                                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${activeTab === "text"
+                                    ? "bg-emerald-900 text-white shadow-sm"
+                                    : "text-emerald-900/70 hover:bg-white/70 hover:text-emerald-950"
+                                    }`}
+                            >
+                                <FileText className="h-3.5 w-3.5" />
+                                Teks Langsung
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === "image"}
+                                onClick={() => {
+                                    setCameraOpen(false);
+                                    setActiveTab("image");
+                                }}
+                                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${activeTab === "image"
+                                    ? "bg-emerald-900 text-white shadow-sm"
+                                    : "text-emerald-900/70 hover:bg-white/70 hover:text-emerald-950"
+                                    }`}
+                            >
+                                <ImageIcon className="h-3.5 w-3.5" />
+                                Unggah Gambar (OCR)
+                            </button>
                         </div>
-                    )}
 
-                    {/* TAB B: UPLOAD GAMBAR DENGAN HUMAN-IN-THE-LOOP EDITOR */}
-                    {activeTab === "image" && (
-                        <div className="space-y-3">
-                            {!imagePreview ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div
-                                        onClick={() => {
-                                            if (blocked || loading || readingImage) return;
-                                            if (loginRequired) onRequireLogin();
-                                            else fileInputRef.current?.click();
-                                        }}
-                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition text-center"
-                                    >
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/png, image/jpeg, image/webp"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files?.[0];
-                                                e.target.value = "";
-                                                if (file) await handleImageSelect(file);
-                                            }}
-                                        />
-                                        <div className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100 shadow-xs">
-                                            <UploadCloud className="w-5 h-5" />
-                                        </div>
-                                        <p className="text-xs font-bold text-slate-800">Unggah Tangkapan Layar Berita Medsos</p>
-                                        <p className="text-[11px] text-slate-400 mt-1">
-                                            PNG, JPG, atau WEBP, maks. 10 MB (Twitter/X, WhatsApp, Facebook)
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        disabled={blocked || loading || readingImage}
-                                        onClick={handleOpenCamera}
-                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 bg-[#f8fafc] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition text-center disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 mb-2 border border-slate-200 shadow-xs">
-                                            <Camera className="w-5 h-5" />
-                                        </div>
-                                        <p className="text-xs font-bold text-slate-800">Ambil Foto</p>
-                                        <p className="text-[11px] text-slate-400 mt-1">
-                                            Potret berita kertas langsung dari kamera
-                                        </p>
-                                    </button>
-                                </div>
+                        {/* Indikator Domain Guardrail Politik */}
+                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                            {isPoliticalDetected ? (
+                                <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-emerald-300/70 bg-emerald-100 px-2.5 py-1 text-emerald-800">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Kata kunci politik terdeteksi
+                                </span>
                             ) : (
-                                /* HUMAN-IN-THE-LOOP TEXT CORRECTION BOX */
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                                        <div className="flex items-center gap-2 truncate">
-                                            <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-                                            <span className="text-xs font-semibold text-slate-700 truncate">{imageFile?.name}</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={clearImage}
-                                            disabled={blocked || loading}
-                                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
-                                            title="Ganti gambar"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={imagePreview} alt="Pratinjau gambar yang diunggah" className="max-h-48 w-full rounded-xl border border-slate-200 object-contain" />
-
-                                    <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-3.5 space-y-2">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                                            <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
-                                            <span>Koreksi Hasil PaddleOCR (Human-in-the-Loop):</span>
-                                        </div>
-                                        <p className="text-[11px] text-emerald-800/80 leading-relaxed">
-                                            {readingImage ? "Sedang membaca gambar. Tunggu sampai hasil OCR tersedia." : "Periksa dan sunting teks yang terbaca, terutama nama tokoh atau angka, sebelum dianalisis."}
-                                        </p>
-                                        <textarea
-                                            rows={5}
-                                            value={ocrText}
-                                            onChange={(e) => setOcrText(e.target.value)}
-                                            placeholder={readingImage ? "Sedang mengekstrak teks dengan PaddleOCR..." : "Hasil teks akan muncul di sini..."}
-                                            disabled={readingImage || !ocrAccepted || loading || blocked}
-                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 shadow-2xs resize-none"
-                                        />
-                                        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-                                            <span>{ocrText.trim().length} karakter (Min. 30 karakter)</span>
-                                            {readingImage && (
-                                                <span role="status" className="flex items-center gap-1 text-emerald-600 font-medium">
-                                                    <RefreshCw className="w-3 h-3 animate-spin" /> Sedang membaca teks gambar...
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-slate-500">
+                                    <AlertCircle className="h-3.5 w-3.5" /> Topik belum terdeteksi
+                                </span>
                             )}
                         </div>
-                    )}
+                    </div>
 
-                </div>
-                {activeTab === "image" && imageError && <p role="alert" className="mt-3 text-xs text-rose-600">{imageError}</p>}
-            </div>
+                    {/* 2. AREA MASUKAN SESUAI TAB */}
+                    <div className="mt-4 space-y-4">
 
-            {/* 3. TOMBOL EKSEKUSI PIPELINE */}
-            <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
-                    Periksa kembali naskah sebelum memulai analisis.
-                    Penjelasan kata dapat diminta setelah hasil tampil.
-                </p>
+                        {/* TAB A: INPUT TEKS BERITA */}
+                        {activeTab === "text" && (
+                            <div className="space-y-3">
+                                <textarea
+                                    rows={8}
+                                    value={inputText}
+                                    onChange={(e) => setInputText(e.target.value)}
+                                    placeholder="Tempelkan teks artikel atau kutipan pernyataan berita di sini (minimal 30 karakter)..."
+                                    className="w-full resize-none rounded-2xl border border-emerald-200 bg-white p-4 text-xs leading-relaxed text-slate-800 shadow-sm transition placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 sm:text-sm"
+                                />
 
-                <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={
-                        loading || blocked || readingImage ||
-                        (!loginRequired && (
-                            currentText.trim().length < 30 ||
-                            (activeTab === "image" && (!ocrAccepted || Boolean(imageError)))
-                        ))
-                    }
-                    aria-busy={loading}
-                    className={`inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 whitespace-nowrap rounded-2xl border border-emerald-400/20 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/10 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25 sm:w-auto ${loading
-                            ? "cursor-wait bg-[#0b2520]"
-                            : "bg-[#0b2520] enabled:hover:bg-[#133730] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
-                        }`}
-                >
-                    <span
-                        aria-hidden="true"
-                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10"
-                    >
-                        {loading && (
-                            <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-300/40 border-t-emerald-300 motion-safe:animate-spin" />
+                                <div className="flex flex-wrap items-center justify-between gap-1 px-1 text-[11px] text-slate-500">
+                                    <span className={inputText.trim().length >= 30 ? "font-semibold text-emerald-700" : ""}>
+                                        {inputText.trim().length} karakter (min. 30)
+                                    </span>
+                                    <span>Model: IndoBERT Base P1 • 124,5 juta parameter</span>
+                                </div>
+                            </div>
                         )}
 
-                        <AIAnalysisIcon
-                            className={`h-6 w-6 ${loading ? "text-emerald-200" : "text-current"}`}
-                        />
-                    </span>
+                        {/* TAB B: UPLOAD GAMBAR DENGAN HUMAN-IN-THE-LOOP EDITOR */}
+                        {activeTab === "image" && (
+                            <div className="space-y-3">
+                                {!imagePreview ? (
+                                    <div className="space-y-3">
+                                        {/* Pilihan utama: unggah */}
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => {
+                                                if (blocked || loading || readingImage) return;
+                                                if (loginRequired) onRequireLogin();
+                                                else fileInputRef.current?.click();
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key !== "Enter" && e.key !== " ") return;
+                                                e.preventDefault();
+                                                if (blocked || loading || readingImage) return;
+                                                if (loginRequired) onRequireLogin();
+                                                else fileInputRef.current?.click();
+                                            }}
+                                            className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-emerald-400/60 bg-white/80 p-7 text-center transition hover:border-emerald-500 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                                        >
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/png, image/jpeg, image/webp"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    e.target.value = "";
+                                                    if (file) await handleImageSelect(file);
+                                                }}
+                                            />
+                                            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-900/15">
+                                                <UploadCloud className="h-6 w-6" />
+                                            </div>
+                                            <p className="text-sm font-bold text-emerald-950">Unggah tangkapan layar berita</p>
+                                            <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+                                                PNG, JPG, atau WEBP, maks. 10 MB. Cocok untuk Twitter/X, WhatsApp, dan Facebook.
+                                            </p>
+                                        </div>
 
-                    <span>
-                        {loading
-                            ? "Memproses naskah..."
-                            : loginRequired
-                                ? "Masuk untuk Analisis"
-                                : "Analisis Sekarang"}
-                    </span>
-                </button>
+                                        {/* Pilihan pendamping: kamera */}
+                                        <button
+                                            type="button"
+                                            disabled={blocked || loading || readingImage}
+                                            onClick={handleOpenCamera}
+                                            className="flex w-full items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-100/60 px-4 py-3 text-left transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
+                                                <Camera className="h-4 w-4" />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-xs font-bold text-emerald-950">Ambil foto</span>
+                                                <span className="block text-[11px] text-slate-500">Potret berita kertas langsung dari kamera</span>
+                                            </span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    /* HUMAN-IN-THE-LOOP TEXT CORRECTION BOX */
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white/80 p-2.5">
+                                            <div className="flex items-center gap-2 truncate">
+                                                <ImageIcon className="h-4 w-4 shrink-0 text-emerald-600" />
+                                                <span className="truncate text-xs font-semibold text-slate-700">{imageFile?.name}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={clearImage}
+                                                disabled={blocked || loading}
+                                                className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
+                                                title="Ganti gambar"
+                                                aria-label="Ganti gambar"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imagePreview} alt="Pratinjau gambar yang diunggah" className="max-h-48 w-full rounded-xl border border-emerald-200 bg-white object-contain" />
+
+                                        <div className="space-y-2 rounded-2xl border border-emerald-200/70 bg-emerald-100/50 p-3.5">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                                                <Edit3 className="h-3.5 w-3.5 text-emerald-600" />
+                                                <span>Periksa hasil OCR</span>
+                                            </div>
+                                            <p className="text-[11px] leading-relaxed text-emerald-900/80">
+                                                {readingImage ? "Sedang membaca gambar. Tunggu sampai hasil OCR tersedia." : "Periksa dan sunting teks yang terbaca, terutama nama tokoh atau angka, sebelum dianalisis."}
+                                            </p>
+                                            <textarea
+                                                rows={5}
+                                                value={ocrText}
+                                                onChange={(e) => setOcrText(e.target.value)}
+                                                placeholder={readingImage ? "Sedang mengekstrak teks dengan PaddleOCR..." : "Hasil teks akan muncul di sini..."}
+                                                disabled={readingImage || !ocrAccepted || loading || blocked}
+                                                className="w-full resize-none rounded-xl border border-emerald-200 bg-white p-3 text-xs text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 disabled:bg-white/60"
+                                            />
+                                            <div className="flex items-center justify-between px-1 pt-1 text-[11px] text-slate-500">
+                                                <span>{ocrText.trim().length} karakter (min. 30)</span>
+                                                {readingImage && (
+                                                    <span role="status" className="flex items-center gap-1 font-medium text-emerald-700">
+                                                        <RefreshCw className="h-3 w-3 animate-spin" /> Sedang membaca teks gambar...
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                    </div>
+                    {activeTab === "image" && imageError && (
+                        <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>{imageError}</span>
+                        </p>
+                    )}
+                </div>
+
+                {/* 3. TOMBOL EKSEKUSI PIPELINE */}
+                <div className="mt-5 flex flex-col gap-4 border-t border-emerald-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <p
+                        aria-live="polite"
+                        className={`flex min-w-0 flex-1 items-start gap-2 text-xs leading-relaxed ${analyzeDisabled && !loading ? "text-amber-800" : "text-slate-600"}`}
+                    >
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>{analyzeHint}</span>
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={analyzeDisabled}
+                        aria-busy={loading}
+                        className={`inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 whitespace-nowrap rounded-2xl border border-emerald-400/20 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/15 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 sm:w-auto ${loading
+                            ? "cursor-wait bg-emerald-950"
+                            : "bg-gradient-to-r from-emerald-900 to-emerald-700 enabled:hover:from-emerald-950 enabled:hover:to-emerald-800 disabled:cursor-not-allowed disabled:border-emerald-200 disabled:from-emerald-100 disabled:to-emerald-100 disabled:text-emerald-800/50 disabled:shadow-none"
+                            }`}
+                    >
+                        <span
+                            aria-hidden="true"
+                            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10"
+                        >
+                            {loading && (
+                                <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-300/40 border-t-emerald-300 motion-safe:animate-spin" />
+                            )}
+
+                            <AIAnalysisIcon
+                                className={`h-6 w-6 ${loading ? "text-emerald-200" : "text-current"}`}
+                            />
+                        </span>
+
+                        <span>
+                            {loading
+                                ? "Memproses naskah..."
+                                : loginRequired
+                                    ? "Masuk untuk Analisis"
+                                    : "Analisis Sekarang"}
+                        </span>
+                    </button>
+                </div>
             </div>
+
             {cameraOpen &&
                 activeTab === "image" &&
                 !blocked &&
@@ -441,6 +505,6 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                         }}
                     />
                 )}
-        </div>
+        </section>
     );
 }

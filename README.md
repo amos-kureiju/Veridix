@@ -195,8 +195,35 @@ cd ..
 
 **Terminal 1 — Backend API (FastAPI):**
 ```bash
-uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --port 8000 --workers 1
 ```
+
+Mode bawaan tidak memakai auto-reload agar tidak memindai `.venv`, dependensi,
+atau direktori proyek lain selama API berjalan. Satu worker membatasi proses
+API menjadi satu; setiap worker tambahan memiliki keadaan model/OCR sendiri.
+`python main.py` juga menjalankan satu proses tanpa reload dan memakai objek app
+yang sudah dimuat, tanpa mengimpor ulang `main`.
+
+Jika sedang menyunting kode backend dan memerlukan auto-reload, gunakan:
+
+```bash
+python -m uvicorn main:app --port 8000 --reload --reload-dir src --reload-delay 1.0
+```
+
+Jalankan dari akar proyek dengan virtual environment aktif. Mode ini hanya
+memantau `src`; perubahan `main.py`, `.env`, dan `text_pipeline.py` di akar
+proyek memerlukan restart manual. Jangan menambahkan akar proyek sebagai
+`--reload-dir`, karena `.venv` berada di dalamnya. Tanpa `watchfiles`, Uvicorn
+memakai `StatReload` dan `--reload-exclude` tidak menyaring pemindaiannya.
+Tidak perlu memasang dependensi tambahan untuk konfigurasi terbatas ini.
+
+Jika Windows melaporkan `WinError 1450`, itu berarti sumber daya sistem tidak
+mencukupi. Traceback pada `StatReload.iter_py_files()` menunjukkan kegagalan
+pemindaian berkas, bukan bukti bahwa modul Paddle yang disebut rusak. Hentikan
+proses backend lama dengan Ctrl+C, lalu jalankan mode bawaan tanpa `--reload`.
+Konfigurasi ini menghilangkan pemindaian penyebab traceback tersebut; kecukupan
+memori untuk OCR, inferensi, dan LIME tetap perlu diukur pada perangkat aktual.
+
 > **Akun Demo Bawaan:** Saat backend pertama kali dijalankan, sistem secara otomatis melakukan inisialisasi tabel dan seeding akun demo:
 > - **Administrator:** `admin@veridix.id` | Kata Sandi: `admin123`
 > - **Pengguna Publik:** `amos@veridix.id` | Kata Sandi: `password123`

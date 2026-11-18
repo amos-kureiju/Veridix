@@ -29,6 +29,24 @@ interface VerdictCardProps {
     onFeedbackSubmitted?: () => void | Promise<void>;
 }
 
+// Kelas bersama agar semua kondisi panel hasil seragam dengan panel input
+const panelClass =
+    "flex min-w-0 flex-col overflow-hidden rounded-3xl border border-emerald-200/70 bg-[#f1f8f4] shadow-[0_12px_36px_rgba(6,78,59,0.07)]";
+
+function PanelHeader({ subtitle }: { subtitle: string }) {
+    return (
+        <header className="flex items-center gap-3 bg-gradient-to-r from-emerald-950 to-emerald-800 px-5 py-4 text-white sm:px-6">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-800 shadow-sm">
+                <AIAnalysisIcon className="h-7 w-7" />
+            </span>
+            <div className="min-w-0">
+                <h2 className="text-base font-semibold tracking-tight">Hasil analisis</h2>
+                <p className="mt-0.5 text-xs text-emerald-200">{subtitle}</p>
+            </div>
+        </header>
+    );
+}
+
 export default function VerdictCard({
     result,
     loading,
@@ -75,49 +93,107 @@ export default function VerdictCard({
     // 1. Kondisi Sedang Memproses
     if (loading) {
         return (
-            <div
-                role="status"
-                aria-live="polite"
-                className="relative flex min-h-[460px] flex-col items-center justify-center overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-b from-white to-emerald-50/60 p-8 text-center shadow-sm"
-            >
+            <section className={`${panelClass} min-h-[460px]`}>
+                <PanelHeader subtitle="Sedang memproses naskah" />
                 <div
-                    aria-hidden="true"
-                    className="relative mb-6 flex h-24 w-24 items-center justify-center"
+                    role="status"
+                    aria-live="polite"
+                    className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-10 text-center"
                 >
-                    <span className="absolute inset-0 rounded-full border border-emerald-100" />
-                    <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-200 border-t-emerald-500 motion-safe:animate-spin" />
-                    <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-600 shadow-lg shadow-emerald-100/60">
-                        <AIAnalysisIcon className="h-10 w-10" />
-                    </span>
+                    {/* Keyframe lokal untuk animasi analisis */}
+                    <style>{`
+                        @keyframes vx-main-scan { 0% { top: -12%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+                        @keyframes vx-main-glow { 0%, 100% { opacity: .35; transform: scale(1); } 50% { opacity: .75; transform: scale(1.1); } }
+                        @keyframes vx-main-line { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+                        @keyframes vx-main-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+                        @media (prefers-reduced-motion: reduce) {
+                            .vx-main-anim { animation: none !important; }
+                        }
+                    `}</style>
+
+                    {/* Cahaya latar yang berdenyut di belakang logo */}
+                    <span
+                        aria-hidden="true"
+                        className="vx-main-anim pointer-events-none absolute left-1/2 top-[34%] h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/25 blur-3xl"
+                        style={{ animation: "vx-main-glow 2.6s ease-in-out infinite" }}
+                    />
+
+                    {/* Logo otak dalam tile persegi dengan garis pemindai */}
+                    <div
+                        aria-hidden="true"
+                        className="relative mb-7 flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 to-emerald-800 text-emerald-100 shadow-xl shadow-emerald-900/25 ring-1 ring-emerald-300/30"
+                    >
+                        <AIAnalysisIcon className="h-14 w-14" />
+                        <span
+                            className="vx-main-anim absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-emerald-300/55 to-transparent"
+                            style={{ animation: "vx-main-scan 1.9s ease-in-out infinite" }}
+                        />
+                        <span className="absolute left-2 top-2 h-3 w-3 rounded-tl-lg border-l-2 border-t-2 border-emerald-300/80" />
+                        <span className="absolute right-2 top-2 h-3 w-3 rounded-tr-lg border-r-2 border-t-2 border-emerald-300/80" />
+                        <span className="absolute bottom-2 left-2 h-3 w-3 rounded-bl-lg border-b-2 border-l-2 border-emerald-300/80" />
+                        <span className="absolute bottom-2 right-2 h-3 w-3 rounded-br-lg border-b-2 border-r-2 border-emerald-300/80" />
+                    </div>
+
+                    <h3 className="relative flex items-center gap-2 text-lg font-semibold tracking-tight text-emerald-950">
+                        Naskah Anda sedang diproses
+                        <span aria-hidden="true" className="flex items-center gap-1">
+                            {[0, 1, 2].map((i) => (
+                                <span
+                                    key={i}
+                                    className="vx-main-anim h-1.5 w-1.5 rounded-full bg-emerald-600"
+                                    style={{ animation: `vx-main-dot 1.2s ease-in-out ${i * 0.15}s infinite` }}
+                                />
+                            ))}
+                        </span>
+                    </h3>
+
+                    <p className="relative mt-2 max-w-xs text-sm leading-relaxed text-slate-600">
+                        Hasil analisis akan tampil setelah pemrosesan selesai.
+                    </p>
+
+                    {/* Garis teks yang sedang dibaca model (indeterminate, bukan persentase) */}
+                    <div aria-hidden="true" className="relative mt-7 w-full max-w-xs space-y-2.5">
+                        {["w-full", "w-11/12", "w-4/5", "w-3/5"].map((w, i) => (
+                            <span
+                                key={i}
+                                className={`relative block h-2.5 overflow-hidden rounded-full bg-emerald-200/60 ${w}`}
+                            >
+                                <span
+                                    className="vx-main-anim absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"
+                                    style={{ animation: `vx-main-line 1.7s ease-in-out ${i * 0.15}s infinite` }}
+                                />
+                            </span>
+                        ))}
+                    </div>
                 </div>
-
-                <span className="mb-3 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">
-                    Analisis AI
-                </span>
-
-                <h3 className="text-lg font-semibold tracking-tight text-slate-800">
-                    Naskah Anda sedang diproses
-                </h3>
-
-                <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
-                    Hasil analisis akan tampil setelah pemrosesan selesai.
-                </p>
-            </div>
+            </section>
         );
     }
 
     // 2. Kondisi Belum Ada Masukan
     if (!result || !result.data) {
         return (
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-10 shadow-2xs flex flex-col items-center justify-center text-center min-h-[460px]">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
-                    <HelpCircle className="w-6 h-6" />
+            <section className={`${panelClass} min-h-[420px]`}>
+                <PanelHeader subtitle="Pola bahasa dan penjelasan model" />
+
+                <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+                    <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
+                        <AIAnalysisIcon className="h-9 w-9" />
+                    </span>
+                    <h3 className="text-xl font-semibold text-emerald-950">
+                        Hasil akan muncul di sini
+                    </h3>
+                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
+                        Tambahkan berita melalui panel input. Untuk gambar,
+                        periksa teks hasil OCR sebelum memilih Analisis Sekarang.
+                    </p>
                 </div>
-                <h3 className="text-base font-bold text-slate-700">Hasil Analisis Model</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
-                    Tempelkan teks berita atau unggah tangkapan layar, lalu tekan tombol "Analisis" untuk melihat hasil evaluasi model.
-                </p>
-            </div>
+
+                <footer className="border-t border-emerald-200/70 bg-white/60 px-6 py-4 text-xs leading-relaxed text-slate-600">
+                    Hasil menunjukkan kemiripan pola bahasa, bukan pembuktian
+                    kebenaran berita.
+                </footer>
+            </section>
         );
     }
 
@@ -280,251 +356,313 @@ export default function VerdictCard({
                 : "NETRAL";
 
     return (
-        <div className="bg-white border border-slate-200/80 rounded-3xl shadow-2xs p-6 space-y-5">
+        <section className={panelClass}>
+            <PanelHeader subtitle="Pola bahasa dan penjelasan model" />
 
-            {/* LAPIS 1: KEPUTUSAN MODEL & KONSENSUS SUARA */}
-            <div className={`border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 ${theme.bg}`}>
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 bg-white/90 rounded-xl shadow-xs">
-                        <IconVerdict className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
-                            Hasil analisis {topic ? `• Topik: ${topic}` : ""}
-                        </span>
-                        <h2 className="text-xl font-black tracking-tight leading-tight">
-                            {theme.label}
-                        </h2>
-                    </div>
-                </div>
+            <div className="space-y-5 p-5 sm:p-6">
 
-                <div className="text-right shrink-0">
-                    <span className={`inline-block whitespace-nowrap text-xs font-bold px-3 py-1 rounded-full ${theme.badge}`}>
-                        {theme.badgeText}
-                    </span>
-                    {consensusLabel && (
-                        <p
-                            className="text-[11px] font-semibold mt-1 opacity-85"
-                            title="Menunjukkan konsensus antar-seed model, bukan akurasi atau probabilitas kebenaran berita."
-                        >
-                            {consensusLabel}
-                        </p>
-                    )}
-                    <p className="text-[10px] opacity-70 mt-1 flex items-center justify-end gap-1 font-mono">
-                        <Clock className="w-3 h-3" /> {latencyStr}
-                    </p>
-                </div>
-            </div>
-
-            {/* PERBAIKAN AUDIT: Peringatan Pemotongan Teks Transparan */}
-            {(isTruncated || truncationUnknown) && (
-                <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-start gap-2.5">
-                        <Scissors className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-xs font-bold text-amber-900">
-                                    {isTruncated
-                                        ? "Naskah Berita Terpotong untuk Analisis"
-                                        : "Status Pemotongan Belum Diketahui"}
-                                </h4>
-                                {hasAnalyzedText && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAnalyzedText(!showAnalyzedText)}
-                                        className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
-                                    >
-                                        {showAnalyzedText ? "Tutup Naskah" : "Lihat Teks Praproses"}
-                                    </button>
-                                )}
-                            </div>
-                            <p className="text-[11px] text-amber-800/90 leading-relaxed mt-1">
-                                {isTruncated
-                                    ? "Sebagian naskah dipotong pada praproses atau tokenisasi."
-                                    : "Metadata belum cukup untuk memastikan apakah seluruh naskah masuk model."}
-                                {hasAnalyzedText
-                                    ? " Teks praproses berada sebelum batas tokenizer, sehingga belum tentu seluruhnya masuk model."
-                                    : " Teks hasil praproses tidak tersedia untuk hasil ini."}
-                            </p>
+                {/* LAPIS 1: KEPUTUSAN MODEL & KONSENSUS SUARA */}
+                <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm ${theme.bg}`}>
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="rounded-xl bg-white/90 p-2 shadow-xs">
+                            <IconVerdict className="h-6 w-6" />
                         </div>
-                    </div>
-
-                    {showAnalyzedText && hasAnalyzedText && (
-                        <div className="mt-2 pt-2 border-t border-amber-200/60">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
-                                Teks Hasil Praproses Sebelum Batas Tokenizer:
+                        <div className="min-w-0">
+                            <span className="block text-[11px] font-semibold opacity-70">
+                                Keputusan model {topic ? `• Topik: ${topic}` : ""}
                             </span>
-                            <div className="bg-white/90 border border-amber-200/60 rounded-xl p-3 text-[11px] text-slate-700 font-mono leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
-                                {displaySnippet}
-                            </div>
+                            <h3 className="text-xl font-black leading-tight tracking-tight">
+                                {theme.label}
+                            </h3>
                         </div>
-                    )}
-                </div>
-            )}
+                    </div>
 
-            {/* LAPIS 2: KETERANGAN EVALUASI SISTEM */}
-            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    Keterangan Evaluasi Sistem
-                </p>
-                <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                    {narrative}
-                </p>
-            </div>
-
-            {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME, SESUAI PERMINTAAN) */}
-            {limeAvailable ? (
-                <div>
-                    <button
-                        type="button"
-                        onClick={() => setShowLime((v) => !v)}
-                        className="w-full flex items-center justify-between text-left mb-2"
-                        aria-expanded={showLime}
-                    >
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Kata yang memengaruhi hasil
+                    <div className="shrink-0 text-right">
+                        <span className={`inline-block whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${theme.badge}`}>
+                            {theme.badgeText}
                         </span>
-                        <span className="text-[11px] font-semibold text-emerald-700">
-                            {showLime ? "Sembunyikan" : "Tampilkan"}
-                        </span>
-                    </button>
-                    {showLime && (
-                        <LimeHighlighter
-                            tokens={limeTokens}
-                            text={d.explanation?.teks_dijelaskan || d.teks_dinilai || undefined}
-                            topHoax={d.explanation?.top_hoax_words}
-                            topFact={d.explanation?.top_fact_words}
-                            showChart={viewSettings.show_lime_chart}
-                            topWordsCount={viewSettings.lime_top_words ?? 3}
-                            prediction={limePredictionLabel}
-                            numSamples={
-                                Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0
-                                    ? d.explanation.num_samples
-                                    : undefined
-                            }
-                            confidenceScore={
-                                typeof d.confidence_score === "number" && Number.isFinite(d.confidence_score)
-                                    ? d.confidence_score
-                                    : undefined
-                            }
-                        />
-                    )}
-                </div>
-            ) : (
-                <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-3 text-center space-y-2">
-                    {limeLoading ? (
-                        <div
-                            role="status"
-                            aria-live="polite"
-                            className="flex items-start gap-3 rounded-xl bg-emerald-50/70 p-3 text-left"
-                        >
-                            <span
-                                aria-hidden="true"
-                                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600"
+                        {consensusLabel && (
+                            <p
+                                className="mt-1 text-[11px] font-semibold opacity-85"
+                                title="Menunjukkan konsensus antar-seed model, bukan akurasi atau probabilitas kebenaran berita."
                             >
-                                <span className="absolute inset-0 rounded-full border-2 border-emerald-100 border-t-emerald-500 motion-safe:animate-spin" />
-                                <AIAnalysisIcon className="h-6 w-6" />
-                            </span>
-                            <div>
-                                <p className="text-xs font-semibold text-emerald-900">AI sedang menyusun penjelasan</p>
-                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                                    Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
+                                {consensusLabel}
+                            </p>
+                        )}
+                        <p className="mt-1 flex items-center justify-end gap-1 font-mono text-[10px] opacity-70">
+                            <Clock className="h-3 w-3" /> {latencyStr}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Peringatan Pemotongan Teks Transparan */}
+                {(isTruncated || truncationUnknown) && (
+                    <div className="space-y-2 rounded-2xl border border-amber-300/80 bg-amber-50 p-4">
+                        <div className="flex items-start gap-2.5">
+                            <Scissors className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                            <div className="flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h4 className="text-xs font-bold text-amber-900">
+                                        {isTruncated
+                                            ? "Naskah berita terpotong untuk analisis"
+                                            : "Status pemotongan belum diketahui"}
+                                    </h4>
+                                    {hasAnalyzedText && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAnalyzedText(!showAnalyzedText)}
+                                            className="shrink-0 cursor-pointer text-[11px] font-semibold text-amber-800 underline hover:text-amber-950"
+                                        >
+                                            {showAnalyzedText ? "Tutup naskah" : "Lihat teks praproses"}
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-[11px] leading-relaxed text-amber-900/90">
+                                    {isTruncated
+                                        ? "Sebagian naskah dipotong pada praproses atau tokenisasi."
+                                        : "Metadata belum cukup untuk memastikan apakah seluruh naskah masuk model."}
+                                    {hasAnalyzedText
+                                        ? " Teks praproses berada sebelum batas tokenizer, sehingga belum tentu seluruhnya masuk model."
+                                        : " Teks hasil praproses tidak tersedia untuk hasil ini."}
                                 </p>
                             </div>
                         </div>
-                    ) : (
-                        <>
-                            <p className="text-[11px] text-slate-400">
-                                {limeError
-                                    ? limeError
-                                    : d.explanation?.error
-                                        ? `Gagal mengekstrak LIME: ${d.explanation.error}`
-                                        : canExplain
-                                            ? "Penjelasan kata (LIME) tidak dihitung otomatis agar hasil klasifikasi tampil lebih cepat."
-                                            : "Atribusi LIME tidak tersedia untuk status ini."}
-                            </p>
-                            {canExplain && onRequestExplanation && (
-                                <button
-                                    type="button"
-                                    onClick={onRequestExplanation}
-                                    disabled={!canAct}
-                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200/60 transition disabled:opacity-40"
-                                >
-                                    {limeError ? "Coba lagi" : "Tampilkan penjelasan"}
-                                </button>
-                            )}
-                        </>
-                    )}
+
+                        {showAnalyzedText && hasAnalyzedText && (
+                            <div className="mt-2 border-t border-amber-200/60 pt-2">
+                                <span className="mb-1 block text-[11px] font-bold text-amber-800">
+                                    Teks hasil praproses sebelum batas tokenizer:
+                                </span>
+                                <div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-xl border border-amber-200/60 bg-white p-3 font-mono text-[11px] leading-relaxed text-slate-700">
+                                    {displaySnippet}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* LAPIS 2: KETERANGAN EVALUASI SISTEM */}
+                <div className="rounded-2xl border border-emerald-200/60 bg-white p-4 shadow-sm">
+                    <p className="mb-1 text-[11px] font-bold text-emerald-800">
+                        Penjelasan hasil
+                    </p>
+                    <p className="font-sans text-sm leading-relaxed text-slate-700">
+                        {narrative}
+                    </p>
                 </div>
-            )}
 
-            {/* LAPIS 4: PENAFIAN (DISCLAIMER) MANDATORI */}
-            <DisclaimerBanner />
+                {/* LAPIS 3: PENJELASAN BOBOT KATA (LIME, SESUAI PERMINTAAN) */}
+                {limeAvailable ? (
+                    <div className="rounded-2xl border border-emerald-200/60 bg-white p-4 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setShowLime((v) => !v)}
+                            className="mb-2 flex w-full items-center justify-between text-left"
+                            aria-expanded={showLime}
+                        >
+                            <span className="text-xs font-bold text-emerald-900">
+                                Kata yang memengaruhi hasil
+                            </span>
+                            <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                {showLime ? "Sembunyikan" : "Tampilkan"}
+                            </span>
+                        </button>
+                        {showLime && (
+                            <LimeHighlighter
+                                tokens={limeTokens}
+                                text={d.explanation?.teks_dijelaskan || d.teks_dinilai || undefined}
+                                topHoax={d.explanation?.top_hoax_words}
+                                topFact={d.explanation?.top_fact_words}
+                                showChart={viewSettings.show_lime_chart}
+                                topWordsCount={viewSettings.lime_top_words ?? 3}
+                                prediction={limePredictionLabel}
+                                numSamples={
+                                    Number.isInteger(d.explanation?.num_samples) && d.explanation.num_samples > 0
+                                        ? d.explanation.num_samples
+                                        : undefined
+                                }
+                                confidenceScore={
+                                    typeof d.confidence_score === "number" && Number.isFinite(d.confidence_score)
+                                        ? d.confidence_score
+                                        : undefined
+                                }
+                            />
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-3 rounded-2xl border border-dashed border-emerald-300/80 bg-white/70 p-4">
+                        {limeLoading ? (
+                            <div
+                                role="status"
+                                aria-live="polite"
+                                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 p-4 text-left shadow-lg shadow-emerald-950/15"
+                            >
+                                {/* Keyframe lokal untuk animasi analisis */}
+                                <style>{`
+                                    @keyframes vx-scan { 0% { top: -10%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+                                    @keyframes vx-glow { 0%, 100% { opacity: .35; transform: scale(1); } 50% { opacity: .8; transform: scale(1.12); } }
+                                    @keyframes vx-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+                                    @keyframes vx-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+                                    @media (prefers-reduced-motion: reduce) {
+                                        .vx-anim, .vx-anim::after { animation: none !important; }
+                                    }
+                                `}</style>
 
-            {/* FOOTER TOMBOL AKSI */}
-            {feedbackSuccess === feedbackId && feedbackId && canAct && (
-                <p role="status" className="text-xs text-emerald-700">
-                    Terima kasih! Umpan balik Anda telah dikirim.
-                </p>
-            )}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                                {/* Cahaya latar yang berdenyut */}
+                                <span
+                                    aria-hidden="true"
+                                    className="vx-anim pointer-events-none absolute -left-6 -top-6 h-32 w-32 rounded-full bg-emerald-400/30 blur-2xl"
+                                    style={{ animation: "vx-glow 2.4s ease-in-out infinite" }}
+                                />
+
+                                <div className="relative flex items-center gap-4">
+                                    {/* Logo otak tanpa lingkaran: tile persegi dengan garis pemindai */}
+                                    <span
+                                        aria-hidden="true"
+                                        className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-emerald-100 ring-1 ring-emerald-300/30 backdrop-blur-sm"
+                                    >
+                                        <AIAnalysisIcon className="h-9 w-9" />
+                                        <span
+                                            className="vx-anim absolute inset-x-0 h-6 bg-gradient-to-b from-transparent via-emerald-300/50 to-transparent"
+                                            style={{ animation: "vx-scan 1.8s ease-in-out infinite" }}
+                                        />
+                                        <span className="absolute left-1.5 top-1.5 h-2 w-2 rounded-tl-md border-l-2 border-t-2 border-emerald-300/80" />
+                                        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-tr-md border-r-2 border-t-2 border-emerald-300/80" />
+                                        <span className="absolute bottom-1.5 left-1.5 h-2 w-2 rounded-bl-md border-b-2 border-l-2 border-emerald-300/80" />
+                                        <span className="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-br-md border-b-2 border-r-2 border-emerald-300/80" />
+                                    </span>
+
+                                    <div className="min-w-0 flex-1">
+                                        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                                            AI sedang menyusun penjelasan
+                                            <span aria-hidden="true" className="flex items-center gap-1">
+                                                {[0, 1, 2].map((i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="vx-anim h-1.5 w-1.5 rounded-full bg-emerald-300"
+                                                        style={{ animation: `vx-dot 1.2s ease-in-out ${i * 0.15}s infinite` }}
+                                                    />
+                                                ))}
+                                            </span>
+                                        </p>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-emerald-100/80">
+                                            Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Placeholder kata yang sedang dianalisis (indeterminate, bukan persentase) */}
+                                <div aria-hidden="true" className="relative mt-4 flex flex-wrap gap-2">
+                                    {["w-14", "w-20", "w-12", "w-24", "w-16", "w-10"].map((w, i) => (
+                                        <span
+                                            key={i}
+                                            className={`relative h-5 overflow-hidden rounded-md bg-white/10 ${w}`}
+                                        >
+                                            <span
+                                                className="vx-anim absolute inset-0 bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent"
+                                                style={{ animation: `vx-shimmer 1.6s ease-in-out ${i * 0.12}s infinite` }}
+                                            />
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-bold text-emerald-900">Kata yang memengaruhi hasil</p>
+                                    <p className={`mt-1 text-[11px] leading-relaxed ${limeError || d.explanation?.error ? "font-medium text-rose-700" : "text-slate-600"}`}>
+                                        {limeError
+                                            ? limeError
+                                            : d.explanation?.error
+                                                ? `Gagal mengekstrak LIME: ${d.explanation.error}`
+                                                : canExplain
+                                                    ? "Penjelasan kata (LIME) tidak dihitung otomatis agar hasil klasifikasi tampil lebih cepat."
+                                                    : "Atribusi LIME tidak tersedia untuk status ini."}
+                                    </p>
+                                </div>
+                                {canExplain && onRequestExplanation && (
+                                    <button
+                                        type="button"
+                                        onClick={onRequestExplanation}
+                                        disabled={!canAct}
+                                        className="shrink-0 rounded-xl bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25 disabled:opacity-40"
+                                    >
+                                        {limeError ? "Coba lagi" : "Tampilkan penjelasan"}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* LAPIS 4: PENAFIAN (DISCLAIMER) MANDATORI */}
+                <DisclaimerBanner />
+
+                {/* FOOTER TOMBOL AKSI */}
+                {feedbackSuccess === feedbackId && feedbackId && canAct && (
+                    <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+                        Terima kasih! Umpan balik Anda telah dikirim.
+                    </p>
+                )}
+                <div className="flex items-center justify-between border-t border-emerald-200/60 pt-4">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            disabled
+                            title="Unduh PDF belum tersedia"
+                            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 transition disabled:opacity-40"
+                        >
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Unduh PDF</span>
+                        </button>
+                    </div>
+
                     <button
                         type="button"
-                        disabled
-                        title="Unduh PDF belum tersedia"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-40"
+                        onClick={() => {
+                            if (!canFeedback) return;
+                            setFeedbackSuccess(null);
+                            setFeedbackForId(feedbackTarget);
+                        }}
+                        disabled={!canFeedback}
+                        className="rounded-xl border border-rose-200/70 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-40"
                     >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Unduh PDF</span>
+                        Beri masukan
                     </button>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (!canFeedback) return;
-                        setFeedbackSuccess(null);
-                        setFeedbackForId(feedbackTarget);
-                    }}
-                    disabled={!canFeedback}
-                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition disabled:opacity-40"
-                >
-                    Beri masukan
-                </button>
+                {/* Modal Umpan Balik */}
+                {feedbackTarget && feedbackForId === feedbackTarget && (
+                    <FeedbackModal
+                        key={feedbackTarget}
+                        onClose={() => setFeedbackForId(current => current === feedbackTarget ? null : current)}
+                        onSubmit={async (claim, note) => {
+                            const targetId = feedbackTarget;
+                            if (!canFeedback || feedbackTargetRef.current !== targetId) return;
+                            const modelLabel = isAmbiguous ? "PERLU KONFIRMASI"
+                                : isHoax ? "BERPOLA HOAKS" : "TIDAK BERPOLA HOAKS";
+                            const response = await apiClient.post<{ status: string }>("/api/v1/feedback", {
+                                detection_id: targetId,
+                                is_agreed: claim === modelLabel,
+                                claimed_label: claim,
+                                user_notes: note.trim() || null,
+                            });
+                            if (response.data?.status !== "success") {
+                                throw new Error("Pengiriman umpan balik belum dikonfirmasi server.");
+                            }
+                            if (feedbackTargetRef.current !== targetId) return;
+                            setFeedbackForId(current => current === targetId ? null : current);
+                            setFeedbackSuccess(targetId);
+                            try {
+                                await onFeedbackSubmitted?.();
+                            } catch {
+                                // Feedback sudah tersimpan; kegagalan memuat ulang statistik tidak boleh mengirimnya ulang.
+                            }
+                        }}
+                    />
+                )}
+
             </div>
-
-            {/* Modal Umpan Balik */}
-            {feedbackTarget && feedbackForId === feedbackTarget && (
-                <FeedbackModal
-                    key={feedbackTarget}
-                    onClose={() => setFeedbackForId(current => current === feedbackTarget ? null : current)}
-                    onSubmit={async (claim, note) => {
-                        const targetId = feedbackTarget;
-                        if (!canFeedback || feedbackTargetRef.current !== targetId) return;
-                        const modelLabel = isAmbiguous ? "PERLU KONFIRMASI"
-                            : isHoax ? "BERPOLA HOAKS" : "TIDAK BERPOLA HOAKS";
-                        const response = await apiClient.post<{ status: string }>("/api/v1/feedback", {
-                            detection_id: targetId,
-                            is_agreed: claim === modelLabel,
-                            claimed_label: claim,
-                            user_notes: note.trim() || null,
-                        });
-                        if (response.data?.status !== "success") {
-                            throw new Error("Pengiriman umpan balik belum dikonfirmasi server.");
-                        }
-                        if (feedbackTargetRef.current !== targetId) return;
-                        setFeedbackForId(current => current === targetId ? null : current);
-                        setFeedbackSuccess(targetId);
-                        try {
-                            await onFeedbackSubmitted?.();
-                        } catch {
-                            // Feedback sudah tersimpan; kegagalan memuat ulang statistik tidak boleh mengirimnya ulang.
-                        }
-                    }}
-                />
-            )}
-
-        </div>
+        </section>
     );
 }

@@ -86,7 +86,7 @@ export default function Home() {
             />
 
             {/* Grid Formulir Input dan Hasil Deteksi */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6">
+            <div className="grid grid-cols-1 items-start gap-6 pb-6 xl:grid-cols-2">
                 <div className="space-y-3 xl:sticky xl:top-24 xl:self-start">
                     <NewsInputForm
                         key={userId ?? "guest"}

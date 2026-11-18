@@ -1,0 +1,71 @@
+{
+  "jenis_uji": "Probe posisi pada pipeline praproses asli; tanpa model/API/database/LIME",
+  "sumber_teks": "Skenario rekaan berulang untuk mengisolasi pengaruh posisi, bukan korpus akurasi.",
+  "kalimat_pengisi": "Dalam simulasi ini, pemerintah daerah mengadakan rapat terbuka bersama anggota DPRD untuk membahas transparansi anggaran dan pelayanan masyarakat tahun depan.",
+  "kalimat_klaim_rekaan": "Dalam skenario rekaan ini, pesan anonim mengeklaim seluruh hasil pemilu dibatalkan diam-diam melalui keputusan rahasia tanpa pengumuman resmi dari pemerintah.",
+  "aturan_hitung_kata": "len(text.split())",
+  "hasil": [
+    {
+      "posisi_klaim": "awal",
+      "rentang_kata_klaim": [
+        21,
+        40
+      ],
+      "jumlah_kata_input": 500,
+      "jumlah_kata_praproses": 60,
+      "validasi_lolos": true,
+      "domain_dan_topik_teks_penuh": [
+        true,
+        "pemilu"
+      ],
+      "domain_dan_topik_teks_praproses": [
+        true,
+        "pemilu"
+      ],
+      "klaim_masih_ada_dalam_teks_praproses": true,
+      "sha256_teks_praproses": "42de129ff5a21ba3eec7acf30e5b3720ece1e0dbf9034f194b5ab36e97737539"
+    },
+    {
+      "posisi_klaim": "tengah",
+      "rentang_kata_klaim": [
+        241,
+        260
+      ],
+      "jumlah_kata_input": 500,
+      "jumlah_kata_praproses": 60,
+      "validasi_lolos": true,
+      "domain_dan_topik_teks_penuh": [
+        true,
+        "pemilu"
+      ],
+      "domain_dan_topik_teks_praproses": [
+        true,
+        "kebijakan"
+      ],
+      "klaim_masih_ada_dalam_teks_praproses": false,
+      "sha256_teks_praproses": "f95f0cc1486d6da01c0ed60a75dc42fdf0747c126dc79eff3f1719004accf41b"
+    },
+    {
+      "posisi_klaim": "akhir",
+      "rentang_kata_klaim": [
+        481,
+        500
+      ],
+      "jumlah_kata_input": 500,
+      "jumlah_kata_praproses": 60,
+      "validasi_lolos": true,
+      "domain_dan_topik_teks_penuh": [
+        true,
+        "pemilu"
+      ],
+      "domain_dan_topik_teks_praproses": [
+        true,
+        "kebijakan"
+      ],
+      "klaim_masih_ada_dalam_teks_praproses": false,
+      "sha256_teks_praproses": "f95f0cc1486d6da01c0ed60a75dc42fdf0747c126dc79eff3f1719004accf41b"
+    }
+  ],
+  "input_model_tengah_dan_akhir_identik": true,
+  "prediksi_model_dijalankan": false
+}

@@ -1,0 +1,32 @@
+{
+  "jenis_uji": "Satu teks sintetis: inferensi nyata dan pemotongan, tanpa LIME/API/database/browser",
+  "waktu_mulai": "2026-11-18T11:30:07.443909+07:00",
+  "git_head": "6f16c42240c1282ef4662dfe28c59da3be16f199",
+  "sha256_inference": "c752d7cfe226bca27b010c254868a6bfb7cf6f45c037a6ad7aea722afbbcbe3a",
+  "input_text": "Dalam simulasi ini, pemerintah daerah mengadakan rapat terbuka bersama anggota DPRD untuk membahas transparansi anggaran dan pelayanan masyarakat tahun depan. Peserta meminta rencana belanja dijelaskan secara terperinci agar warga dapat mengetahui tujuan program, penerima manfaat, serta jadwal pelaksanaannya secara terbuka. Perwakilan masyarakat mengusulkan mekanisme pengaduan yang mudah diakses, terutama bagi keluarga penerima bantuan sosial dan penduduk di wilayah terpencil setempat. Pemerintah dalam skenario ini menyatakan bahwa usulan tersebut akan ditinjau melalui prosedur administrasi, pembahasan legislatif, dan pengawasan lembaga terkait nantinya. Warga juga mengingatkan pentingnya menjaga kerahasiaan data pribadi ketika mengirimkan dokumen, memberikan masukan, atau memeriksa informasi mengenai layanan publik daerah. Dalam diskusi berikutnya, peserta membandingkan informasi dari dokumen resmi dengan pesan yang beredar melalui media sosial sebelum mengambil kesimpulan bersama. Mereka sepakat bahwa potongan gambar, judul provokatif, dan angka tanpa rujukan perlu diperiksa kembali agar tidak menimbulkan kesalahpahaman di masyarakat. Panitia kemudian menyusun ringkasan rapat yang memuat pertanyaan warga, jawaban pejabat, serta daftar persoalan yang masih membutuhkan penjelasan lebih lanjut. Seluruh peserta diminta menilai isi pembahasan secara lebih hati-hati, menghormati perbedaan pendapat, dan menghindari penyebaran tuduhan yang belum memiliki bukti. Naskah ini merupakan contoh rekaan untuk menguji sistem analisis pola bahasa politik, sehingga tidak dimaksudkan sebagai laporan kejadian yang nyata.",
+  "input_words": 200,
+  "label_acuan": null,
+  "sumber_teks": "Skenario rekaan peneliti untuk uji fungsional; bukan berita faktual.",
+  "max_words": 60,
+  "max_len_tokens": 128,
+  "status_eksekusi": "gagal",
+  "error_type": "ImportError",
+  "error": "DLL load failed while importing _flapack: The paging file is too small for this operation to complete.",
+  "waktu_selesai": "2026-11-18T11:30:27.264236+07:00",
+  "pemeriksaan_tanpa_model": {
+    "jumlah_kata_asli": 200,
+    "aturan_hitung_kata": "len(text.split()), dipisahkan whitespace",
+    "validasi_lolos": true,
+    "domain_lolos": true,
+    "sub_topik_guardrail": "pemilu",
+    "jumlah_kata_praproses": 60,
+    "teks_praproses_sebelum_tokenizer": "Dalam simulasi ini, pemerintah daerah mengadakan rapat terbuka bersama anggota DPRD untuk membahas transparansi anggaran dan pelayanan masyarakat tahun depan. Peserta meminta rencana belanja dijelaskan secara terperinci agar warga dapat mengetahui tujuan program, penerima manfaat, serta jadwal pelaksanaannya secara terbuka. Perwakilan masyarakat mengusulkan mekanisme pengaduan yang mudah diakses, terutama bagi keluarga penerima bantuan sosial dan penduduk di wilayah terpencil setempat.",
+    "pemotongan_batas_kata_teramati": true
+  },
+  "batas_verifikasi": [
+    "Model belum menghasilkan label, voting, probabilitas, atau hitungan token.",
+    "Pemotongan kata diuji pada pipeline nyata tanpa backend tiruan.",
+    "API, browser, OCR, LIME, dan penyimpanan database tidak diuji.",
+    "Pemeriksaan memori via CIM tidak tersedia karena izin akses; tidak mengubah pengaturan Windows atau menghentikan proses pengguna."
+  ]
+}

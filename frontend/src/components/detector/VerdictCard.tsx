@@ -144,16 +144,36 @@ export default function VerdictCard({
     const isOutOfDomain = processStatus === "di_luar_domain" || rawLabel.includes("DI LUAR CAKUPAN");
     const isRejected = processStatus === "ditolak" || rawLabel === "TIDAK DAPAT DINILAI";
 
-    // PERBAIKAN AUDIT: Ekstraksi status pemotongan & fallback teks yang dianalisis
-    const isTruncated = Boolean(d.terpotong);
+    const modelAssessed = processStatus === "dinilai" || processStatus === "ambigu";
+    const isTruncated = d.terpotong === true;
+    const truncationUnknown = modelAssessed && typeof d.terpotong !== "boolean";
     const hasAnalyzedText = typeof d.teks_dinilai === "string" && d.teks_dinilai.trim() !== "";
-    const displaySnippet = hasAnalyzedText
-        ? d.teks_dinilai
-        : (typeof d.input_text === "string" ? d.input_text.trim().split(/\s+/).slice(0, 60).join(" ") + "..." : "");
+    const displaySnippet = hasAnalyzedText ? d.teks_dinilai : "";
 
 
     const topic = d.sub_topik || d.political_topic || "";
     const votesHoax = d.votes_hoax || "";
+
+    let consensusLabel: string | null = null;
+    if (
+        modelAssessed &&
+        typeof d.agreement_ratio === "number" &&
+        Number.isFinite(d.agreement_ratio) &&
+        d.agreement_ratio >= 0 &&
+        d.agreement_ratio <= 1
+    ) {
+        const decisions: unknown[] = d.seed_decisions && typeof d.seed_decisions === "object" &&
+            !Array.isArray(d.seed_decisions) ? Object.values(d.seed_decisions) : [];
+        if (decisions.length > 0 && decisions.every(value => value === 0 || value === 1)) {
+            const hoaxVotes = decisions.filter(value => value === 1).length;
+            const agreeingVotes = Math.max(hoaxVotes, decisions.length - hoaxVotes);
+            consensusLabel = Math.abs(agreeingVotes / decisions.length - d.agreement_ratio) < 1e-6
+                ? `Kesepakatan seed: ${agreeingVotes}/${decisions.length}`
+                : "Kesepakatan seed: data tidak konsisten";
+        } else {
+            consensusLabel = `Kesepakatan seed: ${(d.agreement_ratio * 100).toFixed(1)}%`;
+        }
+    }
 
     const latencyStr = d.latency_seconds !== undefined
         ? `${d.latency_seconds}s`
@@ -282,6 +302,14 @@ export default function VerdictCard({
                     <span className={`inline-block whitespace-nowrap text-xs font-bold px-3 py-1 rounded-full ${theme.badge}`}>
                         {theme.badgeText}
                     </span>
+                    {consensusLabel && (
+                        <p
+                            className="text-[11px] font-semibold mt-1 opacity-85"
+                            title="Menunjukkan konsensus antar-seed model, bukan akurasi atau probabilitas kebenaran berita."
+                        >
+                            {consensusLabel}
+                        </p>
+                    )}
                     <p className="text-[10px] opacity-70 mt-1 flex items-center justify-end gap-1 font-mono">
                         <Clock className="w-3 h-3" /> {latencyStr}
                     </p>
@@ -289,36 +317,45 @@ export default function VerdictCard({
             </div>
 
             {/* PERBAIKAN AUDIT: Peringatan Pemotongan Teks Transparan */}
-            {isTruncated && (
+            {(isTruncated || truncationUnknown) && (
                 <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 space-y-2">
                     <div className="flex items-start gap-2.5">
                         <Scissors className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-bold text-amber-900">
-                                    Naskah Berita Terpotong untuk Analisis
+                                    {isTruncated
+                                        ? "Naskah Berita Terpotong untuk Analisis"
+                                        : "Status Pemotongan Belum Diketahui"}
                                 </h4>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAnalyzedText(!showAnalyzedText)}
-                                    className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
-                                >
-                                    {showAnalyzedText ? "Tutup Naskah" : "Lihat Naskah Dinilai"}
-                                </button>
+                                {hasAnalyzedText && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAnalyzedText(!showAnalyzedText)}
+                                        className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                                    >
+                                        {showAnalyzedText ? "Tutup Naskah" : "Lihat Teks Praproses"}
+                                    </button>
+                                )}
                             </div>
                             <p className="text-[11px] text-amber-800/90 leading-relaxed mt-1">
-                                Panjang teks masukan melebihi ambang batas pemrosesan (maksimal ~60 kata pada praproses atau 128 token tokenizer IndoBERT). Model hanya menilai segmen awal naskah.
+                                {isTruncated
+                                    ? "Sebagian naskah dipotong pada praproses atau tokenisasi."
+                                    : "Metadata belum cukup untuk memastikan apakah seluruh naskah masuk model."}
+                                {hasAnalyzedText
+                                    ? " Teks praproses berada sebelum batas tokenizer, sehingga belum tentu seluruhnya masuk model."
+                                    : " Teks hasil praproses tidak tersedia untuk hasil ini."}
                             </p>
                         </div>
                     </div>
 
-                    {showAnalyzedText && (
+                    {showAnalyzedText && hasAnalyzedText && (
                         <div className="mt-2 pt-2 border-t border-amber-200/60">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
-                                {hasAnalyzedText ? "Teks Hasil Praproses yang Dievaluasi:" : "Cuplikan Masukan Asli (~60 kata pertama):"}
+                                Teks Hasil Praproses Sebelum Batas Tokenizer:
                             </span>
                             <div className="bg-white/90 border border-amber-200/60 rounded-xl p-3 text-[11px] text-slate-700 font-mono leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
-                                {displaySnippet || "Cuplikan naskah tidak tersedia."}
+                                {displaySnippet}
                             </div>
                         </div>
                     )}
@@ -354,7 +391,7 @@ export default function VerdictCard({
                     {showLime && (
                         <LimeHighlighter
                             tokens={limeTokens}
-                            text={d.explanation?.teks_dijelaskan || d.teks_dinilai || d.input_text}
+                            text={d.explanation?.teks_dijelaskan || d.teks_dinilai || undefined}
                             topHoax={d.explanation?.top_hoax_words}
                             topFact={d.explanation?.top_fact_words}
                             showChart={viewSettings.show_lime_chart}
@@ -366,11 +403,9 @@ export default function VerdictCard({
                                     : undefined
                             }
                             confidenceScore={
-                                typeof d.confidence_score === "number" && !isNaN(d.confidence_score)
+                                typeof d.confidence_score === "number" && Number.isFinite(d.confidence_score)
                                     ? d.confidence_score
-                                    : typeof d.agreement_ratio === "number" && !isNaN(d.agreement_ratio)
-                                        ? d.agreement_ratio
-                                        : undefined
+                                    : undefined
                             }
                         />
                     )}

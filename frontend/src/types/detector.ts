@@ -66,6 +66,19 @@ export interface ExplanationResponse {
     explanation: ExplanationData;
 }
 
+export function isUsableExplanationResponse(value: unknown): value is ExplanationResponse {
+    if (!value || typeof value !== "object") return false;
+    const response = value as Partial<ExplanationResponse>;
+    const explanation = response.explanation;
+    return response.status === "success" && typeof response.message === "string" &&
+        Boolean(explanation) && !Array.isArray(explanation) &&
+        explanation?.explanation_available === true && Array.isArray(explanation.tokens) &&
+        explanation.tokens.some(token => token && typeof token === "object" &&
+            typeof token.word === "string" && token.word.trim().length > 0) &&
+        (explanation.teks_dijelaskan === undefined ||
+            (typeof explanation.teks_dijelaskan === "string" && explanation.teks_dijelaskan.trim().length > 0));
+}
+
 export interface DetectionResult {
     id?: string;
     status: string;
@@ -94,7 +107,7 @@ export interface DetectionResult {
         seed_decisions?: Record<string, 0 | 1> | null;
         sub_topik?: string | null;
         reason?: string | null;
-        terpotong?: boolean;
+        terpotong?: boolean | null;
         teks_dinilai?: string | null;
     };
 }

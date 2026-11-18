@@ -22,7 +22,8 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.utils.input_validation import validate_input_text  # noqa: E402
 from src.utils.political_guardrail import check_political_domain  # noqa: E402
-from src.utils.praproses import praproses, MAX_WORDS  # noqa: E402
+from src.utils.praproses import praproses, MAX_WORDS, sambung_tanda_hubung  # noqa: E402
+import text_pipeline as tp  # noqa: E402
 
 MODEL_NAME = "indobenchmark/indobert-base-p1"
 SEEDS = [42, 123, 999]
@@ -77,6 +78,19 @@ def putuskan(votes_hoax: int, n: int, rule: str = DECISION_RULE):
     if rule == "majority":
         return "dinilai", ("BERPOLA HOAKS" if votes_hoax * 2 > n else "TIDAK BERPOLA HOAKS")
     raise ValueError(f"aturan keputusan tidak dikenal: {rule}")
+
+
+def _pemotongan_kata(text: str, sambung: bool) -> Optional[bool]:
+    """Diagnostik batas kata setelah pembersihan, tanpa mengubah masukan model."""
+    try:
+        cleaned = tp.clean(text)
+        if sambung:
+            cleaned = sambung_tanda_hubung(cleaned)
+        if not cleaned:
+            return False
+        return len(tp.ensure_end(cleaned).split()) > MAX_WORDS
+    except Exception:
+        return None
 
 
 class Penilai:
@@ -147,7 +161,7 @@ class Penilai:
         }
 
     def siapkan_teks(self, text: Any) -> Optional[str]:
-        """Teks hasil praproses yang persis dinilai model; None bila tidak layak."""
+        """Teks praproses sebelum batas tokenizer; None bila tidak layak."""
         v = validate_input_text(text)
         if not v["ok"]:
             return None
@@ -156,11 +170,6 @@ class Penilai:
 
     def explain_text(self, text: Any) -> Dict[str, Any]:
         x = self.siapkan_teks(text)
-        if x is None and isinstance(text, str):
-            cleaned = praproses(text, self.sambung)
-            words = cleaned.split() if cleaned else []
-            if len(words) >= 3:
-                x = " ".join(words[:MAX_WORDS])
         if x is None:
             return {"explanation_available": False, "tokens": [], "catatan": LIME_CATATAN,
                     "num_samples": LIME_NUM_SAMPLES,
@@ -211,22 +220,30 @@ class Penilai:
         # 4. KONSENSUS ENSEMBLE: Kesepakatan mayoritas seed dengan presisi penuh
         agreement_ratio = max(votes, n_seeds - votes) / n_seeds
 
-        # 5. DETEKSI PEMOTONGAN TEKS (Thread-Safe via Lock Bersama)
-        terpotong_kata = len(v["text"].split()) > MAX_WORDS
+        # 5. Diagnostik saja: kegagalan pengukuran tidak mengubah hasil klasifikasi.
+        terpotong_kata = _pemotongan_kata(v["text"], self.sambung)
         terpotong_token: Optional[bool] = None
 
-        # PERBAIKAN: Selalu gunakan helper count_tokens() yang terlindungi lock
-        if hasattr(self.backend, "count_tokens") and x:
-            n_tokens = self.backend.count_tokens(x)
-            if n_tokens is not None:
-                terpotong_token = n_tokens > MAX_LEN
-            else:
-                # Ketersediaan tidak diketahui (tidak ditelan menjadi False)
-                terpotong_token = None
-        else:
+        # Backend aktif menghitung token di bawah lock yang sama dengan inferensi.
+        try:
+            count_tokens = getattr(self.backend, "count_tokens", None)
+            if callable(count_tokens):
+                n_tokens = count_tokens(x)
+                if (
+                    isinstance(n_tokens, (int, np.integer))
+                    and not isinstance(n_tokens, (bool, np.bool_))
+                    and n_tokens >= 0
+                ):
+                    terpotong_token = bool(n_tokens > MAX_LEN)
+        except Exception:
             terpotong_token = None
 
-        terpotong = bool(terpotong_kata or (terpotong_token is True))
+        if terpotong_kata is True or terpotong_token is True:
+            terpotong: Optional[bool] = True
+        elif terpotong_kata is False and terpotong_token is False:
+            terpotong = False
+        else:
+            terpotong = None
 
         res = {
             "success": True,
@@ -239,7 +256,7 @@ class Penilai:
             "sub_topik": topik,
             "istilah": terms,
             "teks_dinilai": x,
-            "terpotong": terpotong,  # <-- Kini mencakup kata (> 60) dan sub-token (> 128)
+            "terpotong": terpotong,
             "input_flags": v["flags"],
             "disclaimer": DISCLAIMER,
         }

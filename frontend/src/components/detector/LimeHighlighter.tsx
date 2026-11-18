@@ -51,14 +51,12 @@ export default function LimeHighlighter({
             .filter((t) => t && typeof t === "object" && typeof t.word === "string" && t.word.trim() !== "")
             .map((t: any) => {
                 const safeWeight = parseWeightStrict(t.weight !== undefined ? t.weight : t.score);
-                const rawInf = String(t.influence || "").toUpperCase();
-
-                // Pemetaan pengaruh hanya jika bobot tersedia (bukan null)
+                // Arah pengaruh mengikuti tanda bobot, bukan label metadata yang bisa bertentangan.
                 let infType: "hoax" | "fact" | "neutral" = "neutral";
                 if (safeWeight !== null) {
-                    if (safeWeight < 0 || rawInf.includes("TIDAK") || rawInf === "FACT" || rawInf.includes("FAKTA")) {
+                    if (safeWeight < 0) {
                         infType = "fact";
-                    } else if (safeWeight > 0 || rawInf.includes("HOAKS") || rawInf.includes("HOAX")) {
+                    } else if (safeWeight > 0) {
                         infType = "hoax";
                     }
                 }
@@ -76,12 +74,12 @@ export default function LimeHighlighter({
         return validTokens.some((t) => t.weight === null);
     }, [validTokens]);
 
-    // Peta kata untuk penyorotan inline pada teks asli/OCR
+    // Peta kata untuk penyorotan inline pada teks asli/OCR (pertahankan kapitalisasi)
     const tokenMap = useMemo(() => {
         const map = new Map<string, { weight: number | null; influence: "hoax" | "fact" | "neutral" }>();
         for (const t of validTokens) {
-            const key = t.word.toLowerCase();
-            if (!map.has(key)) {
+            const key = t.word.trim();
+            if (key && !map.has(key)) {
                 map.set(key, { weight: t.weight, influence: t.influence });
             }
         }
@@ -90,10 +88,10 @@ export default function LimeHighlighter({
 
     const displayTextTokens = useMemo(() => {
         if (typeof text === "string" && text.trim().length > 0) {
-            const segments = text.split(/(\s+|[^\w\s]+)/);
+            const segments = text.split(/([\p{L}\p{N}_]+)/u);
             return segments.map((part, idx) => {
                 if (!part) return null;
-                const cleanWord = part.toLowerCase().trim();
+                const cleanWord = part.trim();
                 const matched = cleanWord ? tokenMap.get(cleanWord) : undefined;
                 if (!matched) {
                     return <span key={idx}>{part}</span>;

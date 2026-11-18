@@ -5,6 +5,7 @@ import threading
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.api.schemas import (
@@ -125,7 +126,8 @@ def detect_text(
     votes_hoax = result.get("votes_hoax") if model_ran else None
     seed_decisions = result.get("seed_decisions") if model_ran else None
     sub_topik = result.get("sub_topik")
-    terpotong = bool(result.get("terpotong", False))
+    raw_terpotong = result.get("terpotong")
+    terpotong = raw_terpotong if isinstance(raw_terpotong, bool) else None
 
     # 5. Simpan ke Database
     log_entry = PredictionLog(
@@ -215,7 +217,7 @@ def explain_detection(
 
     # Sudah pernah dihitung: kembalikan tanpa komputasi ulang
     existing = log.lime_explanation
-    if isinstance(existing, dict) and existing.get("explanation_available"):
+    if isinstance(existing, dict) and existing.get("explanation_available") is True:
         return ExplanationResponse(
             status="success", message="Penjelasan tersedia.", explanation=existing
         )
@@ -233,22 +235,41 @@ def explain_detection(
             detail="Penjelasan lain sedang diproses. Coba lagi sebentar."
         )
     try:
-        explanation = explain_fn(log.input_text)
-    except Exception:
-        logger.exception("LIME gagal")
-        raise HTTPException(status_code=500, detail="Penjelasan gagal dibuat.")
+        # Baca ulang dari DB setelah memperoleh lock agar request bersamaan tidak menghitung ulang
+        db.refresh(log)
+        existing = log.lime_explanation
+        if isinstance(existing, dict) and existing.get("explanation_available") is True:
+            return ExplanationResponse(
+                status="success", message="Penjelasan tersedia.", explanation=existing
+            )
+
+        try:
+            explanation = explain_fn(log.input_text)
+        except Exception as exc:
+            logger.error("LIME gagal (%s)", type(exc).__name__)
+            raise HTTPException(status_code=500, detail="Penjelasan gagal dibuat.")
+
+        # LIME gagal (_lime menangkap galat sendiri): jangan simpan, jangan dibalas "success"
+        if not (isinstance(explanation, dict) and explanation.get("explanation_available") is True):
+            raise HTTPException(
+                status_code=502,
+                detail="Penjelasan gagal dibuat. Hasil klasifikasi tetap berlaku; coba lagi nanti."
+            )
+
+        log.lime_explanation = explanation
+        db.commit()
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.error("Gagal menyimpan penjelasan LIME (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Penjelasan gagal disimpan.")
     finally:
         _lime_lock.release()
 
-        # LIME gagal (_lime menangkap galat sendiri): jangan simpan, jangan dibalas "success"
-    if not (isinstance(explanation, dict) and explanation.get("explanation_available")):
-        raise HTTPException(
-            status_code=502,
-            detail="Penjelasan gagal dibuat. Hasil klasifikasi tetap berlaku; coba lagi nanti."
-        )
-
-    log.lime_explanation = explanation
-    db.commit()
     return ExplanationResponse(
         status="success", message="Penjelasan berhasil dibuat.", explanation=explanation
     )

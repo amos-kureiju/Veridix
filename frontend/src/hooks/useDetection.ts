@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { isCancel } from "axios";
 import { apiClient, getApiConnectionMessage } from "@/lib/apiClient";
-import { isUsableOCRResponse, persistentImageUrl } from "@/types/detector";
+import { isUsableExplanationResponse, isUsableOCRResponse, persistentImageUrl } from "@/types/detector";
 import type { DetectionRequestPayload, DetectionResult, ExplanationResponse, OCRResponse, InputSourceType } from "@/types/detector";
 
 // Timeout terpisah untuk OCR/LIME; apiClient tetap memakai 30 detik secara global.
@@ -34,12 +34,15 @@ export function useDetection() {
     const activeIdRef = useRef<string | null>(null); // ID hasil yang sedang tampil
     const detectGenRef = useRef(0);          // nomor generasi permintaan klasifikasi
     const limeBusyRef = useRef(false);       // cegah permintaan LIME ganda
+    const limeAbortRef = useRef<AbortController | null>(null);
     const ocrGenRef = useRef(0);
     const ocrAbortRef = useRef<AbortController | null>(null);
 
     useEffect(() => () => {
         detectGenRef.current++;
         activeIdRef.current = null;
+        limeAbortRef.current?.abort();
+        limeAbortRef.current = null;
         ocrGenRef.current++;
         ocrAbortRef.current?.abort();
     }, []);
@@ -51,6 +54,8 @@ export function useDetection() {
         imageUrl?: string | null
     ) => {
         const gen = ++detectGenRef.current;
+        limeAbortRef.current?.abort();
+        limeAbortRef.current = null;
         setLoading(true);
         setError(null);
         setResult(null);                       // hasil lama tidak boleh muncul lagi bila analisis baru gagal
@@ -88,9 +93,13 @@ export function useDetection() {
 
     // 2. Permintaan penjelasan LIME untuk hasil yang sedang tampil (tidak membuat riwayat baru)
     const requestExplanation = async () => {
-        const id = activeIdRef.current || result?.data?.id;
+        const id = activeIdRef.current;
+        const gen = detectGenRef.current;
         if (!id || limeBusyRef.current) return;
-        activeIdRef.current = id;
+        const controller = new AbortController();
+        limeAbortRef.current = controller;
+        const isCurrent = () => gen === detectGenRef.current &&
+            activeIdRef.current === id && limeAbortRef.current === controller;
         limeBusyRef.current = true;
         setLimeLoading(true);
         setLimeError(null);
@@ -98,17 +107,21 @@ export function useDetection() {
             const res = await apiClient.post<ExplanationResponse>(
                 `/api/v1/detect/${id}/explain`,
                 null,
-                { timeout: LIME_TIMEOUT_MS }
+                { timeout: LIME_TIMEOUT_MS, signal: controller.signal }
             );
-            // Abaikan respons lama bila pengguna sudah menganalisis teks lain
-            if (activeIdRef.current !== id) return;
+            // ID saja tidak cukup bila konteks direset lalu ID yang sama muncul lagi.
+            if (!isCurrent() || controller.signal.aborted) return;
+            if (!isUsableExplanationResponse(res.data)) {
+                setLimeError("Respons penjelasan tidak valid. Hasil klasifikasi tetap tersedia.");
+                return;
+            }
             setResult((prev) =>
-                prev && prev.data?.id === id
+                gen === detectGenRef.current && activeIdRef.current === id && prev && prev.data?.id === id
                     ? { ...prev, data: { ...prev.data, explanation: res.data.explanation } }
                     : prev
             );
         } catch (err: any) {
-            if (activeIdRef.current !== id) return;
+            if (!isCurrent() || controller.signal.aborted || isCancel(err)) return;
             const detail = err?.response?.data?.detail;
             const connectionMessage = getApiConnectionMessage(err);
             setLimeError(
@@ -119,7 +132,8 @@ export function useDetection() {
                     : "Penjelasan gagal dibuat. Hasil klasifikasi tetap berlaku."
             );
         } finally {
-            if (activeIdRef.current === id) {
+            if (isCurrent()) {
+                limeAbortRef.current = null;
                 limeBusyRef.current = false;
                 setLimeLoading(false);
             }
@@ -185,6 +199,8 @@ export function useDetection() {
     const reset = () => {
         detectGenRef.current++;
         activeIdRef.current = null;
+        limeAbortRef.current?.abort();
+        limeAbortRef.current = null;
         limeBusyRef.current = false;
         setResult(null);
         setError(null);

@@ -12,6 +12,7 @@ VERIDIX mendeteksi kemiripan pola bahasa dengan klaim politik Indonesia yang dil
 | Memeriksa arsitektur, relasi, API, status, dan model | [Referensi Sistem](docs/REFERENSI_SISTEM.md) |
 | Detail/hapus riwayat dan pengujiannya | [Panduan Riwayat](docs/PANDUAN_RIWAYAT.md) |
 | Alur dan evaluasi OCR | [Panduan Pengujian OCR](docs/PANDUAN_PENGUJIAN_OCR.md) |
+| Rancangan analisis teks panjang dan OCR banyak gambar | [Panduan Teks Panjang dan Banyak Gambar](docs/PANDUAN_TEKS_PANJANG_DAN_MULTI_GAMBAR.md) |
 | Metodologi, pembagian data, dan evaluasi final | [Protokol penelitian](PROTOKOL_PRAREGISTRASI.md) |
 | Menelusuri temuan/angka audit lama | [Catatan Audit Dokumentasi](reports/CATATAN_AUDIT_DOKUMENTASI_2026-11-13.md) |
 

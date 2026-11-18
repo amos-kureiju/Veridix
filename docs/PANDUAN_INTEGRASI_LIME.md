@@ -32,6 +32,8 @@ flowchart TD
 
 Route diagram disingkat; prefix HTTP aktif adalah `/api/v1`. OCR dan LIME adalah dua permintaan terpisah. Memilih foto atau selesai OCR tidak otomatis membuat klasifikasi maupun LIME.
 
+Mode naskah meminta LIME lewat `POST /api/v1/detect/document/explain` untuk segmen pilihan. Izin sementara dari respons klasifikasi mengikat akun, versi sesi, teks segmen, jumlah token, dan model terverifikasi. Backend menjelaskan teks yang sama dengan inferensi segmen. Keduanya memakai tokenizer tanpa pemotongan. Komponen `LimeHighlighter` menampilkan bobot positif dan negatif pada skala bersama sesuai preferensi grafik pengguna. [Panduan teks panjang dan banyak gambar](PANDUAN_TEKS_PANJANG_DAN_MULTI_GAMBAR.md#11-mode-analisis-naskah-eksperimental-di-aplikasi).
+
 | Bagian | Sumber aktif / tanggung jawab |
 | --- | --- |
 | Form dan akun | [NewsInputForm](../frontend/src/components/detector/NewsInputForm.tsx) mengirim teks editor terakhir; [halaman utama](../frontend/src/app/page.tsx) menjaga konteks akun, reset, dan `key` form. |

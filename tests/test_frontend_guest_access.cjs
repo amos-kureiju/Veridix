@@ -216,7 +216,7 @@ test('document coverage card explains a missing page even when every submitted w
     const React = frontendRequire('react');
     const { renderToStaticMarkup } = frontendRequire('react-dom/server');
     const Card = load('components/detector/DocumentResultCard.tsx').default;
-    const html = renderToStaticMarkup(React.createElement(Card, { loading: false, result: {
+    const html = renderToStaticMarkup(React.createElement(Card, { result: {
         status: 'parsial', total_words: 3, analyzed_words: 3, missing_pages: [2], reason: null,
         segments: [{ start_char: 0, start_word: 1, end_word: 3, text: 'KPU membuka penghitungan.', page_numbers: [1],
             status: 'dinilai', label: 'BERPOLA HOAKS', votes_hoax: '3/3', reason: null }],
@@ -228,6 +228,63 @@ test('document coverage card explains a missing page even when every submitted w
     assert.match(html, /Kata 1–3/);
     assert.match(html, /KPU membuka penghitungan/);
     assert.match(html, /Suara hoaks 3\/3/);
+});
+
+test('document result uses signed LIME weights from the explained segment and preserves all decisions', () => {
+    const React = frontendRequire('react');
+    const { renderToStaticMarkup } = frontendRequire('react-dom/server');
+    const Card = load('components/detector/DocumentResultCard.tsx').default;
+    const firstText = 'Anggaran  dibuka warga.';
+    const html = renderToStaticMarkup(React.createElement(Card, {
+        result: {
+            status: 'parsial', total_words: 12, analyzed_words: 9, missing_pages: [], reason: null,
+            latency_seconds: 0, sub_topik: 'Kebijakan & Bansos',
+            segments: [
+                { start_char: 0, start_word: 1, end_word: 3, text: firstText, page_numbers: [],
+                    status: 'dinilai', label: 'TIDAK BERPOLA HOAKS', votes_hoax: '0/3', reason: null, explanation_token: 'first' },
+                { start_char: 25, start_word: 4, end_word: 6, text: 'Segmen kedua dianalisis.', page_numbers: [],
+                    status: 'dinilai', label: 'BERPOLA HOAKS', votes_hoax: '3/3', reason: null, explanation_token: 'second' },
+                { start_char: 51, start_word: 7, end_word: 9, text: 'Segmen ketiga dianalisis.', page_numbers: [],
+                    status: 'ambigu', label: 'PERLU VERIFIKASI (SEED TIDAK SEPAKAT)', votes_hoax: '1/3', reason: null, explanation_token: 'third' },
+                { start_char: 80, start_word: 10, end_word: 12, text: 'Segmen keempat gagal.', page_numbers: [],
+                    status: 'gagal', label: null, votes_hoax: null, reason: 'Mesin gagal.' },
+            ],
+        },
+        explanations: {
+            0: {
+                explanation_available: true, teks_dijelaskan: firstText, num_samples: 23,
+                tokens: [
+                    { word: 'Anggaran', weight: 0.23, influence: 'KE_HOAKS' },
+                    { word: 'warga', weight: -0.12, influence: 'KE_TIDAK_HOAKS' },
+                ],
+                top_hoax_words: [{ word: 'Daftar rusak', score: 0.91 }],
+            },
+            25: {
+                explanation_available: true, teks_dijelaskan: 'Teks lain yang tidak cocok.',
+                tokens: [{ word: 'lain', weight: 0.87, influence: 'KE_HOAKS' }],
+            },
+        },
+        explanationLoadingFor: 51,
+        explanationError: { startChar: 25, message: 'Sambungan putus.' },
+        onRequestExplanation: () => {},
+    }));
+    assert.match(html, /Kata yang memengaruhi hasil segmen ini \(LIME\)/);
+    assert.match(html, /Bobot Pengaruh: \+0\.2300/);
+    assert.match(html, /Bobot Pengaruh: -0\.1200/);
+    assert.match(html, /23 variasi teks diuji/);
+    assert.match(html, /TIDAK BERPOLA HOAKS/);
+    assert.match(html, />BERPOLA HOAKS</);
+    assert.match(html, />PERLU VERIFIKASI</);
+    assert.match(html, /Kesepakatan seed 3\/3/);
+    assert.match(html, /Kesepakatan seed 2\/3/);
+    assert.match(html, /Waktu analisis 0 detik/);
+    assert.match(html, /Topik Kebijakan &amp; Bansos/);
+    assert.match(html, /AI sedang menyusun penjelasan/);
+    assert.match(html, /role="alert"[^>]*>Sambungan putus\./);
+    assert.match(html, /Coba lagi/);
+    assert.match(html, /Catatan penggunaan/);
+    assert.doesNotMatch(html, /Daftar rusak|Teks lain yang tidak cocok|0\.8700/);
+    assert.doesNotMatch(html.split('Segmen keempat gagal.')[1], /Tampilkan penjelasan|Coba lagi|Bobot Pengaruh/);
 });
 
 test('document size limits and busy responses remain visible without a Next dev error overlay', async () => {

@@ -10,6 +10,7 @@ import type { DocumentAnalysisRequest, DocumentAnalysisResult, DocumentSegment }
 const LIME_TIMEOUT_MS = 180000;
 const OCR_TIMEOUT_MS = 180000;
 const DOCUMENT_TIMEOUT_MS = 180000;
+const DOCUMENT_LIME_TIMEOUT_MS = 300000;
 
 type AnalysisMode = "claim" | "document";
 
@@ -232,7 +233,7 @@ export function useDetection(ownerId?: string | null) {
             const { data } = await apiClient.post<unknown>("/api/v1/detect/document/explain", {
                 text,
                 explanation_token: token,
-            }, { timeout: LIME_TIMEOUT_MS, signal: controller.signal });
+            }, { timeout: DOCUMENT_LIME_TIMEOUT_MS, signal: controller.signal });
             if (!isCurrent()) return;
             if (!isUsableExplanationResponse(data) || data.explanation.teks_dijelaskan !== text ||
                 !data.explanation.tokens.every(token => token && typeof token.word === "string" && token.word.trim() &&

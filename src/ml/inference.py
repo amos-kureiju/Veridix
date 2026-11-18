@@ -29,6 +29,7 @@ import text_pipeline as tp  # noqa: E402
 MODEL_NAME = "indobenchmark/indobert-base-p1"
 SEEDS = [42, 123, 999]
 MAX_LEN, BATCH = 128, 32
+DOCUMENT_CPU_BATCH = 4  # Batasi memori aktivasi saat LIME menilai banyak variasi segmen.
 
 # Dicatat dari keluaran Anda sendiri (verifikasi_ckpt_lokal.py dan log pembekuan).
 EXPECTED_SHA256 = {
@@ -236,6 +237,7 @@ class Penilai:
             "max_len": MAX_LEN,
             "max_words": MAX_WORDS,
             "lime_samples": LIME_NUM_SAMPLES,
+            "cpu_batch": DOCUMENT_CPU_BATCH,
         }
         return hashlib.sha256(json.dumps(identity, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -468,12 +470,13 @@ class BackendIndoBERT:
                     or enc["attention_mask"].sum(dim=1).tolist() != expected_tokens
                 ):
                     raise ValueError("Tokenisasi batch tidak sesuai dengan pemeriksaan segmen.")
+            batch_size = DOCUMENT_CPU_BATCH if expected_tokens is not None and str(self.device) == "cpu" else BATCH
             with torch.no_grad():
                 for j, s in enumerate(self.seeds):
                     self.clf.load_state_dict(self.states[s], strict=False)
-                    for i in range(0, len(texts), BATCH):
-                        ids = enc["input_ids"][i:i + BATCH].to(self.device)
-                        am = enc["attention_mask"][i:i + BATCH].to(self.device)
+                    for i in range(0, len(texts), batch_size):
+                        ids = enc["input_ids"][i:i + batch_size].to(self.device)
+                        am = enc["attention_mask"][i:i + batch_size].to(self.device)
                         p = torch.softmax(self.clf(ids, am), dim=1)[:, 1].cpu().numpy()
                         out[i:i + len(p), j] = p
         return out

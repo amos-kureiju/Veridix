@@ -536,6 +536,7 @@ test('document LIME uses the selected segment and retains measured weights per s
     await start(segment);
     assert.equal(requests.length, 2);
     assert.equal(requests[1].url, '/api/v1/detect/document/explain');
+    assert.equal(requests[1].config.timeout, 300000);
     assert.deepEqual(JSON.parse(JSON.stringify(requests[1].body)), {
         text: segment.text, explanation_token: 'signed-for-second-segment',
     });

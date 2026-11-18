@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
-from jose import ExpiredSignatureError, JWTError, jwt
+from jose import JWTError, jwt
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -175,10 +175,8 @@ def _document_explanation_claims(payload: DocumentExplanationRequest, user: User
         claims = jwt.decode(
             payload.explanation_token, _DOCUMENT_EXPLANATION_KEY,
             algorithms=["HS256"], audience=_DOCUMENT_EXPLANATION_AUDIENCE,
-            options={"require_exp": True, "require_aud": True, "require_sub": True},
+            options={"verify_exp": False, "require_aud": True, "require_sub": True},
         )
-    except ExpiredSignatureError:
-        raise HTTPException(status_code=409, detail="Akses penjelasan telah berakhir. Analisis ulang naskah.") from None
     except JWTError:
         raise not_found from None
     if claims.get("sub") != str(user.id) or claims.get("token_version") != user.token_version:
@@ -189,6 +187,12 @@ def _document_explanation_claims(payload: DocumentExplanationRequest, user: User
         raise not_found from None
     if claims.get("text_sha256") != text_hash or type(claims.get("token_count")) is not int:
         raise not_found
+    # Beberkan pesan kedaluwarsa hanya setelah pemilik dan teks cocok.
+    expires = claims.get("exp")
+    if type(expires) is not int:
+        raise not_found
+    if expires <= int(datetime.now(timezone.utc).timestamp()):
+        raise HTTPException(status_code=409, detail="Akses penjelasan telah berakhir. Analisis ulang naskah.")
     return claims
 
 

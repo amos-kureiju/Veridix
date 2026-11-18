@@ -2,12 +2,13 @@ import math
 import re
 import threading
 import unittest
-from unittest.mock import Mock, patch
+from contextlib import nullcontext
+from unittest.mock import MagicMock, Mock, call, patch
 
 import numpy as np
 
 from src.ml import document_analysis
-from src.ml.inference import BackendIndoBERT, MAX_LEN, Penilai
+from src.ml.inference import BATCH, DOCUMENT_CPU_BATCH, BackendIndoBERT, MAX_LEN, Penilai
 
 
 class StubBackend:
@@ -184,6 +185,34 @@ class DocumentAnalysisTests(unittest.TestCase):
             truncation=False, return_tensors="pt",
         )
         backend.torch.no_grad.assert_not_called()
+
+    def test_document_cpu_batches_are_smaller_without_changing_the_claim_path(self):
+        backend = BackendIndoBERT.__new__(BackendIndoBERT)
+        backend._lock = threading.Lock()
+        backend.device = "cpu"
+        backend.torch = MagicMock()
+        backend.torch.no_grad.side_effect = nullcontext
+        backend.seeds = [42]
+        backend.states = {42: {}}
+        backend.clf = Mock()
+        texts = ["teks"] * (DOCUMENT_CPU_BATCH + 1)
+        ids = MagicMock(shape=(len(texts), MAX_LEN))
+        mask = MagicMock(shape=(len(texts), MAX_LEN))
+        mask.sum.return_value.tolist.return_value = [3] * len(texts)
+        backend.tokenizer = Mock(return_value={"input_ids": ids, "attention_mask": mask})
+        softmax = backend.torch.softmax.return_value
+        probabilities = softmax.__getitem__.return_value.cpu.return_value.numpy
+        probabilities.side_effect = [
+            np.full(DOCUMENT_CPU_BATCH, 0.25), np.full(1, 0.25), np.full(len(texts), 0.25),
+        ]
+
+        np.testing.assert_array_equal(backend.seed_probs_each_untruncated(texts, [3] * len(texts)), [[0.25]] * len(texts))
+        np.testing.assert_array_equal(backend.seed_probs_each(texts), [[0.25]] * len(texts))
+        self.assertEqual(ids.__getitem__.call_args_list, [
+            call(slice(0, DOCUMENT_CPU_BATCH)),
+            call(slice(DOCUMENT_CPU_BATCH, 2 * DOCUMENT_CPU_BATCH)),
+            call(slice(0, BATCH)),
+        ])
 
 
 if __name__ == "__main__":

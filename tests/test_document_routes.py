@@ -182,6 +182,7 @@ class DocumentRouteTests(unittest.TestCase):
             del self.app.dependency_overrides[get_current_user]
             anonymous = self.client.post(EXPLAIN_PATH, json=payload)
             self.assertEqual(anonymous.status_code, 401)
+            self.app.dependency_overrides[get_db] = lambda: object()
             anonymous_auth = self.client.post(DOCUMENT_PATH, json={"text": POLITICAL_TEXT}, headers={
                 "Authorization": f"Bearer {segment['explanation_token']}",
             })
@@ -192,9 +193,13 @@ class DocumentRouteTests(unittest.TestCase):
         with patch.object(detection_routes, "_DOCUMENT_EXPLANATION_TTL", timedelta(seconds=-10)):
             segment = self._explanation_payload()
         with patch.object(self.predictor, "explain_document_segment") as explain:
-            expired = self.client.post(EXPLAIN_PATH, json={
+            payload = {
                 "explanation_token": segment["explanation_token"], "text": segment["text"],
-            })
+            }
+            with patch.object(self.user, "id", uuid4()):
+                other_owner = self.client.post(EXPLAIN_PATH, json=payload)
+            self.assertEqual(other_owner.status_code, 404)
+            expired = self.client.post(EXPLAIN_PATH, json=payload)
             self.assertEqual(expired.status_code, 409)
             fresh = self._explanation_payload()
             self.model_identity.return_value = "fixture-model-new"

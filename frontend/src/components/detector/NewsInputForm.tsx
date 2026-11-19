@@ -515,14 +515,10 @@ export default function NewsInputForm({ loading, ocrLoading, ocrError, blocked, 
                     >
                         <span
                             aria-hidden="true"
-                            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10"
                         >
-                            {loading && (
-                                <span className="absolute inset-0 rounded-full border-2 border-transparent border-r-emerald-300/40 border-t-emerald-300 motion-safe:animate-spin" />
-                            )}
-
                             <AIAnalysisIcon
-                                className={`h-6 w-6 ${loading ? "text-emerald-200" : "text-current"}`}
+                                className={`h-6 w-6 ${loading ? "text-emerald-200 motion-safe:animate-pulse" : "text-current"}`}
                             />
                         </span>
 

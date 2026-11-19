@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { LimeToken } from "@/types/detector";
-import { Sparkles, Info } from "lucide-react";
+import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
+import type { LimeToken } from "@/types/detector";
 
 interface LimeHighlighterProps {
     tokens?: LimeToken[];
@@ -12,7 +12,6 @@ interface LimeHighlighterProps {
     showChart?: boolean;
     topWordsCount?: 3 | 5 | 7;
     prediction?: string;
-    confidenceScore?: number;
     numSamples?: number;
 }
 
@@ -36,8 +35,7 @@ export default function LimeHighlighter({
     text,
     topHoax = [],
     topFact = [],
-    prediction = "TIDAK BERPOLA HOAKS",
-    confidenceScore,
+    prediction,
     numSamples,
     showChart = true,
     topWordsCount = 3
@@ -195,199 +193,133 @@ export default function LimeHighlighter({
         );
     }
 
-    // ── 3. EVALUASI LABEL PENJELASAN ──
-    const predUpper = (prediction || "").toUpperCase();
-    const isHoax = (predUpper.includes("HOAKS") || predUpper.includes("HOAX")) && !predUpper.includes("TIDAK");
-    const isAmbiguous = predUpper.includes("AMBIGU") || predUpper.includes("VERIFIKASI") || predUpper.includes("KONFIRMASI");
-    const isFact = predUpper.includes("FAKTA") || predUpper.includes("TIDAK BERPOLA HOAKS");
-
-    const validScoreStr = (typeof confidenceScore === "number" && Number.isFinite(confidenceScore) && confidenceScore >= 0 && confidenceScore <= 1)
-        ? ` ${(confidenceScore * 100).toFixed(1)}%`
-        : "";
+    const label = prediction?.trim().toUpperCase() ?? "";
+    const isAmbiguous = /AMBIGU|VERIFIKASI|KONFIRMASI/.test(label);
+    const isHoax = ["BERPOLA HOAKS", "HOAKS", "HOAX"].includes(label);
+    const isNonHoax = ["TIDAK BERPOLA HOAKS", "FAKTA", "FACT"].includes(label);
+    const decision = isAmbiguous ? "PERLU VERIFIKASI"
+        : isHoax ? "BERPOLA HOAKS"
+        : isNonHoax ? "TIDAK BERPOLA HOAKS"
+        : null;
+    const hasSamples = typeof numSamples === "number" && Number.isInteger(numSamples) && numSamples > 0;
+    const directions = [
+        {
+            name: "Menaikkan skor hoaks",
+            emptyText: "Tidak ada bobot positif pada ringkasan ini.",
+            sign: "+",
+            items: computedTopHoax,
+            tile: "border-rose-100 bg-rose-50/65",
+            accent: "bg-rose-100 text-rose-800",
+            fill: "bg-rose-500",
+        },
+        {
+            name: "Menurunkan skor hoaks",
+            emptyText: "Tidak ada bobot negatif pada ringkasan ini.",
+            sign: "-",
+            items: computedTopFact,
+            tile: "border-emerald-100 bg-emerald-50/65",
+            accent: "bg-emerald-100 text-emerald-800",
+            fill: "bg-emerald-600",
+        },
+    ];
 
     return (
-        <div className="space-y-4 font-sans">
-            <div className="grid grid-cols-1 gap-4 items-stretch">
+        <div className="space-y-4">
+            <section className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <header className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-900">Sorotan kata</h4>
+                    {hasSamples && (
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-600 ring-1 ring-slate-200">
+                            {numSamples} variasi teks diuji
+                        </span>
+                    )}
+                </header>
 
-                {/* DAFTAR KATA BERWARNA BERDASARKAN BOBOT ASLI */}
-                <div className="min-w-0 bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
-                    <div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-200/60 text-[11px] font-bold text-slate-500">
-                            <span>Sebaran Kata Berpengaruh (Token Highlights)</span>
-                            <span className="shrink-0 whitespace-nowrap text-[10px] text-slate-400 font-mono">
-                                {typeof numSamples === "number" ? `${numSamples} variasi teks diuji` : "Variasi teks diuji"}
-                            </span>
-                        </div>
+                <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-7 text-slate-800 [overflow-wrap:anywhere]">
+                    {displayTextTokens}
+                </div>
 
-                        <div className="p-3 bg-white border border-slate-200/60 rounded-xl leading-relaxed text-xs text-slate-800 max-h-48 overflow-y-auto shadow-2xs">
-                            {displayTextTokens}
-                        </div>
-                    </div>
+                <div className="flex flex-wrap gap-2 text-xs font-medium">
+                    <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800">
+                        Merah (+) menaikkan skor hoaks
+                    </span>
+                    <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800">
+                        Hijau (−) menurunkan skor hoaks
+                    </span>
+                </div>
+                {hasUnavailableWeights && (
+                    <p className="text-xs text-amber-800">Beberapa kata tidak memiliki atribusi bobot valid.</p>
+                )}
+            </section>
 
-                    <div className="flex flex-wrap items-center justify-between gap-y-1 pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-                                <span>Merah: Menaikkan Skor Hoaks (+)</span>
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                                <span>Hijau: Menurunkan Skor Hoaks (-)</span>
-                            </span>
-                        </div>
-                        {hasUnavailableWeights && (
-                            <span className="text-[10px] text-amber-600 italic">
-                                *Beberapa kata tidak memiliki atribusi bobot valid.
+            <section className="flex min-w-0 items-start gap-3 rounded-2xl bg-gradient-to-br from-slate-950 to-emerald-950 p-4 text-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/25 bg-emerald-400/10 text-emerald-200">
+                    <AIAnalysisIcon className="h-7 w-7" />
+                </span>
+                <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <h4 className="text-sm font-semibold">Mekanisme keputusan model</h4>
+                        {decision && (
+                            <span className="rounded-md bg-white/10 px-2 py-1 text-[11px] font-semibold text-emerald-100">
+                                {decision}
                             </span>
                         )}
                     </div>
+                    <p className="text-xs leading-relaxed text-slate-200">
+                        {isAmbiguous ? "Seed model menghasilkan keputusan berbeda. Hasil ini perlu diverifikasi."
+                            : decision ? "Keputusan model mengikuti voting antar-seed."
+                            : "Label keputusan tidak tersedia."}{" "}
+                        LIME memperkirakan pengaruh lokal kata dengan menguji variasi dari teks ini.
+                    </p>
                 </div>
+            </section>
 
-                {/* KETERANGAN CARA KERJA MODEL */}
-                <div className="min-w-0 bg-gradient-to-br from-slate-900 to-[#0b2520] text-white rounded-2xl p-4 flex flex-col justify-between shadow-xs border border-emerald-950">
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 pb-2 border-b border-white/10">
-                            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <h4 className="text-xs font-bold tracking-tight text-white">
-                                Mekanisme Keputusan Model
-                            </h4>
-                        </div>
-
-                        <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-                            Warna menunjukkan pengaruh lokal kata terhadap rerata skor kelas hoaks.
-                            {isAmbiguous ? (
-                                <> Status <strong>PERLU VERIFIKASI</strong> berasal dari ketidaksepakatan keputusan antar-seed model.</>
-                            ) : isHoax ? (
-                                <> Keputusan <strong>BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata merah menaikkan skor kelas hoaks, sedangkan kata hijau menurunkannya.</>
-                            ) : isFact ? (
-                                <> Keputusan <strong>TIDAK BERPOLA HOAKS{validScoreStr}</strong> mengikuti aturan voting antar-seed. Kata hijau menurunkan skor kelas hoaks, sedangkan kata merah menaikkannya.</>
-                            ) : (
-                                <> Label keputusan tidak dikenali sistem, sehingga hasil perlu diverifikasi manual. Warna kata tetap menunjukkan pengaruh lokal terhadap skor kelas hoaks.</>
-                            )}
+            <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <header>
+                    <h4 className="text-sm font-semibold text-slate-900">Bobot kata paling berpengaruh</h4>
+                    {showChart && (computedTopHoax.length > 0 || computedTopFact.length > 0) && (
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Panjang batang menunjukkan besar pengaruh relatif. Kedua arah memakai skala yang sama.
                         </p>
-
-                        {/* Daftar Kata Teratas dengan Presisi 4 Desimal */}
-                        <div className="bg-white/10 border border-white/10 rounded-xl p-2.5 space-y-1.5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">
-                                Kata Paling Berpengaruh:
-                            </span>
-
-                            {isHoax && computedTopHoax.length > 0 ? (
-                                <div className="space-y-1">
-                                    {computedTopHoax.map((w, i) => (
-                                        <div key={i} className="flex items-center justify-between text-[11px]">
-                                            <span className="text-rose-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
-                                            <span className="text-rose-400 font-mono font-extrabold text-[10px]">+{w.score.toFixed(4)}</span>
-                                        </div>
+                    )}
+                </header>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2.5">
+                    {directions.map(direction => (
+                        <div key={direction.sign} className={"min-w-0 space-y-2.5 rounded-xl border p-3 " + direction.tile}>
+                            <h5 className="flex items-center gap-2 text-xs font-semibold text-slate-900">
+                                <span className={"grid h-5 w-5 shrink-0 place-items-center rounded-md text-sm " + direction.accent} aria-hidden="true">
+                                    {direction.sign === "-" ? "−" : "+"}
+                                </span>
+                                {direction.name}
+                            </h5>
+                            {direction.items.length > 0 ? (
+                                <ul className="space-y-2.5">
+                                    {direction.items.map((item, index) => (
+                                        <li key={index} className="space-y-1">
+                                            <div className="flex items-baseline justify-between gap-2 text-xs">
+                                                <span className="min-w-0 font-medium text-slate-800 [overflow-wrap:anywhere]">{item.word}</span>
+                                                <span className={"shrink-0 rounded px-1.5 py-0.5 font-mono font-semibold tabular-nums " + direction.accent}>
+                                                    {direction.sign}{item.score.toFixed(4)}
+                                                </span>
+                                            </div>
+                                            {showChart && (
+                                                <div className="h-1.5 overflow-hidden rounded-full bg-white" aria-hidden="true">
+                                                    <div
+                                                        className={"h-full rounded-full " + direction.fill}
+                                                        style={{ width: (item.score / globalMaxAbsScore) * 100 + "%" }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </li>
                                     ))}
-                                </div>
-                            ) : isAmbiguous ? (
-                                <div className="space-y-1">
-                                    {computedTopHoax.map((w, i) => (
-                                        <div key={i} className="flex items-center justify-between text-[11px]">
-                                            <span className="text-rose-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
-                                            <span className="text-rose-400 font-mono font-extrabold text-[10px]">+{w.score.toFixed(4)}</span>
-                                        </div>
-                                    ))}
-                                    {computedTopFact.map((w, i) => (
-                                        <div key={i} className="flex items-center justify-between text-[11px]">
-                                            <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
-                                            <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : computedTopFact.length > 0 ? (
-                                <div className="space-y-1">
-                                    {computedTopFact.map((w, i) => (
-                                        <div key={i} className="flex items-center justify-between text-[11px]">
-                                            <span className="text-emerald-300 font-mono font-bold truncate max-w-[120px]">"{w.word}"</span>
-                                            <span className="text-emerald-400 font-mono font-extrabold text-[10px]">-{w.score.toFixed(4)}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                </ul>
                             ) : (
-                                <span className="text-[10px] text-slate-300 italic">Data bobot kata tidak tersedia.</span>
+                                <p className="text-xs leading-relaxed text-slate-600">{direction.emptyText}</p>
                             )}
                         </div>
-                    </div>
-
-                    <div className="pt-2 mt-2 border-t border-white/10 flex items-center gap-1.5 text-[10px] text-emerald-300/70">
-                        <Info className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span>Bobot dihitung via perturbasi lokal LIME, bukan kamus kata statis.</span>
-                    </div>
+                    ))}
                 </div>
-
-            </div>
-
-            {/* BAGIAN BAWAH: GRAFIK PROPORSI BOBOT KATA */}
-            {showChart && (computedTopHoax.length > 0 || computedTopFact.length > 0) && (
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 border-b border-slate-100">
-                        <span className="font-bold text-slate-800">Seberapa besar pengaruh tiap kata</span>
-                        <span className="text-[10px] text-slate-500">
-                            Panjang batang = pengaruh relatif, bukan persentase kebenaran
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        {/* Kolom Pendorong Hoaks */}
-                        <div className="space-y-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 block">
-                                Top Kata Menaikkan Skor Hoaks (+):
-                            </span>
-                            {computedTopHoax.length > 0 ? (
-                                computedTopHoax.map((w, i) => {
-                                    const pct = Math.min(100, Math.max(0, (w.score / globalMaxAbsScore) * 100));
-                                    return (
-                                        <div key={i} className="space-y-1">
-                                            <div className="flex justify-between text-[11px]">
-                                                <span className="font-bold text-slate-700 font-mono">"{w.word}"</span>
-                                                <span className="font-mono text-rose-600 font-extrabold">+{w.score.toFixed(4)}</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-rose-500 rounded-full transition-all"
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <p className="text-[11px] text-slate-400 italic">Tidak ada kata yang menaikkan skor hoaks.</p>
-                            )}
-                        </div>
-
-                        {/* Kolom Pendorong Fakta */}
-                        <div className="space-y-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-                                Top Kata Menurunkan Skor Hoaks (-):
-                            </span>
-                            {computedTopFact.length > 0 ? (
-                                computedTopFact.map((w, i) => {
-                                    const pct = Math.min(100, Math.max(0, (w.score / globalMaxAbsScore) * 100));
-                                    return (
-                                        <div key={i} className="space-y-1">
-                                            <div className="flex justify-between text-[11px]">
-                                                <span className="font-bold text-slate-700 font-mono">"{w.word}"</span>
-                                                <span className="font-mono text-emerald-600 font-extrabold">-{w.score.toFixed(4)}</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-emerald-500 rounded-full transition-all"
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <p className="text-[11px] text-slate-400 italic">Tidak ada kata yang menurunkan skor hoaks.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+            </section>
         </div>
     );
 }

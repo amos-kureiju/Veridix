@@ -9,18 +9,22 @@ const { createRequire } = require('node:module');
 const frontend = path.resolve(__dirname, '../frontend');
 const frontendRequire = createRequire(path.join(frontend, 'package.json'));
 const ts = frontendRequire('typescript');
-const filename = path.join(frontend, 'src/components/detector/LimeHighlighter.tsx');
-const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    fileName: filename,
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-});
-const loaded = { exports: {} };
-vm.runInNewContext(outputText, {
-    module: loaded,
-    exports: loaded.exports,
-    require: name => name === 'react' ? { useMemo: compute => compute() } : frontendRequire(name),
-}, { filename });
-const Highlighter = loaded.exports.default;
+function load(relativePath) {
+    const filename = path.join(frontend, 'src', relativePath);
+    const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+        fileName: filename,
+        compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    });
+    const loaded = { exports: {} };
+    vm.runInNewContext(outputText, {
+        module: loaded,
+        exports: loaded.exports,
+        require: name => name === 'react' ? { useMemo: compute => compute() }
+            : name.startsWith('@/') ? load(name.slice(2) + '.tsx') : frontendRequire(name),
+    }, { filename });
+    return loaded.exports;
+}
+const Highlighter = load('components/detector/LimeHighlighter.tsx').default;
 
 function* elements(node) {
     if (Array.isArray(node)) {
@@ -96,4 +100,29 @@ test('legacy explanation without supplied text only lists the available attribut
     ] });
     assert.equal(text(inline(tree)), 'tersedia ');
     assert.equal(attributed(tree, 'tersedia ').props.title, 'Bobot Pengaruh: -0.2500');
+});
+
+test('LIME exposes both signs and shares one chart scale regardless of the model decision', () => {
+    const tree = Highlighter({ prediction: 'TIDAK BERPOLA HOAKS', numSamples: 200, tokens: [
+        { word: 'naik', weight: 0.4, influence: 'KE_HOAKS' },
+        { word: 'turun', weight: -0.1, influence: 'KE_TIDAK_HOAKS' },
+    ] });
+    const markup = text(tree);
+    assert.match(markup, /200 variasi teks diuji/);
+    assert.match(markup, /TIDAK BERPOLA HOAKS/);
+    assert.match(markup, /naik\+0\.4000/);
+    assert.match(markup, /turun-0\.1000/);
+    assert.deepEqual([...elements(tree)].flatMap(node => node.props.style?.width ?? []), ['100%', '25%']);
+});
+
+test('hiding the chart keeps actual weights and does not invent a decision or a sample count', () => {
+    const tree = Highlighter({ showChart: false, tokens: [
+        { word: 'sumber', weight: -0.12, influence: 'KE_TIDAK_HOAKS' },
+    ] });
+    const markup = text(tree);
+    assert.match(markup, /sumber-0\.1200/);
+    assert.match(markup, /Tidak ada bobot positif/);
+    assert.match(markup, /Label keputusan tidak tersedia/);
+    assert.doesNotMatch(markup, /TIDAK BERPOLA HOAKS|variasi teks diuji/);
+    assert.equal([...elements(tree)].some(node => node.props.style?.width), false);
 });

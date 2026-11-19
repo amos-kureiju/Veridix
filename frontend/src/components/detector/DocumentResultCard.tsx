@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, FileText, LoaderCircle } from "lucide-react";
+import { AlertCircle, FileText } from "lucide-react";
+import { AIAnalysisLoading } from "@/components/shared/AIAnalysisIcon";
 import DisclaimerBanner from "@/components/detector/DisclaimerBanner";
 import LimeHighlighter from "@/components/detector/LimeHighlighter";
 import { DEFAULT_SETTINGS, SETTINGS_KEY, readUserSettings } from "@/lib/userSettings";
@@ -73,6 +74,10 @@ function SegmentExplanation({ segment, explanation, loadingFor, error, onRequest
     const usable = explanation?.explanation_available === true && explanation.teks_dijelaskan === segment.text;
     const numSamples = explanation?.num_samples;
 
+    if (!usable && loadingFor === segment.start_char) {
+        return <AIAnalysisLoading description="Menghitung pengaruh kata untuk segmen ini." />;
+    }
+
     return (
         <div className="rounded-xl border border-emerald-200/70 bg-white p-3">
             {usable ? (
@@ -90,14 +95,6 @@ function SegmentExplanation({ segment, explanation, loadingFor, error, onRequest
                         topWordsCount={viewSettings.lime_top_words}
                     />
                 </details>
-            ) : loadingFor === segment.start_char ? (
-                <div role="status" className="flex items-center gap-3 rounded-xl bg-emerald-900 p-3 text-emerald-50">
-                    <LoaderCircle size={20} className="shrink-0 motion-safe:animate-spin" aria-hidden="true" />
-                    <div>
-                        <p className="text-sm font-semibold">AI sedang menyusun penjelasan</p>
-                        <p className="text-xs text-emerald-100">Menghitung pengaruh kata untuk segmen ini.</p>
-                    </div>
-                </div>
             ) : (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>

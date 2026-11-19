@@ -16,7 +16,7 @@ import {
 import { DetectionResult } from "@/types/detector";
 import LimeHighlighter from "./LimeHighlighter";
 import DisclaimerBanner from "./DisclaimerBanner";
-import AIAnalysisIcon from "@/components/shared/AIAnalysisIcon";
+import AIAnalysisIcon, { AIAnalysisLoading } from "@/components/shared/AIAnalysisIcon";
 import FeedbackModal from "./FeedbackModal";
 
 interface VerdictCardProps {
@@ -481,116 +481,34 @@ export default function VerdictCard({
                                         ? d.explanation.num_samples
                                         : undefined
                                 }
-                                confidenceScore={
-                                    typeof d.confidence_score === "number" && Number.isFinite(d.confidence_score)
-                                        ? d.confidence_score
-                                        : undefined
-                                }
                             />
                         )}
                     </div>
+                ) : limeLoading ? (
+                    <AIAnalysisLoading description="Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi." />
                 ) : (
-                    <div className="space-y-3 rounded-2xl border border-dashed border-emerald-300/80 bg-white/70 p-4">
-                        {limeLoading ? (
-                            <div
-                                role="status"
-                                aria-live="polite"
-                                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 p-4 text-left shadow-lg shadow-emerald-950/15"
+                    <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-emerald-300/80 bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <p className="text-xs font-bold text-emerald-900">Kata yang memengaruhi hasil</p>
+                            <p className={`mt-1 text-[11px] leading-relaxed ${limeError || d.explanation?.error ? "font-medium text-rose-700" : "text-slate-600"}`}>
+                                {limeError
+                                    ? limeError
+                                    : d.explanation?.error
+                                        ? `Gagal mengekstrak LIME: ${d.explanation.error}`
+                                        : canExplain
+                                            ? "Penjelasan kata (LIME) tidak dihitung otomatis agar hasil klasifikasi tampil lebih cepat."
+                                            : "Atribusi LIME tidak tersedia untuk status ini."}
+                            </p>
+                        </div>
+                        {canExplain && onRequestExplanation && (
+                            <button
+                                type="button"
+                                onClick={onRequestExplanation}
+                                disabled={!canAct}
+                                className="shrink-0 rounded-xl bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25 disabled:opacity-40"
                             >
-                                {/* Keyframe lokal untuk animasi analisis */}
-                                <style>{`
-                                    @keyframes vx-scan { 0% { top: -10%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-                                    @keyframes vx-glow { 0%, 100% { opacity: .35; transform: scale(1); } 50% { opacity: .8; transform: scale(1.12); } }
-                                    @keyframes vx-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-                                    @keyframes vx-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
-                                    @media (prefers-reduced-motion: reduce) {
-                                        .vx-anim, .vx-anim::after { animation: none !important; }
-                                    }
-                                `}</style>
-
-                                {/* Cahaya latar yang berdenyut */}
-                                <span
-                                    aria-hidden="true"
-                                    className="vx-anim pointer-events-none absolute -left-6 -top-6 h-32 w-32 rounded-full bg-emerald-400/30 blur-2xl"
-                                    style={{ animation: "vx-glow 2.4s ease-in-out infinite" }}
-                                />
-
-                                <div className="relative flex items-center gap-4">
-                                    {/* Logo otak tanpa lingkaran: tile persegi dengan garis pemindai */}
-                                    <span
-                                        aria-hidden="true"
-                                        className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-emerald-100 ring-1 ring-emerald-300/30 backdrop-blur-sm"
-                                    >
-                                        <AIAnalysisIcon className="h-9 w-9" />
-                                        <span
-                                            className="vx-anim absolute inset-x-0 h-6 bg-gradient-to-b from-transparent via-emerald-300/50 to-transparent"
-                                            style={{ animation: "vx-scan 1.8s ease-in-out infinite" }}
-                                        />
-                                        <span className="absolute left-1.5 top-1.5 h-2 w-2 rounded-tl-md border-l-2 border-t-2 border-emerald-300/80" />
-                                        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-tr-md border-r-2 border-t-2 border-emerald-300/80" />
-                                        <span className="absolute bottom-1.5 left-1.5 h-2 w-2 rounded-bl-md border-b-2 border-l-2 border-emerald-300/80" />
-                                        <span className="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-br-md border-b-2 border-r-2 border-emerald-300/80" />
-                                    </span>
-
-                                    <div className="min-w-0 flex-1">
-                                        <p className="flex items-center gap-2 text-sm font-semibold text-white">
-                                            AI sedang menyusun penjelasan
-                                            <span aria-hidden="true" className="flex items-center gap-1">
-                                                {[0, 1, 2].map((i) => (
-                                                    <span
-                                                        key={i}
-                                                        className="vx-anim h-1.5 w-1.5 rounded-full bg-emerald-300"
-                                                        style={{ animation: `vx-dot 1.2s ease-in-out ${i * 0.15}s infinite` }}
-                                                    />
-                                                ))}
-                                            </span>
-                                        </p>
-                                        <p className="mt-1 text-[11px] leading-relaxed text-emerald-100/80">
-                                            Menghitung pengaruh kata terhadap hasil model. Waktu proses dapat bervariasi.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Placeholder kata yang sedang dianalisis (indeterminate, bukan persentase) */}
-                                <div aria-hidden="true" className="relative mt-4 flex flex-wrap gap-2">
-                                    {["w-14", "w-20", "w-12", "w-24", "w-16", "w-10"].map((w, i) => (
-                                        <span
-                                            key={i}
-                                            className={`relative h-5 overflow-hidden rounded-md bg-white/10 ${w}`}
-                                        >
-                                            <span
-                                                className="vx-anim absolute inset-0 bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent"
-                                                style={{ animation: `vx-shimmer 1.6s ease-in-out ${i * 0.12}s infinite` }}
-                                            />
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0">
-                                    <p className="text-xs font-bold text-emerald-900">Kata yang memengaruhi hasil</p>
-                                    <p className={`mt-1 text-[11px] leading-relaxed ${limeError || d.explanation?.error ? "font-medium text-rose-700" : "text-slate-600"}`}>
-                                        {limeError
-                                            ? limeError
-                                            : d.explanation?.error
-                                                ? `Gagal mengekstrak LIME: ${d.explanation.error}`
-                                                : canExplain
-                                                    ? "Penjelasan kata (LIME) tidak dihitung otomatis agar hasil klasifikasi tampil lebih cepat."
-                                                    : "Atribusi LIME tidak tersedia untuk status ini."}
-                                    </p>
-                                </div>
-                                {canExplain && onRequestExplanation && (
-                                    <button
-                                        type="button"
-                                        onClick={onRequestExplanation}
-                                        disabled={!canAct}
-                                        className="shrink-0 rounded-xl bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25 disabled:opacity-40"
-                                    >
-                                        {limeError ? "Coba lagi" : "Tampilkan penjelasan"}
-                                    </button>
-                                )}
-                            </div>
+                                {limeError ? "Coba lagi" : "Tampilkan penjelasan"}
+                            </button>
                         )}
                     </div>
                 )}

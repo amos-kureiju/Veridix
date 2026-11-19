@@ -280,6 +280,9 @@ test('document result uses signed LIME weights from the explained segment and pr
     assert.match(html, /Waktu analisis 0 detik/);
     assert.match(html, /Topik Kebijakan &amp; Bansos/);
     assert.match(html, /AI sedang menyusun penjelasan/);
+    assert.match(html, /prefers-reduced-motion: no-preference/);
+    assert.match(html, /veridix-brain-sweep/);
+    assert.doesNotMatch(html, /animate-spin/);
     assert.match(html, /role="alert"[^>]*>Sambungan putus\./);
     assert.match(html, /Coba lagi/);
     assert.match(html, /Catatan penggunaan/);

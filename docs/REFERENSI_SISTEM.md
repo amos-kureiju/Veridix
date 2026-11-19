@@ -317,9 +317,9 @@ Kontrak respons deteksi aktif: `terpotong` bernilai `true` jika pemotongan diket
 | NaN/tak hingga atau seed wajib tidak lengkap | Kegagalan pemrosesan, tanpa label, suara, atau skor pengganti. |
 | Gangguan layanan/database | Kegagalan terkait, tanpa pesan verifikasi berhasil. |
 
-Envelope `success`, `process_status`, kode HTTP, dan pesan harus konsisten.
+Pada `POST /api/v1/detect/text`, backend memeriksa status, latensi, ketiga keputusan seed, jumlah suara, rasio kesepakatan, serta kecocokan status dan label dengan aturan voting keluaran model. `dinilai` dan `ambigu` dikirim sebagai `status: "success"`. Penolakan yang dikembalikan pipeline memakai `status: "rejected"` dengan alasan, tanpa label pola atau metadata konsensus. Pemeriksaan permintaan awal yang menolak teks terlalu pendek atau di luar cakupan tetap memakai HTTP 400.
 
-Penolakan masukan yang ditangani normal dapat berbeda dari exception server. Jangan mengganti seluruh penolakan menjadi HTTP 500, dan jangan menyebut kegagalan mesin AI sebagai verifikasi berhasil.
+Keluaran model rusak atau gagal mendapat HTTP 500 tanpa menyimpan deteksi. Backend memvalidasi respons sebelum `commit`. Kegagalan penyimpanan membatalkan transaksi dan mengembalikan galat HTTP 500 atau 503 sesuai jenis kegagalan database, sehingga respons sukses selalu mendapat ID penyimpanan yang bisa dipakai di riwayat, feedback, dan LIME. [Rute deteksi teks](../src/api/routes/detection_routes.py) · [Penanganan kegagalan database](../main.py)
 
 ### 6.2 Metadata hasil
 

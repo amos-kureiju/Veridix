@@ -1,6 +1,6 @@
 # Deteksi Pola Hoaks Politik dan Integritas VERIDIX
 
-**19 November 2026 · Acuan kode d466df0.** Dokumen ini menjelaskan sistem yang berjalan, bukti evaluasi yang tersedia, dan urutan kerja yang diusulkan. Evaluasi final mengikuti [protokol penelitian](../PROTOKOL_PRAREGISTRASI.md).
+**19 November 2026.** Gunakan nama **VERIDIX** dalam dokumentasi, laporan, dan naskah penelitian. Dokumen ini menjelaskan sistem yang berjalan, bukti evaluasi yang tersedia, dan urutan kerja yang diusulkan. Evaluasi final mengikuti [protokol penelitian](../PROTOKOL_PRAREGISTRASI.md).
 
 ## 1. Tujuan dan makna hasil
 
@@ -56,7 +56,7 @@ flowchart LR
 
 [Audit dataset dan model](../reports/AUDIT_MODEL_2026-10-24.md) · [Laporan paritas](../reports/audit_model_2026-10-24_parity.json) · [Log pelatihan](../log_training.json) · [Protokol](../PROTOKOL_PRAREGISTRASI.md)
 
-Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterkaitan ini memungkinkan model memakai ciri gaya penerbit untuk menebak label. C4 pada dataset beku tercatat **72,46%**, melampaui batas **60%**. Protokol masih mencatat **66,6%** dari tahap sebelumnya. Perbedaan perlu dicatat dengan tanggal sebenarnya sambil mempertahankan riwayat hasil. Tiga seed memberi informasi tentang variasi antar-run pada rancangan ini. Generalisasi tetap perlu diukur. [Hasil kriteria](../data/processed_v2/hasil_kriteria.csv) · [Audit keterbatasan](../reports/AUDIT_MODEL_2026-10-24.md)
+Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterkaitan ini memungkinkan model memakai ciri gaya penerbit untuk menebak label. C4 pada dataset beku tercatat **72,46%**, melampaui batas **60%**. Adendum protokol mencatat angka itu dan mempertahankan **66,6%** sebagai catatan tahap sebelumnya. Tiga seed memberi informasi tentang variasi antar-run pada rancangan ini. Generalisasi tetap perlu diukur. [Hasil kriteria](../data/processed_v2/hasil_kriteria.csv) · [Audit keterbatasan](../reports/AUDIT_MODEL_2026-10-24.md) · [Adendum protokol](../PROTOKOL_PRAREGISTRASI.md)
 
 ## 4. Rancangan uji berita baru dan OCR
 
@@ -67,7 +67,9 @@ Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterk
 5. **Pertahankan penyebut lengkap.** Laporkan klaim benar, salah, ambigu, ditolak, di luar domain, dan gagal. Tampilkan cakupan kasus dengan keputusan, akurasi pada kasus yang diputuskan, dan jumlah benar terhadap seluruh sampel. Tampilkan kesalahan menandai klaim benar sebagai hoaks dan hoaks yang terlewat. Laporkan per seed dan konsensus pada set aplikasi yang sama.
 6. **Simpan keluaran aktual.** Catat versi, hash artefak, konfigurasi, perangkat, status, dan keputusan tiap seed yang tersedia. Simpan suara biner asli secara terpisah dari skor debug yang dibulatkan. Gunakan keluaran baru setiap putaran. Apabila hasil suatu set dipakai untuk mengubah sistem, perlakukan set itu sebagai data diagnostik dan tetapkan set baru untuk evaluasi independen berikutnya.
 
-Gunakan [evaluasi_set_luar.py](../evaluasi_set_luar.py) sebagai dasar untuk klaim singkat. Jalankan dengan CSV uji terpisah dan berkas keluaran baru. Periksa bahwa kegagalan mesin dilaporkan eksplisit sebelum memakai skrip untuk laporan. [Notebook inferensi lokal](../notebooks/03_pengujian_inferensi_lokal.ipynb) bisa menjadi tempat menelaah kasus dengan kontrak respons terkini. [Panduan OCR berpasangan](PANDUAN_PENGUJIAN_OCR.md)
+Adendum protokol merinci pilot. Dua klaim November yang sudah dilihat dapat dirujuk sebagai contoh diagnostik. Keluarkan kelompok klaim keduanya dari set eksternal yang akan dipakai untuk evaluasi independen. [Adendum protokol](../PROTOKOL_PRAREGISTRASI.md)
+
+`evaluasi_set_luar.py` dapat menjadi dasar runner klaim singkat. Sebelum uji, perbaiki pemetaan label tak dikenal dan pencatatan gagal per kasus. Gunakan CSV uji terpisah dan `--out` dengan jalur baru karena runner dapat menimpa berkas. Notebook inferensi lokal masih membaca field lama dan perlu diselaraskan sebelum menjalankan semua sel. Jupyter dapat dipakai untuk meninjau tabel, kelompok klaim, kesalahan, dan interval dari hasil runner. [Runner eksternal](../evaluasi_set_luar.py) · [Notebook inferensi lokal](../notebooks/03_pengujian_inferensi_lokal.ipynb) · [Panduan OCR berpasangan](PANDUAN_PENGUJIAN_OCR.md)
 
 ## 5. Prioritas integritas dan optimasi
 
@@ -81,13 +83,13 @@ Gunakan [evaluasi_set_luar.py](../evaluasi_set_luar.py) sebagai dasar untuk klai
 
 Pada kode yang diperiksa, pemeriksaan pemilik, verifikasi hash, pemisahan LIME dari klasifikasi, dan penyimpanan feedback sudah tersedia. Identitas cache LIME klaim historis dan penyimpanan metadata reproduksi belum lengkap. Catat jenis galat, status, dan ID aman. Teks privat, token, kata sandi, serta string koneksi tetap dikecualikan dari log. [AGENTS.md](../AGENTS.md) · [Panduan Pengembangan AI](PANDUAN_PENGEMBANGAN_AI.md) · [Integritas cache](PANDUAN_INTEGRASI_LIME.md#6-cache-konkurensi-dan-penyimpanan-backend)
 
-### Temuan pemeriksaan terhadap kode acuan
+### Temuan pemeriksaan dan status tindak lanjut
 
 | Pemeriksaan terisolasi | Perilaku yang ditemukan |
 | --- | --- |
-| Keluaran inferensi kosong pada rute klaim | Fixture menerima hasil sukses dengan status **dinilai**, label kosong, latensi 0,0, dan satu pemanggilan commit tiruan. Status yang hilang dipetakan menjadi nilai bawaan. |
-| Keputusan seed dengan nilai di luar 0 atau 1 | Validasi respons menolak hasil setelah rute memanggil commit tiruan. Validasi kontrak model perlu dilakukan sebelum persistensi. |
+| Keluaran inferensi kosong pada rute klaim | Pada `d466df0`, fixture menerima status **dinilai**, label kosong, latensi 0,0, dan satu pemanggilan commit tiruan. Rute sekarang menolak keluaran kosong sebagai HTTP 500, lalu melakukan rollback tanpa membuat log. |
+| Keputusan seed dan respons rusak | Sebelumnya validasi respons berjalan setelah commit. Rute sekarang memeriksa ketiga suara dan konsistensi keputusan sebelum menambah baris, serta memvalidasi respons sebelum commit. Kegagalan database membatalkan permintaan dan tidak mengonfirmasi penyimpanan. |
 | Kesesuaian label dengan suara pada parser naskah | Parser menerima label **tidak berpola hoaks** pada 3/3 suara hoaks. Pemeriksaan konsistensi perlu mengikuti aturan voting yang tercatat pada hasil. |
 | Kesesuaian setuju dengan label koreksi | Fixture feedback menerima setuju bernilai benar bersama label koreksi yang berlawanan. Keputusan model tetap terpisah. Definisi setuju dan klaim koreksi perlu disejajarkan di backend dan UI, termasuk saat hasil ambigu. |
 
-Pemeriksaan menggunakan keluaran tiruan dan validasi kode, tanpa model atau database produksi. Temuan menunjukkan kondisi ketika integritas hasil atau feedback dapat terganggu. [Rute klaim](../src/api/routes/detection_routes.py#L336) · [Parser naskah](../frontend/src/types/document-analysis.ts#L116) · [Rute feedback](../src/api/routes/feedback_routes.py#L47)
+Pemeriksaan ini menggunakan keluaran tiruan dan validasi kode, tanpa model atau database produksi. [Rute klaim](../src/api/routes/detection_routes.py) · [Parser naskah](../frontend/src/types/document-analysis.ts#L116) · [Rute feedback](../src/api/routes/feedback_routes.py#L47)

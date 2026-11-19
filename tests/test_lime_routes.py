@@ -191,8 +191,10 @@ class TestLimeRoutes(unittest.TestCase):
 
     def test_text_response_preserves_known_and_unknown_truncation(self):
         result = {
-            "status": "dinilai", "label": "TIDAK BERPOLA HOAKS",
+            "success": True, "status": "dinilai", "label": "TIDAK BERPOLA HOAKS",
             "agreement_ratio": 1.0, "latency_seconds": 0.1,
+            "votes_hoax": "0/3", "decision_rule": "unanimous",
+            "seed_decisions": {42: 0, 123: 0, 999: 0},
             "teks_dinilai": TEXT,
         }
         payload = routes.TextDetectionRequest(text=TEXT)

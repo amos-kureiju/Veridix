@@ -20,9 +20,14 @@ from sqlalchemy.exc import (
     TimeoutError as PoolTimeoutError,
 )
 
+# These pure helpers do not initialize the lazy predictor or read checkpoints.
+from src.ml.inference import SEEDS, putuskan
+
 
 _model_stub = ModuleType("src.ml.inference")
 _model_stub.predictor = Mock(name="unused_predictor")
+_model_stub.SEEDS = SEEDS
+_model_stub.putuskan = putuskan
 _ocr_stub = ModuleType("src.utils.ocr_extractor")
 _ocr_stub.extract_text_from_image = Mock(name="unused_ocr")
 _ocr_stub.MAX_BYTES = 10 * 1024 * 1024

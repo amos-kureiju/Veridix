@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
 from jose import JWTError, jwt
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -29,7 +30,7 @@ from src.database.session import get_db
 from src.database.models import PredictionLog, User
 from src.core.auth_deps import get_current_user
 from src.core.security import SECRET_KEY
-from src.ml.inference import predictor
+from src.ml.inference import SEEDS, predictor, putuskan
 from starlette.concurrency import run_in_threadpool
 
 from src.utils.political_guardrail import check_political_domain
@@ -67,6 +68,51 @@ def _classify_without_lime(text: str) -> dict:
     if _SUPPORTS_EXPLAIN_FLAG:
         return predictor.predict_and_explain(text, explain=False)
     return predictor.predict_and_explain(text)
+
+
+def _validate_text_result(result: dict) -> None:
+    if not isinstance(result, dict):
+        raise ValueError("Keluaran inferensi bukan objek.")
+
+    latency = result.get("latency_seconds")
+    if type(latency) not in (int, float) or not math.isfinite(latency) or latency < 0:
+        raise ValueError("Latensi inferensi tidak sah.")
+
+    process_status = result.get("status")
+    if process_status in ("ditolak", "di_luar_domain"):
+        reason = result.get("reason")
+        if (
+            result.get("success") is not False
+            or not isinstance(reason, str)
+            or not reason.strip()
+            or any(result.get(field) is not None for field in ("votes_hoax", "seed_decisions", "agreement_ratio"))
+        ):
+            raise ValueError("Keluaran penolakan inferensi tidak sah.")
+        return
+
+    if process_status not in ("dinilai", "ambigu") or result.get("success") is not True:
+        raise ValueError("Status hasil inferensi tidak sah.")
+
+    decisions = result.get("seed_decisions")
+    if (
+        not isinstance(decisions, dict)
+        or decisions.keys() != set(SEEDS)
+        or any(type(seed) is not int or type(vote) is not int or vote not in (0, 1) for seed, vote in decisions.items())
+    ):
+        raise ValueError("Keputusan per seed tidak sah.")
+
+    votes = sum(decisions.values())
+    n = len(SEEDS)
+    if (process_status, result.get("label")) != putuskan(votes, n, result.get("decision_rule")):
+        raise ValueError("Status atau label tidak sesuai aturan voting.")
+
+    agreement = result.get("agreement_ratio")
+    if (
+        result.get("votes_hoax") != f"{votes}/{n}"
+        or type(agreement) not in (int, float)
+        or agreement != max(votes, n - votes) / n
+    ):
+        raise ValueError("Jumlah suara atau rasio kesepakatan tidak sesuai keputusan seed.")
 
 
 def _document_blocks(payload: DocumentAnalysisRequest):
@@ -325,115 +371,92 @@ def detect_text(
     # 3. Inferensi AI (tanpa LIME; penjelasan diminta lewat endpoint /explain)
     try:
         result = _classify_without_lime(raw_text)
-    except Exception:
-        logger.exception("Inferensi gagal")
+    except Exception as exc:
+        db.rollback()
+        logger.error("Inferensi gagal (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Terjadi kesalahan pada mesin AI. Silakan coba lagi."
-        )
+        ) from None
 
-    # 4. Pemetaan Output Inferensi (status diseragamkan huruf kecil)
-    process_status = str(
-        result.get("status") or result.get("process_status") or "dinilai"
-    ).lower()
-    reason = result.get("reason")
-
-    # --- PERBAIKAN AUDIT: Deteksi & Bedakan Kegagalan Mesin AI ---
-    reason_lower = str(reason or "").lower()
-    is_engine_failure = (
-        process_status in ("gagal", "error")
-        or any(k in reason_lower for k in ("numerik", "nan", "inf", "probabilitas", "mesin", "kalkulasi"))
-    )
-
-    if is_engine_failure:
-        logger.error("Inferensi ditolak akibat anomali mesin AI: %s", reason)
+    try:
+        _validate_text_result(result)
+    except (ValueError, OverflowError):
+        db.rollback()
+        logger.error("Keluaran mesin AI tidak memenuhi kontrak deteksi teks")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Terjadi kesalahan kalkulasi pada mesin AI: {reason or 'keluaran numerik tidak valid'}."
-        )
+            detail="Terjadi kesalahan pada mesin AI. Silakan coba lagi."
+        ) from None
 
+    process_status = result["status"]
     model_ran = process_status in ("dinilai", "ambigu")
-
-    if process_status in ("ditolak", "di_luar_domain"):
-        pattern_label = None
-        agreement_ratio = None
-    else:
-        pattern_label = result.get("label") or result.get("pattern_label")
-        agreement_ratio = result.get("agreement_ratio")
-
-    political_topic = result.get("sub_topik") or guardrail_topic or "ALL"
-    latency_seconds = result.get("latency_seconds") or result.get("inference_time_seconds", 0.0)
-    lime_explanation = result.get("lime_explanation") or result.get("explanation")
-    narrative_text = result.get("narrative_text")
-
-    # Metadata konsensus: None bila model tidak dijalankan (jangan diisi "0/3")
-    votes_hoax = result.get("votes_hoax") if model_ran else None
-    seed_decisions = result.get("seed_decisions") if model_ran else None
+    reason = result.get("reason")
     sub_topik = result.get("sub_topik")
     raw_terpotong = result.get("terpotong")
     terpotong = raw_terpotong if isinstance(raw_terpotong, bool) else None
-
-    # 5. Simpan ke Database
     log_entry = PredictionLog(
         user_id=current_user.id,
         input_text=raw_text,
         input_type=payload.input_type,
         image_url=payload.image_url,
         is_political=True,
-        political_topic=political_topic,
+        political_topic=sub_topik or guardrail_topic or "ALL",
         detected_entities=entities if entities else result.get("detected_entities", []),
         process_status=process_status,
-        pattern_label=pattern_label,
-        agreement_ratio=agreement_ratio,
-        latency_seconds=latency_seconds,
-        lime_explanation=lime_explanation,
-        narrative_text=narrative_text
+        pattern_label=result["label"] if model_ran else None,
+        agreement_ratio=result.get("agreement_ratio"),
+        latency_seconds=result["latency_seconds"],
+        lime_explanation=result.get("lime_explanation") or result.get("explanation"),
+        narrative_text=result.get("narrative_text"),
     )
-    db.add(log_entry)
-    db.commit()
-    db.refresh(log_entry)
 
-    # --- PERBAIKAN AUDIT: Penentuan Status & Pesan Respons yang Transparan ---
-    if process_status in ("ditolak", "di_luar_domain"):
-        # Kasus Penolakan Masukan (Input Rejection)
-        resp_status = "rejected"
-        resp_message = reason or "Naskah ditolak dan tidak dapat dinilai oleh sistem."
+    if not model_ran:
+        resp_message = reason
     elif process_status == "ambigu":
-        # Kasus Konsensus Ambigu
-        resp_status = "success"
         resp_message = "Verifikasi selesai: hasil konsensus model menunjukkan ambiguitas."
     else:
-        # Kasus Sukses Dinilai
-        resp_status = "success"
         resp_message = "Verifikasi berhasil diselesaikan."
 
-    # 6. Response
-    return DetectionResponse(
-        status=resp_status,
-        message=resp_message,
-        data=DetectionResultData(
-            id=log_entry.id,
-            input_text=log_entry.input_text,
-            input_type=log_entry.input_type,
-            image_url=log_entry.image_url,
-            process_status=log_entry.process_status,
-            pattern_label=log_entry.pattern_label,
-            agreement_ratio=log_entry.agreement_ratio,
-            latency_seconds=log_entry.latency_seconds,
-            is_political=log_entry.is_political,
-            political_topic=log_entry.political_topic,
-            detected_entities=log_entry.detected_entities or [],
-            votes_hoax=votes_hoax,
-            seed_decisions=seed_decisions,
-            sub_topik=sub_topik,
-            reason=reason,
-            terpotong=terpotong,
-            teks_dinilai=result.get("teks_dinilai"),
-            explanation=log_entry.lime_explanation,
-            narrative_text=log_entry.narrative_text,
-            created_at=log_entry.created_at
+    db.add(log_entry)
+    db.flush()
+    try:
+        response = DetectionResponse(
+            status="success" if model_ran else "rejected",
+            message=resp_message,
+            data=DetectionResultData(
+                id=log_entry.id,
+                input_text=log_entry.input_text,
+                input_type=log_entry.input_type,
+                image_url=log_entry.image_url,
+                process_status=log_entry.process_status,
+                pattern_label=log_entry.pattern_label,
+                agreement_ratio=log_entry.agreement_ratio,
+                latency_seconds=log_entry.latency_seconds,
+                is_political=log_entry.is_political,
+                political_topic=log_entry.political_topic,
+                detected_entities=log_entry.detected_entities or [],
+                votes_hoax=result.get("votes_hoax"),
+                seed_decisions=result.get("seed_decisions"),
+                sub_topik=sub_topik,
+                reason=reason,
+                terpotong=terpotong,
+                teks_dinilai=result.get("teks_dinilai"),
+                explanation=log_entry.lime_explanation,
+                narrative_text=log_entry.narrative_text,
+                created_at=log_entry.created_at,
+            ),
         )
-    )
+    except ValidationError:
+        db.rollback()
+        logger.error("Respons deteksi teks tidak memenuhi kontrak API")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Terjadi kesalahan pada mesin AI. Silakan coba lagi."
+        ) from None
+
+    db.commit()
+    return response
 
 
 # =====================================================================

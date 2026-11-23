@@ -60,16 +60,74 @@ Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterk
 
 ## 4. Rancangan uji berita baru dan OCR
 
-1. **Tetapkan unit uji berupa klaim.** Catat ID, kelompok klaim, tanggal, rujukan, gaya bahasa, topik, dan label acuan beserta bukti. Tetapkan label sebelum melihat hasil model. Pisahkan kasus yang bukti faktualnya belum memadai.
-2. **Silangkan label acuan dengan gaya bahasa.** Uji klaim benar dan keliru dalam gaya berita formal serta gaya media sosial. Isi setiap kelompok dengan beragam sumber. Angka 40–50 contoh dapat digunakan sebagai pilot. Laporkan jumlah klaim unik dan jumlah variasi teks atau gambar secara terpisah.
-3. **Periksa duplikasi dan petunjuk label.** Masukkan klaim yang akan diuji. Simpan judul “HOAKS”, bantahan, serta rujukan verifikasi secara terpisah. Periksa duplikat dekat dan klaim yang sama dalam data pengembangan yang diizinkan. Kelompokkan salinan, parafrasa, dan varian gambar bersama. Berkas **eval_benar.csv** dan **eval_kompas_cekfakta.csv** merupakan set diagnostik historis yang hasilnya tercatat dalam log pelatihan. Pisahkan label asal korpus dari label acuan yang diverifikasi pada tingkat klaim. Judul atau kategori penerbit belum menetapkan kebenaran klaim yang dikutip.
-4. **Pisahkan efek OCR dari hasil klasifikasi.** Buat transkripsi manual sebagai acuan. Bandingkan hasil klasifikasi transkripsi dengan hasil dari OCR sebelum koreksi. Jika koreksi pengguna ikut diuji, laporkan sebagai tahap ketiga. Catat CER, WER, penolakan, dan perubahan keputusan. Pisahkan gambar nyata, gambar sintetis, serta simulasi derau teks.
-5. **Pertahankan penyebut lengkap.** Laporkan klaim benar, salah, ambigu, ditolak, di luar domain, dan gagal. Tampilkan cakupan kasus dengan keputusan, akurasi pada kasus yang diputuskan, dan jumlah benar terhadap seluruh sampel. Tampilkan kesalahan menandai klaim benar sebagai hoaks dan hoaks yang terlewat. Laporkan per seed dan konsensus pada set aplikasi yang sama.
-6. **Simpan keluaran aktual.** Catat versi, hash artefak, konfigurasi, perangkat, status, dan keputusan tiap seed yang tersedia. Simpan suara biner asli secara terpisah dari skor debug yang dibulatkan. Gunakan keluaran baru setiap putaran. Apabila hasil suatu set dipakai untuk mengubah sistem, perlakukan set itu sebagai data diagnostik dan tetapkan set baru untuk evaluasi independen berikutnya.
+Urutan kerja **23 November 2026**. Mulai dari uji pasangan klaim singkat pada checkpoint aktif. Pilot eksternal dan OCR mengikuti adendum penelitian. Tetapkan kriteria sebelum melihat keluaran untuk setiap putaran. [Adendum protokol](PROTOKOL_PRAREGISTRASI.md#114-rencana-prospektif-pilot-klaim-dan-ocr)
 
-Adendum protokol merinci pilot. Dua klaim November yang sudah dilihat dapat dirujuk sebagai contoh diagnostik. Keluarkan kelompok klaim keduanya dari set eksternal yang akan dipakai untuk evaluasi independen. [Adendum protokol](PROTOKOL_PRAREGISTRASI.md)
+### 4.1 Periksa kontrak dan siapkan evaluator
 
-`evaluasi_set_luar.py` dapat menjadi dasar runner klaim singkat. Sebelum uji, perbaiki pemetaan label tak dikenal dan pencatatan gagal per kasus. Gunakan CSV uji terpisah dan `--out` dengan jalur baru karena runner dapat menimpa berkas. Notebook inferensi lokal masih membaca field lama dan perlu diselaraskan sebelum menjalankan semua sel. Jupyter dapat dipakai untuk meninjau tabel, kelompok klaim, kesalahan, dan interval dari hasil runner. [Runner eksternal](../evaluasi_set_luar.py) · [Notebook inferensi lokal](../notebooks/03_pengujian_inferensi_lokal.ipynb) · [Panduan OCR berpasangan](PANDUAN_PENGUJIAN_OCR.md)
+Jalankan tes berikut dari root proyek. Tes memakai backend dan pemuat model tiruan untuk memeriksa keputusan seed, metadata pemotongan, serta penanganan pemuatan artefak.
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m unittest tests.test_inference_text_contract tests.test_consensus_metadata tests.test_model_loading -q
+```
+
+Pada pemeriksaan awal 23 November 2026, **31 tes lulus**. Setelah runner pasangan diperbarui, **9/9 tes `tests.test_evaluasi_set_luar` lulus** dan CLI `--pairs --stub` pada fixture empat baris menghasilkan dua pasangan yang dapat dibandingkan, dengan laporan sementara terpisah. Pemeriksaan ini membuktikan perilaku pada fixture yang diuji, bukan kualitas checkpoint pada klaim baru. Hasil model nyata pada pasangan belum diklaim dari pengujian itu.
+
+Gunakan [runner eksternal](../evaluasi_set_luar.py) melalui CLI dengan `--pairs` untuk evaluator pasangan. Runner memvalidasi CSV sebelum memuat model dan memakai `validate_claim_result` yang sama dengan API. Status dan label rusak dicatat sebagai kegagalan per baris, bukan dipetakan menjadi kelas 0; baris lain tetap diproses. Entry point aman diimpor untuk tes terisolasi. Keluaran berupa satu CSV atomik pada jalur baru; input dan laporan yang sudah ada tidak ditimpa. [Kontrak model](../src/ml/inference.py)
+
+### 4.2 Susun dan kunci pasangan klaim
+
+Gunakan satu baris per versi teks. Kontrak CSV kanonik untuk `--pairs` adalah:
+
+| Kolom wajib | Isi |
+| --- | --- |
+| `id`, `text`, `label` | ID baris unik, teks masukan, serta label acuan biner 0 atau 1. Alias `teks` dan `label_acuan` diterima untuk `text` dan `label`; utamakan nama kanonik saat membuat berkas baru. |
+| `pair_id`, `group_id` | ID pasangan dan kelompok klaim asal. Setiap pasangan berisi tepat dua versi dari kelompok yang sama. |
+| `jenis_uji`, `varian` | `jenis_uji` adalah `gaya` atau `isi`; kedua versi diberi `v1` dan `v2`. |
+| `rujukan`, `bukti_label` | Rujukan dan alasan label yang telah diperiksa, terpisah dari teks yang masuk model. |
+
+Kolom protokol lain seperti `tanggal_klaim`, `topik`, `gaya`, `bagian_diubah`, dan jenis sumber direkomendasikan untuk penelusuran. `group_id` menyatukan salinan, parafrasa, dan varian dari peristiwa atau kelompok klaim yang sama. Verifikasi kedua teks dan label sebelum melihat skor. Simpan bantahan dan bukti terpisah dari teks masukan. Klaim yang belum dapat dipastikan dicatat terpisah dari pasangan berlabel biner.
+
+| Kelompok | Desain | Pertanyaan yang dinilai |
+| --- | --- | --- |
+| **A · perubahan gaya** | Dua versi menyatakan klaim yang sama. Ubah gaya atau penanda awalan yang tidak menambah klaim baru. Kedua versi memakai label acuan yang sama. | Seberapa sering keputusan, suara seed, atau status berubah ketika isi klaim tetap? Berapa pasangan yang konsisten tetapi kedua hasilnya salah? |
+| **B · perubahan isi** | Pertahankan gaya dan struktur sejauh mungkin. Ubah satu unsur seperti pelaku, angka, atau negasi, lalu verifikasi label benar/keliru untuk kedua sisi. | Seberapa sering skor kelas hoaks meningkat pada versi keliru dan model memberi keputusan yang sesuai pada kedua sisi? |
+
+Tempatkan perubahan cukup awal pada teks singkat. Jika `bagian_diubah` diisi, gunakan penanda literal yang benar-benar terdapat pada versi itu; penanda kosong boleh dipakai jika tidak ada rentang tambahan pada sisi tersebut. Runner memeriksa keberadaan penanda setelah praproses dengan penyamaan kapitalisasi dan spasi. Pemeriksaan ini tidak menggantikan penilaian manusia bahwa isi pasangan gaya tetap sama atau bahwa perubahan isi memiliki label acuan yang sah.
+
+Catat versi manifest, SHA-256, tanggal penguncian, arah yang diharapkan, aturan inklusi, dan seluruh pengecualian sebelum inferensi. Pasangan yang sudah dipakai untuk diagnosis dan semua varian satu `group_id` dikeluarkan dari pilot eksternal. [Protokol penelitian](PROTOKOL_PRAREGISTRASI.md#114-rencana-prospektif-pilot-klaim-dan-ocr)
+
+[sample_pasangan_teks.csv](../data/sample_pasangan_teks.csv) berisi **empat baris fixture sintetis**, bukan sampel penelitian atau berita berlabel faktual. Pasangan `FIX_GAYA` memakai klaim cerita yang sama dan label 0 pada kedua versi; versi kedua menambahkan penanda `Viral!`. Pasangan `FIX_ISI` mengganti nama program rekaan `Tertib` menjadi `Viral`; ketetapan cerita buatan menyatakan hanya `Tertib` disetujui, sehingga label cerita kedua versi adalah 0 dan 1. `rujukan` dan `bukti_label` menjelaskan ketetapan internal fixture, bukan mengaku sebagai bukti dunia nyata. Kata `viral` sengaja memicu aturan stub. Hasil fixture hanya membuktikan jalur perbandingan berjalan, bukan bahwa IndoBERT peka terhadap gaya atau memahami isi.
+
+### 4.3 Jalankan dan baca hasil pasangan
+
+Jalankan dari root proyek dengan nama keluaran yang belum ada:
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 evaluasi_set_luar.py data/sample_pasangan_teks.csv --pairs --stub --out reports/pasangan_teks_stub_01.csv
+```
+
+Ini bentuk konkret `python evaluasi_set_luar.py <csv> --pairs --stub --out <jalur baru>`. `--stub` memakai prediksi tiruan; jangan melaporkan hasilnya sebagai evaluasi checkpoint. Pilih nama baru pada setiap putaran. Kesalahan manifest ditolak sebelum inferensi dengan exit code 2. Galat eksekusi atau penulisan menghasilkan exit code 1; laporan lama tidak ditimpa. Inferensi nyata tanpa `--stub` merupakan putaran terpisah setelah fixture dan manifest penelitian diperiksa; belum dijalankan sebagai bagian uji fixture ini.
+
+Runner memakai `explain=False` dan `debug=True`. Catat revisi kode, identitas checkpoint, pipeline, tokenizer, aturan voting aktif, perangkat, dan versi runtime yang tersedia. **Satu CSV** menyimpan hasil per versi teks dan metadata perbandingan pasangan yang diulang pada kedua baris pasangan; konsol menampilkan agregat kelompok uji secara terpisah. Kolom laporan mencakup `status`, `reason`, `label_model`, `seed_decisions_json`, `votes_hoax`, `teks_dinilai`, `terpotong`, `manifest_sha256`, serta `audit_model_json` jika metadata audit tersedia. `debug.prob_hoax_per_seed` dipetakan menjadi `prob_42`, `prob_123`, dan `prob_999` yang dibulatkan ke enam desimal; selisih yang dihitung darinya juga memakai skor debug yang dibulatkan. Selisih nol pada presisi ini bukan bukti tidak ada perubahan probabilitas. Ambil keputusan biner dari `seed_decisions` yang disimpan sebagai `seed_decisions_json` dan `pred_42/123/999` agar pembulatan dekat 0,5 tidak mengubah suara. [Keluaran predictor](../src/ml/inference.py)
+
+- **Periksa perubahan yang diterima model.** Batas 60 kata dan 128 token bekerja pada tahap berbeda. `teks_dinilai` adalah hasil praproses sebelum batas tokenizer. Pasangan yang dapat dibandingkan memerlukan dua hasil valid `dinilai` atau `ambigu`, dua teks praproses tidak kosong dan berbeda, pemotongan keduanya `false`, serta penanda literal yang diisi tetap ditemukan. Jika syarat gagal, simpan alasan pasangan belum dapat dibandingkan. Pemeriksaan teks ini belum membuktikan token ID kedua versi berbeda; jika perlu memeriksa token lebih jauh, gunakan diagnostik dengan konfigurasi dan sinkronisasi tokenizer yang sama dengan inferensi.
+- **Kelompok A.** `label_berbalik` berlaku ketika kedua sisi memberi keputusan biner. Laporkan jumlah keputusan yang berbalik dibagi jumlah pasangan dengan dua keputusan biner. Laporkan juga perubahan suara per seed, `transisi_ambigu`, dan pasangan konsisten yang salah. Tampilkan jumlah seluruh pasangan dan jumlah yang dapat dibandingkan.
+- **Kelompok B.** `delta_prob_42`, `delta_prob_123`, dan `delta_prob_999` adalah skor debug `keliru − benar` ketika tersedia pada kedua sisi. `keduanya_benar` menunjukkan apakah kedua keputusan biner sesuai label acuan. Tampilkan cakupan perbandingan dan jumlah pasangan benar terhadap seluruh pasangan. Pergeseran skor dan keberhasilan keputusan mempunyai penyebut masing-masing.
+- **Setiap putaran.** Pertahankan hasil ambigu, ditolak, di luar domain, gagal, dan masalah pemotongan. `transisi_status` tetap dicatat saat pasangan tidak dapat dibandingkan; `transisi_ambigu` hanya terisi untuk pasangan yang dapat dibandingkan. Nilai yang tidak tersedia dicatat sebagai kosong. Varian satu kelompok klaim tetap dihitung sebagai pasangan atau kelompok, sesuai metrik yang ditetapkan.
+
+Gunakan Jupyter untuk menelaah hasil per pasangan dan menyiapkan tabel Bab 4. Notebook inferensi lokal masih membaca field lama `prediction`, `confidence_score`, dan `inference_time_seconds`. Selaraskan pembacaan field sebelum menjalankan seluruh notebook. [Notebook inferensi lokal](../notebooks/03_pengujian_inferensi_lokal.ipynb)
+
+### 4.4 Lanjut ke pilot eksternal dan OCR
+
+Setelah alur pasangan menghasilkan laporan lengkap, siapkan **40 klaim unik**. Gunakan 10 klaim per sel pada matriks benar/keliru × formal/media sosial. Catat label terverifikasi, sumber, tanggal, topik, dan bukti sebelum inferensi. Periksa salinan dekat terhadap data pengembangan yang diizinkan. Keluarkan dua klaim November yang sudah dilihat, kelompok diagnostik pasangan, serta varian masing-masing. Berkas `eval_benar.csv` dan `eval_kompas_cekfakta.csv` tetap menjadi set diagnostik historis dengan label asal sumber. Sajikan pilot secara deskriptif dengan cakupan, akurasi pada kasus yang diputuskan, benar terhadap seluruh masukan, salah tuduh hoaks, dan hoaks yang terlewat.
+
+Pilih **delapan klaim dari 40 itu**, dua per sel, sebelum melihat keluaran model. Bandingkan transkripsi manual, bacaan OCR sebelum koreksi, dan teks hasil koreksi jika diuji. Laporkan CER/WER dengan jumlah sampel terukur, efek penolakan mutu, serta perubahan keputusan. Gambar dan parafrasa dari klaim yang sama tetap satu kelompok. [Adendum protokol](PROTOKOL_PRAREGISTRASI.md#114-rencana-prospektif-pilot-klaim-dan-ocr) · [Panduan OCR berpasangan](PANDUAN_PENGUJIAN_OCR.md)
+
+### 4.5 Tentukan perbaikan dari pola kesalahan
+
+Utamakan perbaikan yang sesuai dengan bukti. Perubahan hilang saat praproses atau pemotongan memerlukan pemeriksaan jalur input. Kesalahan yang muncul sesudah OCR memerlukan pemeriksaan pembacaan gambar. Kesalahan berulang pada klaim bersih mengarahkan pengumpulan data berlabel dari sumber, gaya, atau topik yang kurang tercakup. Bila perlu mengukur manfaat jumlah data, rancang learning curve dari subset train dengan validation tetap. Catat perubahan dan buat set evaluasi baru jika hasil pilot dipakai untuk menyesuaikan sistem.
+
+**LOCKBOX mengikuti evaluasi final tersendiri.** Angka 236 adalah selisih dari agregat pembagian. Ikuti aturan evaluasi satu kali per seed setelah konfigurasi dan kriteria final dikunci. [Protokol evaluasi final](PROTOKOL_PRAREGISTRASI.md#keputusan-apriori-pelatihan-seleksi-model-dan-evaluasi-lockbox-colab-02)
 
 ## 5. Prioritas integritas dan optimasi
 

@@ -319,6 +319,8 @@ Kontrak respons deteksi aktif: `terpotong` bernilai `true` jika pemotongan diket
 
 Pada `POST /api/v1/detect/text`, backend memeriksa status, latensi, ketiga keputusan seed, jumlah suara, rasio kesepakatan, serta kecocokan status dan label dengan aturan voting keluaran model. `dinilai` dan `ambigu` dikirim sebagai `status: "success"`. Penolakan yang dikembalikan pipeline memakai `status: "rejected"` dengan alasan, tanpa label pola atau metadata konsensus. Pemeriksaan permintaan awal yang menolak teks terlalu pendek atau di luar cakupan tetap memakai HTTP 400.
 
+Frontend memberi analisis klaim batas tunggu 180 detik per request agar pemuatan awal model punya waktu untuk selesai. Jika batas ini habis, UI menampilkan pesan timeout tanpa mengirim ulang request otomatis. [Hook deteksi](../frontend/src/hooks/useDetection.ts)
+
 Keluaran model rusak atau gagal mendapat HTTP 500 tanpa menyimpan deteksi. Backend memvalidasi respons sebelum `commit`. Kegagalan penyimpanan membatalkan transaksi dan mengembalikan galat HTTP 500 atau 503 sesuai jenis kegagalan database, sehingga respons sukses selalu mendapat ID penyimpanan yang bisa dipakai di riwayat, feedback, dan LIME. [Rute deteksi teks](../src/api/routes/detection_routes.py) · [Penanganan kegagalan database](../main.py)
 
 ### 6.2 Metadata hasil

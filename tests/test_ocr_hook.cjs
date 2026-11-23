@@ -295,6 +295,27 @@ test('OCR FormData survives the actual Axios JSON defaults without serializing i
     assert.equal(apiClient.defaults.timeout, 30000);
 });
 
+test('claim analysis uses its own Axios timeout and reports expiry without retrying', async () => {
+    const { apiClient } = load('lib/apiClient.ts');
+    const requests = [];
+    apiClient.defaults.adapter = async config => {
+        requests.push(config);
+        throw new axios.AxiosError('timeout', 'ECONNABORTED', config, {});
+    };
+
+    const runtime = hook((...args) => apiClient.post(...args));
+    const result = await runtime.render().detectText('KPU menyampaikan tahapan pemilu kepada masyarakat.');
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, '/api/v1/detect/text');
+    assert.equal(requests[0].timeout, 180000);
+    assert.equal(apiClient.defaults.timeout, 30000);
+    assert.equal(result, null);
+    assert.equal(runtime.render().result, null);
+    assert.equal(runtime.render().loading, false);
+    assert.equal(runtime.render().error, 'Waktu tunggu server habis. Silakan coba lagi.');
+});
+
 test('transient previews cannot become saved image URLs and TEXT input drops a previous image URL', async () => {
     const bodies = [];
     const runtime = hook(async (_url, body) => { bodies.push(body); return { data: verdict() }; });

@@ -7,6 +7,7 @@ import { isUsableDocumentResult } from "@/types/document-analysis";
 import type { DocumentAnalysisRequest, DocumentAnalysisResult, DocumentSegment } from "@/types/document-analysis";
 
 // Proses yang bisa lebih lama memakai batas waktu sendiri.
+const CLAIM_TIMEOUT_MS = 180000;
 const LIME_TIMEOUT_MS = 180000;
 const OCR_TIMEOUT_MS = 180000;
 const DOCUMENT_TIMEOUT_MS = 180000;
@@ -119,7 +120,10 @@ export function useDetection(ownerId?: string | null) {
                 input_type: inputType,
                 image_url: inputType === "IMAGE" ? persistentImageUrl(imageUrl) : null,
             };
-            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", payload, { signal: controller.signal });
+            const response = await apiClient.post<DetectionResult>("/api/v1/detect/text", payload, {
+                signal: controller.signal,
+                timeout: CLAIM_TIMEOUT_MS,
+            });
             if (gen !== detectGenRef.current) return null;   // ada analisis yang lebih baru
             activeIdRef.current = response.data?.data?.id ?? null;
             setResult(response.data);

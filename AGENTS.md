@@ -13,7 +13,7 @@ VERIDIX mendeteksi kemiripan pola bahasa dengan klaim politik Indonesia yang dil
 | Detail/hapus riwayat dan pengujiannya | [Panduan Riwayat](docs/PANDUAN_RIWAYAT.md) |
 | Alur dan evaluasi OCR | [Panduan Pengujian OCR](docs/PANDUAN_PENGUJIAN_OCR.md) |
 | Rancangan analisis teks panjang dan OCR banyak gambar | [Panduan Teks Panjang dan Banyak Gambar](docs/PANDUAN_TEKS_PANJANG_DAN_MULTI_GAMBAR.md) |
-| Metodologi, pembagian data, dan evaluasi final | [Protokol penelitian](PROTOKOL_PRAREGISTRASI.md) |
+| Metodologi, pembagian data, dan evaluasi final | [Protokol penelitian](docs/PROTOKOL_PRAREGISTRASI.md) |
 | Menelusuri temuan/angka audit lama | [Catatan Audit Dokumentasi](reports/CATATAN_AUDIT_DOKUMENTASI_2026-11-13.md) |
 
 Baca acuan sesuai tugas, lalu periksa jalur kode aktif. Referensi implementasi, laporan bertanggal, dan rencana mempunyai kedudukan berbeda. Jika bertentangan, jelaskan perbedaannya; jangan menjadikan snapshot lama sebagai keadaan terbaru.

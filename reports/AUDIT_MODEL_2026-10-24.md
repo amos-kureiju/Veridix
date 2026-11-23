@@ -39,7 +39,7 @@ Baseline TF-IDF + Logistic Regression dihitung ulang: akurasi val 94,07%, dev_te
 
 [hasil_kriteria.csv](../data/processed_v2/hasil_kriteria.csv:7) mencatat akurasi pohon keputusan **72,46%**, melebihi batas 60%. Nilai ini berhasil direproduksi hanya menggunakan jumlah kata, karakter, tanda akhir kalimat, dan koma. Tanda baca kalimat saja mencapai 67,80% pada diagnostik satu fitur.
 
-[config.json](../data/processed_v2/config.json:44) memang menyatakan `all_criteria_passed=false`. Akan tetapi [protokol](../PROTOKOL_PRAREGISTRASI.md:6) masih menjelaskan deviasi **66,6%** dari versi sebelumnya. Nilai dan penjelasan deviasi belum diselaraskan dengan build beku yang sebenarnya. Kelulusan KS atau skor jumlah kata mendekati acak tidak membuktikan seluruh jalan pintas berbasis panjang dan format telah hilang.
+[config.json](../data/processed_v2/config.json:44) memang menyatakan `all_criteria_passed=false`. Akan tetapi [protokol](../docs/PROTOKOL_PRAREGISTRASI.md:6) masih menjelaskan deviasi **66,6%** dari versi sebelumnya. Nilai dan penjelasan deviasi belum diselaraskan dengan build beku yang sebenarnya. Kelulusan KS atau skor jumlah kata mendekati acak tidak membuktikan seluruh jalan pintas berbasis panjang dan format telah hilang.
 
 ### 2. Sumber dan label masih terpisah sempurna
 
@@ -88,7 +88,7 @@ Angka derau ini diperiksa dari artefak tersimpan, tidak dihitung ulang dari selu
 
 ### 4. Aturan aplikasi berbeda dari protokol final
 
-[Protokol](../PROTOKOL_PRAREGISTRASI.md:49) menetapkan pelaporan per seed, mean±SD, dan melarang ensemble. [Inferensi aplikasi](../src/ml/inference.py:51) memakai `unanimous`: keputusan dari tiga seed, lalu abstain jika suara berbeda. Docstring kode sendiri masih menyebut aturan tersebut kandidat yang belum dikunci.
+[Protokol](../docs/PROTOKOL_PRAREGISTRASI.md:49) menetapkan pelaporan per seed, mean±SD, dan melarang ensemble. [Inferensi aplikasi](../src/ml/inference.py:51) memakai `unanimous`: keputusan dari tiga seed, lalu abstain jika suara berbeda. Docstring kode sendiri masih menyebut aturan tersebut kandidat yang belum dikunci.
 
 Keduanya dapat dipisahkan sebagai eksperimen per-seed dan kebijakan aplikasi, tetapi status, dasar pemilihan, dan evaluasinya harus ditulis sebelum lockbox dibuka. Angka per-seed tidak boleh langsung disebut sebagai akurasi sistem konsensus aplikasi.
 

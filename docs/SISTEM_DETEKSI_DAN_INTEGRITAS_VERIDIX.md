@@ -1,6 +1,6 @@
 # Deteksi Pola Hoaks Politik dan Integritas VERIDIX
 
-**19 November 2026.** Gunakan nama **VERIDIX** dalam dokumentasi, laporan, dan naskah penelitian. Dokumen ini menjelaskan sistem yang berjalan, bukti evaluasi yang tersedia, dan urutan kerja yang diusulkan. Evaluasi final mengikuti [protokol penelitian](../PROTOKOL_PRAREGISTRASI.md).
+**19 November 2026.** Gunakan nama **VERIDIX** dalam dokumentasi, laporan, dan naskah penelitian. Dokumen ini menjelaskan sistem yang berjalan, bukti evaluasi yang tersedia, dan urutan kerja yang diusulkan. Evaluasi final mengikuti [protokol penelitian](PROTOKOL_PRAREGISTRASI.md).
 
 ## 1. Tujuan dan makna hasil
 
@@ -54,9 +54,9 @@ flowchart LR
 | Berita baru | Mengukur transfer ke waktu, sumber, topik, dan gaya di luar korpus latih. Dua contoh November 2026 mendukung uji fungsional pada pasangan itu. Kemampuan umum dan penyebab perbedaan skor memerlukan rancangan pembanding. |
 | Lockbox | Protokol menetapkan evaluasi final sekali per seed serta pelaporan per seed dan rerata ± simpangan baku. Ukuran performa voting aplikasi dilaporkan terpisah. Audit terdahulu mencatat pemeriksaan hash. Bukti yang diperiksa belum memuat laporan evaluasi final. Jumlah baris lockbox tidak diverifikasi pada pemeriksaan dokumentasi ini. |
 
-[Audit dataset dan model](../reports/AUDIT_MODEL_2026-10-24.md) · [Laporan paritas](../reports/audit_model_2026-10-24_parity.json) · [Log pelatihan](../log_training.json) · [Protokol](../PROTOKOL_PRAREGISTRASI.md)
+[Audit dataset dan model](../reports/AUDIT_MODEL_2026-10-24.md) · [Laporan paritas](../reports/audit_model_2026-10-24_parity.json) · [Log pelatihan](../log_training.json) · [Protokol](PROTOKOL_PRAREGISTRASI.md)
 
-Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterkaitan ini memungkinkan model memakai ciri gaya penerbit untuk menebak label. C4 pada dataset beku tercatat **72,46%**, melampaui batas **60%**. Adendum protokol mencatat angka itu dan mempertahankan **66,6%** sebagai catatan tahap sebelumnya. Tiga seed memberi informasi tentang variasi antar-run pada rancangan ini. Generalisasi tetap perlu diukur. [Hasil kriteria](../data/processed_v2/hasil_kriteria.csv) · [Audit keterbatasan](../reports/AUDIT_MODEL_2026-10-24.md) · [Adendum protokol](../PROTOKOL_PRAREGISTRASI.md)
+Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterkaitan ini memungkinkan model memakai ciri gaya penerbit untuk menebak label. C4 pada dataset beku tercatat **72,46%**, melampaui batas **60%**. Adendum protokol mencatat angka itu dan mempertahankan **66,6%** sebagai catatan tahap sebelumnya. Tiga seed memberi informasi tentang variasi antar-run pada rancangan ini. Generalisasi tetap perlu diukur. [Hasil kriteria](../data/processed_v2/hasil_kriteria.csv) · [Audit keterbatasan](../reports/AUDIT_MODEL_2026-10-24.md) · [Adendum protokol](PROTOKOL_PRAREGISTRASI.md)
 
 ## 4. Rancangan uji berita baru dan OCR
 
@@ -67,7 +67,7 @@ Pada data pengembangan yang diaudit, setiap sumber menyumbang satu kelas. Keterk
 5. **Pertahankan penyebut lengkap.** Laporkan klaim benar, salah, ambigu, ditolak, di luar domain, dan gagal. Tampilkan cakupan kasus dengan keputusan, akurasi pada kasus yang diputuskan, dan jumlah benar terhadap seluruh sampel. Tampilkan kesalahan menandai klaim benar sebagai hoaks dan hoaks yang terlewat. Laporkan per seed dan konsensus pada set aplikasi yang sama.
 6. **Simpan keluaran aktual.** Catat versi, hash artefak, konfigurasi, perangkat, status, dan keputusan tiap seed yang tersedia. Simpan suara biner asli secara terpisah dari skor debug yang dibulatkan. Gunakan keluaran baru setiap putaran. Apabila hasil suatu set dipakai untuk mengubah sistem, perlakukan set itu sebagai data diagnostik dan tetapkan set baru untuk evaluasi independen berikutnya.
 
-Adendum protokol merinci pilot. Dua klaim November yang sudah dilihat dapat dirujuk sebagai contoh diagnostik. Keluarkan kelompok klaim keduanya dari set eksternal yang akan dipakai untuk evaluasi independen. [Adendum protokol](../PROTOKOL_PRAREGISTRASI.md)
+Adendum protokol merinci pilot. Dua klaim November yang sudah dilihat dapat dirujuk sebagai contoh diagnostik. Keluarkan kelompok klaim keduanya dari set eksternal yang akan dipakai untuk evaluasi independen. [Adendum protokol](PROTOKOL_PRAREGISTRASI.md)
 
 `evaluasi_set_luar.py` dapat menjadi dasar runner klaim singkat. Sebelum uji, perbaiki pemetaan label tak dikenal dan pencatatan gagal per kasus. Gunakan CSV uji terpisah dan `--out` dengan jalur baru karena runner dapat menimpa berkas. Notebook inferensi lokal masih membaca field lama dan perlu diselaraskan sebelum menjalankan semua sel. Jupyter dapat dipakai untuk meninjau tabel, kelompok klaim, kesalahan, dan interval dari hasil runner. [Runner eksternal](../evaluasi_set_luar.py) · [Notebook inferensi lokal](../notebooks/03_pengujian_inferensi_lokal.ipynb) · [Panduan OCR berpasangan](PANDUAN_PENGUJIAN_OCR.md)
 

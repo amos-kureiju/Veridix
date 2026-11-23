@@ -80,4 +80,4 @@ Urutan tersebut disimpan sebagai konteks. Prioritas pekerjaan baru mengikuti kod
 - [Audit model 24 Oktober](AUDIT_MODEL_2026-10-24.md).
 - [Audit performa 31 Oktober](AUDIT_PERFORMA_AI_2026-10-31.md).
 
-Perubahan metodologi tetap memerlukan catatan/adendum yang sesuai pada [protokol penelitian](../PROTOKOL_PRAREGISTRASI.md). Pemisahan dokumentasi ini bukan adendum dan tidak menetapkan ulang keputusan penelitian.
+Perubahan metodologi tetap memerlukan catatan/adendum yang sesuai pada [protokol penelitian](../docs/PROTOKOL_PRAREGISTRASI.md). Pemisahan dokumentasi ini bukan adendum dan tidak menetapkan ulang keputusan penelitian.

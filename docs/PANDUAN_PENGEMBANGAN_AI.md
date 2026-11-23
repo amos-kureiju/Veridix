@@ -208,7 +208,7 @@ Pekerjaan selesai pada cakupannya ketika kebutuhan pengguna, sumber data, kontra
 | [Integrasi LIME](PANDUAN_INTEGRASI_LIME.md) | Arsitektur penjelasan teks/OCR, kontrak metadata, konteks permintaan, penyimpanan, dan batas bukti pengujian. |
 | [Panduan Kelola Pengguna](PANDUAN_KELOLA_PENGGUNA.md) | Rencana daftar akun admin dari database, kontrak status akses, berkas implementasi baru, dan bukti penerimaan; status implementasi diperbarui setelah kode berubah. |
 | [README](../README.md) | Pintu masuk proyek dan petunjuk menjalankan; cocokkan keterangan lama dengan kode. |
-| [Protokol](../PROTOKOL_PRAREGISTRASI.md) dan reports/ | Metodologi serta laporan eksperimen/audit bertanggal. |
+| [Protokol](PROTOKOL_PRAREGISTRASI.md) dan reports/ | Metodologi serta laporan eksperimen/audit bertanggal. |
 
 Ubah sumber utama ketika kontrak atau kebijakan berubah, lalu perbarui tautan pemakainya. Hindari menyalin daftar endpoint, enum, angka konfigurasi, dan hasil tes ke beberapa panduan. Tulis kebutuhan yang belum diimplementasikan sebagai rencana.
 

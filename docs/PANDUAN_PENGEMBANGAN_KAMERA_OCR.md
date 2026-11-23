@@ -8,7 +8,7 @@ Panduan menetapkan alur, batas perubahan, dan bukti penerimaan fitur **Ambil fot
 
 ## 1. Acuan dan ruang lingkup
 
-Baca [AGENTS.md](../AGENTS.md), [Panduan Pengembangan AI](PANDUAN_PENGEMBANGAN_AI.md), dan [Referensi Sistem](REFERENSI_SISTEM.md). Kebijakan serta metodologi OCR tetap merujuk [Panduan Pengujian OCR](PANDUAN_PENGUJIAN_OCR.md). Persistensi dan kepemilikan riwayat mengikuti [Panduan Riwayat](PANDUAN_RIWAYAT.md); pembagian data mengikuti [protokol penelitian](../PROTOKOL_PRAREGISTRASI.md).
+Baca [AGENTS.md](../AGENTS.md), [Panduan Pengembangan AI](PANDUAN_PENGEMBANGAN_AI.md), dan [Referensi Sistem](REFERENSI_SISTEM.md). Kebijakan serta metodologi OCR tetap merujuk [Panduan Pengujian OCR](PANDUAN_PENGUJIAN_OCR.md). Persistensi dan kepemilikan riwayat mengikuti [Panduan Riwayat](PANDUAN_RIWAYAT.md); pembagian data mengikuti [protokol penelitian](PROTOKOL_PRAREGISTRASI.md).
 
 Target awal adalah mengambil **satu foto artikel/paragraf**, memeriksa foto, menjalankan OCR setelah konfirmasi, menyunting teks, lalu menganalisis dan membaca hasil dalam riwayat.
 

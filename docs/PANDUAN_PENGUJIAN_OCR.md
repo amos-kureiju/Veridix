@@ -1,18 +1,25 @@
 # Panduan pengujian dan evaluasi OCR
 
-Tanggal verifikasi: **6 November 2026**. Status: **siap untuk pengujian awal terkontrol; evaluasi akhir belum selesai**.
+Tanggal bukti awal: **6 November 2026**. Sinkronisasi kontrak dan jalur aplikasi: **23 November 2026**. Status: **pengujian awal terkontrol; evaluasi domain akhir belum selesai**. Angka 6 November di bawah tetap merupakan hasil historis, bukan pengukuran ulang saat sinkronisasi.
 
 Dokumen ini menjadi acuan menjalankan pengujian, memilih masukan, membaca hasil, dan mencatat perubahan. Panduan perlu digunakan bersama tes otomatis; keberadaan dokumen tidak menjamin kode bebas kesalahan. Setelah perubahan kode atau data, perbarui bukti pengujian di dokumen ini.
 
 ## 1. Alur dan batas pengujian
 
-Alur aplikasi: **unggah gambar → OCR → periksa/sunting teks → analisis model → verdict → riwayat**.
+Alur bersama: **unggah gambar → OCR → periksa/sunting teks → analisis**. Setelah itu jalur klaim dan naskah berbeda:
+
+| Jalur | Permintaan dengan prefix bawaan `/api/v1` | Hasil dan penyimpanan |
+| --- | --- | --- |
+| Klaim singkat | `/detect/image` menghasilkan teks editor; analisis memakai `/detect/text` dengan `input_type: IMAGE`. | Hasil klaim mempunyai ID untuk riwayat dan feedback sesuai hak akses. |
+| Naskah atau beberapa gambar | OCR setiap gambar memakai `/detect/image`; teks atau daftar `pages` yang dikonfirmasi dikirim ke `/detect/document`. | Keputusan dan cakupan per segmen berada pada sesi halaman. Jalur ini belum menyimpan riwayat/feedback per segmen. |
+
+Pada UI sekarang, teks lebih dari 60 kata atau pilihan analisis naskah memakai jalur dokumen. Periksa route yang benar-benar dikirim, bukan menganggap setiap hasil OCR selalu menjadi riwayat klaim. Lihat [halaman utama](../frontend/src/app/page.tsx), [rute](../src/api/routes/detection_routes.py), dan [Panduan Teks Panjang](PANDUAN_TEKS_PANJANG_DAN_MULTI_GAMBAR.md).
 
 | Bagian | Tanggung jawab |
 |---|---|
 | `src/utils/ocr_extractor.py` | Menyiapkan gambar, memuat mesin OCR, membaca baris/skor, dan menghitung fitur kualitas. |
 | `src/utils/ocr_pipeline.py` | Validasi masukan, pembersihan teks OCR, gerbang kualitas, kategori hasil, dan identitas kebijakan. |
-| `src/api/routes/detection_routes.py` | Menghubungkan pipeline dengan unggahan HTTP; endpoint teks menganalisis dan menyimpan hasil. |
+| `src/api/routes/detection_routes.py` | Menghubungkan pipeline dengan unggahan HTTP; memisahkan hasil klaim tersimpan dari analisis naskah selama sesi. |
 | `frontend/src/components/detector/NewsInputForm.tsx` | Unggah, preview, loading, penolakan, editor, dan pengiriman teks terakhir. |
 | `uji_ujung_ke_ujung.py` | Pemeriksaan fungsi OCR → model dan laporan setiap masukan. |
 | `uji_ocr_berpasangan.py` | Perbandingan transkripsi manual/OCR dan keluaran model pada pasangan tersebut. |
@@ -39,9 +46,9 @@ Pasangan contoh yang telah diperiksa secara visual:
 | ID | Gambar | Transkripsi manual |
 |---|---|---|
 | U01 | `data/sample_probe.png` | `KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026` |
-| U02 | `data/sample_panjang.png` | `Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.` |
+| U02 | `data/sample_panjang.png` | `[KUTIPAN RESMI PRESIDEN RI] Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.` |
 
-U01 memiliki 49 karakter dan 6 kata; penolakan panjang teks sesuai kebijakan. U02 memiliki 104 karakter dan 14 kata pada acuan.
+U01 memiliki 49 karakter dan 6 kata. Acuan U02 sekarang mencakup judul yang terlihat pada gambar, dengan total 132 karakter dan 18 kata. Gunakan transkripsi seluruh gambar untuk metrik OCR. Jika yang ingin diuji hanya isi kutipan, tetapkan area pembacaan yang sama pada gambar dan transkripsi sebelum pengujian.
 
 Jika memakai `--dataset`, format saat ini adalah JSON berupa daftar objek:
 
@@ -57,7 +64,9 @@ Jika memakai `--dataset`, format saat ini adalah JSON berupa daftar objek:
 ]
 ```
 
-Periksa ID unik, keberadaan setiap gambar, dan kesesuaian acuannya. Simpan identitas kelompok gambar sumber agar versi jelas/buram dari gambar yang sama tidak tersebar antara set kalibrasi dan evaluasi akhir. Label kebenaran klaim, jika digunakan untuk akurasi model, membutuhkan verifikasi terpisah dari transkripsi.
+Runner memerlukan daftar JSON yang tidak kosong, berisi objek dengan `id` unik dan tidak kosong, `gambar` tidak kosong, serta `transkripsi_manual` bertipe string yang wajib disediakan. Acuan string kosong sah untuk kasus tanpa teks; acuan yang hilang berbeda dari acuan kosong. Manifest yang tidak ditemukan atau rusak ditolak sebelum model dimuat. Gambar yang hilang pada manifest yang sah tetap dicatat sebagai kegagalan kasus, bukan dibuang.
+
+Periksa kesesuaian acuan dengan gambar sebelum menjalankan. Simpan identitas kelompok gambar sumber agar versi jelas/buram dari gambar yang sama tidak tersebar antara set kalibrasi dan evaluasi akhir. Label kebenaran klaim, jika digunakan untuk akurasi model, membutuhkan verifikasi terpisah dari transkripsi.
 
 Saat ini jalur gambar relatif mengikuti direktori kerja. Jalankan perintah dari root proyek `E:\SEMESTER 5\TA\PROJECT`.
 
@@ -76,7 +85,7 @@ node --test tests/test_frontend_guest_access.cjs tests/test_frontend_ocr.cjs tes
 
 Jalankan dua perintah Python sebagai proses terpisah seperti contoh; pengujian route menggunakan modul tiruan untuk mengisolasi dependensi.
 
-Hasil verifikasi pada 6 November 2026:
+Hasil historis pada 6 November 2026 (cakupan ini tidak menyatakan jumlah tes pada revisi sekarang):
 
 | Pemeriksaan | Hasil | Batas bukti |
 |---|---|---|
@@ -87,26 +96,48 @@ Hasil verifikasi pada 6 November 2026:
 
 Tidak ada mesin OCR, bobot model, atau akun/database sebenarnya yang digunakan pada verifikasi otomatis ini. Impor modul tetap dapat memuat pustaka seperti Torch; itu berbeda dari inisialisasi mesin dan pemuatan bobot.
 
+Pemeriksaan runner pada **23 November 2026**, dijalankan sebagai dua proses terpisah:
+
+| Perintah modul unittest | Hasil | Cakupan |
+| --- | ---: | --- |
+| `tests.test_ocr_evaluation -v` | 17/17 lulus | Fixture manifest, hasil model, ringkasan `main()`, kelanjutan batch, pasangan ambigu, dan perlindungan laporan. |
+| `tests.test_ocr_cli -q` | 12/12 lulus | Fixture CLI OCR ke model. |
+
+Keduanya menggunakan OCR/evaluator tiruan. Hasil ini tidak mengukur ulang CER/WER atau prediksi checkpoint pada gambar nyata. Perintah Python pada bagian ini dapat dipakai untuk menjalankan ulang modul tersebut di lingkungan proyek.
+
 ### B. Ulangi dua pasangan dengan acuan yang benar
 
-Gunakan nama keluaran baru untuk setiap putaran:
+Perintah berikut memakai dua gambar default dan membuat nama laporan bertimestamp di `reports/ocr`:
 
 ```powershell
-.\.venv\Scripts\python.exe uji_ocr_berpasangan.py --output reports/ocr/evaluasi_berpasangan_verifikasi_01.json
+.\.venv\Scripts\python.exe -B -X utf8 uji_ocr_berpasangan.py
 ```
 
-Perintah ini menjalankan OCR dan model sebenarnya. Acuan default sudah diperbaiki pada kode yang diperiksa. Pastikan nama keluaran belum dipakai; jangan memilih gambar atau manifest sebagai tujuan laporan.
+Perintah ini menjalankan OCR dan model sebenarnya; jangan menjalankannya sebagai tes mock. `--dataset` memilih manifest yang sudah disiapkan, sedangkan `--output` hanya menerima nama keluaran baru. Runner menolak tujuan yang sudah ada sebelum memuat model dan juga menolak benturan saat publikasi laporan. Laporan ditulis atomik; gambar, manifest, dan laporan lama tidak ditimpa.
 
-Laporan `reports/ocr/evaluasi_berpasangan.json` yang dibaca saat verifikasi sudah diperbarui oleh pengguna pada **6 November 2026, 11:09:40 UTC+07:00**, dengan acuan yang sesuai kedua gambar. Hasil yang tersimpan:
+Kesalahan argumen, manifest, atau tujuan yang ditolak sebelum eksekusi menghasilkan exit code 2. Kegagalan per kasus tetap menghasilkan laporan dan exit code 1; kegagalan publikasi laporan juga menghasilkan exit code 1 tanpa menimpa keluaran yang sudah ada. Penolakan input/mutu yang sah bukan otomatis galat eksekusi. Exit code 0 menyatakan runner selesai tanpa galat yang dicatat, bukan bahwa OCR atau klasifikasi seluruh kasus benar.
+
+Laporan historis berikut memakai gambar yang tersedia pada **6 November 2026, 11:09:40 UTC+07:00**. Hash kedua gambar berbeda dari berkas dengan nama yang sama saat ini. [Laporan 6 November](../reports/ocr/evaluasi_berpasangan.json)
 
 | Kasus | CER / WER | Hasil pada teks manual | Hasil pada teks OCR |
 |---|---|---|---|
 | U01 | 0% / 0% | Ditolak karena pendek | Ditolak kualitas; inferensi jalur OCR dilewati |
 | U02 | 1,9231% / 21,4286% | `dinilai`, `TIDAK BERPOLA HOAKS`, suara 0/3 | `ambigu`, suara 2/3 |
 
-Untuk U02, `label_sama` bernilai **false**. Acuan dan bacaan OCR berbeda pada `Presiden → residen` serta `tepat → te pat`; hasil ini menunjukkan perubahan keluaran pada pasangan tersebut. Simpan sebagai kasus investigasi sensitivitas, bukan bukti ketahanan semantik. Kebenaran klaim juga belum ditentukan oleh kesamaan atau perbedaan keluaran ini. Pembacaan laporan ini tidak mencakup eksekusi ulang mesin OCR/model oleh pemeriksa.
+Pada gambar U02 saat itu, laporan mencatat `label_sama=false` dan perbedaan bacaan pada `Presiden → residen` serta `tepat → te pat`. Kasus historis ini menunjukkan sensitivitas keluaran terhadap variasi transkripsi tersebut. [Laporan 6 November](../reports/ocr/evaluasi_berpasangan.json)
 
 Percobaan sebelumnya dengan acuan berbeda menghasilkan CER/WER 104,4%/100% dan 43,4%/61,9%. Angka tersebut tidak digunakan untuk baseline ketepatan OCR. Mengubah acuan di kode tidak memperbarui laporan lama; simpan keluaran baru setiap putaran. Hasil metrik di atas bukan target yang harus dicapai dengan mengubah acuan; hasil eksekusi berikutnya tetap dicatat apa adanya.
+
+**Pengujian ulang 23 November 2026.** Percobaan pertama mencatat dua galat mesin karena proses tidak dapat membaca cache lokal UVDoc. CER/WER tidak tersedia dan runner keluar dengan kode 1. Percobaan berikutnya membaca gambar U02, tetapi acuan awalnya belum mencakup judul pada gambar. CER 26,9231% dan WER 28,5714% pada percobaan itu mencakup selisih cakupan transkripsi. Pemeriksaan visual mengonfirmasi judul sebelum acuan dibetulkan. [Percobaan dengan galat akses cache](../reports/ocr/evaluasi_berpasangan_20261123_verifikasi_runner.json) · [Percobaan dengan acuan belum lengkap](../reports/ocr/evaluasi_berpasangan_20261123_verifikasi_ulang.json)
+
+Putaran dengan acuan terverifikasi selesai dengan kode 0. PaddleOCR 3.7.0, PaddlePaddle 3.3.1, PaddleX 3.7.2, PyTorch 2.14.0, dan Transformers 5.17.0 dijalankan di CPU Windows dari cache lokal. IndoBERT memakai aturan `unanimous` dan verifikasi artefak aktif.
+
+| Kasus | CER / WER | Hasil jalur manual dan OCR |
+|---|---|---|
+| U01 | 0% / 0% | OCR membaca seluruh teks dan gerbang mutu menolaknya karena pendek. Tidak ada pasangan keputusan model. |
+| U02 | 0% / 0% | OCR membaca judul dan isi. Transkripsi manual dan OCR sama-sama `dinilai`, **TIDAK BERPOLA HOAKS**, dengan suara 0/3. |
+
+Penyebutnya dua gambar terukur, satu gambar lolos gerbang OCR, dan satu pasangan keputusan model. Kedua berkas gambar berbeda hash dari laporan 6 November, sehingga angka ini tidak digunakan untuk mengukur peningkatan terhadap laporan historis. [Laporan dengan acuan terverifikasi](../reports/ocr/evaluasi_berpasangan_20261123_acuan_terverifikasi.json)
 
 ### C. Lengkapi lima kondisi fungsional
 
@@ -125,12 +156,12 @@ Gambar buram tidak otomatis ditolak. Penolakan harus dijelaskan oleh gerbang yan
 1. Masuk dengan akun uji yang ditetapkan dan unggah gambar jelas.
 2. Periksa preview, loading, hasil OCR, serta pesan ketika unggahan ditolak.
 3. Koreksi `residen` menjadi `Presiden` dan `te pat` menjadi `tepat` pada editor jika kesalahan itu muncul.
-4. Analisis; periksa payload menggunakan teks editor terakhir dan `input_type: IMAGE`.
-5. Cocokkan teks dan verdict pada respons dengan riwayat, lalu ulangi setelah refresh dan masuk ulang.
-6. Uji ganti/batalkan gambar saat loading: respons gambar sebelumnya tidak boleh menimpa gambar terbaru.
-7. Periksa feedback pada ID hasil yang sama sesuai status yang diizinkan, serta pemisahan data antara dua akun uji.
+4. Untuk jalur klaim, periksa `/detect/text`, teks editor terakhir, dan `input_type: IMAGE`. Untuk naskah atau teks lebih dari 60 kata, periksa `/detect/document` dan teks/urutan `pages` yang dikonfirmasi; payload ini tidak memakai kontrak klaim.
+5. Pada jalur klaim, cocokkan teks dan hasil dengan riwayat setelah refresh dan masuk ulang. Pada jalur naskah, cocokkan hasil per segmen serta cakupan selama sesi; jangan menganggapnya sudah tersimpan di riwayat.
+6. Uji ganti/batalkan gambar saat loading: respons gambar sebelumnya tidak boleh menimpa gambar terbaru. Untuk beberapa gambar, uji urutan dan satu gambar gagal tanpa menyamarkan hasil halaman lain.
+7. Periksa feedback hanya pada ID hasil klaim tersimpan yang memenuhi syarat, serta pemisahan data dua akun uji. LIME klaim memakai `/{detection_id}/explain`; LIME naskah memakai `/document/explain` untuk segmen asal yang sah.
 
-Riwayat saat ini dibuat melalui analisis teks. Unggahan yang ditolak OCR tetap dicatat pada laporan evaluasi; tidak otomatis menjadi entri riwayat aplikasi. Penyimpanan gambar asli juga belum dibuktikan oleh sumber `IMAGE`.
+Unggahan yang ditolak OCR tetap dicatat pada laporan evaluasi; tidak otomatis menjadi entri riwayat aplikasi. Sumber `IMAGE` tidak membuktikan gambar asli disimpan. Uji skrip OCR berpasangan juga tidak menguji route dokumen, editor, riwayat, atau feedback melalui browser.
 
 ## 5. Aturan membaca metrik dan latensi
 
@@ -138,25 +169,30 @@ Riwayat saat ini dibuat melalui analisis teks. Unggahan yang ditolak OCR tetap d
 - Rasio dapat melebihi 100% karena penyisipan. Acuan kosong tidak memiliki rasio yang sah; catat `null` beserta jumlah sisipan.
 - Jika OCR selesai tetapi bacaannya kosong sementara acuan berisi teks, hitung penghapusan. Jika input ditolak sebelum OCR atau mesin gagal, gunakan metrik tidak tersedia; jangan menyamakan keduanya.
 - Laporkan jumlah seluruh masukan, jumlah yang terukur, penolakan, galat, ambiguitas, serta jumlah pasangan yang dibandingkan. Nilai yang tidak tersedia tidak diganti nol.
-- Rerata hanya untuk hasil diterima adalah metrik bersyarat. Evaluasi akhir juga membutuhkan hasil seluruh sampel yang terukur, termasuk penolakan kualitas.
-- Pisahkan kesamaan status/label, kesepakatan keputusan biner, dan akurasi terhadap label klaim terverifikasi. Dua hasil `ambigu` yang sama tidak membuktikan ketepatan klasifikasi atau ketahanan semantik.
-- Pengukuran pertama/warm memakai gambar sama. Jalankan beberapa proses baru dan beberapa pengulangan warm; laporkan jumlah pengulangan, median, variasi, perangkat, dan versi runtime. Laporan terbaru mencatat 7,477 detik dan 2,740 detik (sekitar 2,7×); satu perbandingan hanya pengamatan awal.
+- Ringkasan memisahkan rerata CER/WER per gambar pada OCR diterima dari rerata seluruh pasangan transkripsi yang terukur, termasuk penolakan mutu. Keduanya adalah rerata makro, bukan jumlah galat dibagi jumlah seluruh karakter/kata. Jumlah pasangan dan pembagi setiap gambar tetap dicatat; acuan kosong, penolakan sebelum OCR, serta galat mesin tidak diberi rasio buatan.
+- Hanya dua hasil model yang sama-sama valid dan berstatus `dinilai` atau `ambigu`, lengkap dengan tiga keputusan seed serta aturan voting yang dapat dibandingkan, menjadi pasangan model pembanding. `label_sama` dan `votes_sama` dilaporkan terpisah. Penolakan input/domain yang sah tetap dicatat; kegagalan atau kontrak model rusak bukan pasangan valid. Dua hasil ambigu yang sama tidak membuktikan ketepatan atau ketahanan semantik.
+- Pengukuran pertama/warm memakai gambar sama. Jalankan beberapa proses baru dan beberapa pengulangan warm; laporkan jumlah pengulangan, median, variasi, perangkat, dan versi runtime. Laporan historis 6 November mencatat 7,477 detik dan 2,740 detik (sekitar 2,7×); satu perbandingan hanya pengamatan awal.
 - Skrip sekarang memuat IndoBERT sebelum pengukuran OCR. Angka tersebut bukan waktu awal seluruh aplikasi, serta belum memisahkan inisialisasi OCR, praproses, dan pengenalan.
 
-## 6. Kekurangan yang masih terbuka
+## 6. Kontrak sinkronisasi 23 November dan batas yang tersisa
 
-Hal berikut belum dianggap selesai meskipun tes yang tersedia lulus:
+Kontrak runner yang diselaraskan pada revisi ini:
 
-- `--dataset` yang tidak ditemukan masih dapat beralih ke dataset default. Verifikasi jalur sebelum menjalankan; kode berikutnya perlu menolak kesalahan ini secara eksplisit.
-- Struktur manifest, ID unik, dan kelengkapan referensi belum divalidasi ketat oleh runner.
-- Penulisan laporan evaluasi berpasangan belum atomik. Gunakan keluaran baru dan pertahankan hasil sebelumnya.
-- Tes agregasi saat ini mengulang rumus lokal, belum memeriksa ringkasan yang dibuat `main()`. Jalur pasangan model yang diterima, galat per kasus, serta lanjutan batch juga perlu diuji langsung.
-- Ringkasan belum menghitung metrik seluruh sampel terukur dan belum lengkap memisahkan galat eksekusi/model dari kategori OCR.
-- Runner berpasangan belum menyimpan `teks_dinilai`, keputusan dan probabilitas setiap seed, maupun status perbandingan secara lengkap. Simpan keluaran aktual tersebut untuk menyelidiki perubahan U02, tanpa mengubah praproses atau aturan model.
-- Hash kebijakan sudah mencakup `OCR_KWARGS`. Konfigurasi lengkap belum dicantumkan langsung dalam laporan berpasangan; konfigurasi tersebut, identitas model OCR yang terpilih, versi dependensi, dan perangkat masih perlu dicatat untuk evaluasi yang dapat diulang di lingkungan lain.
-- Pengujian browser, akun sebenarnya, penyimpanan riwayat/feedback, dan evaluasi domain akhir belum selesai.
+- `--dataset` yang tidak ditemukan tidak beralih ke default. Manifest daftar/objek, ID unik, jalur gambar, dan keberadaan string acuan diperiksa sebelum inferensi; acuan kosong tetap sah untuk kasus tanpa teks.
+- Keluaran model diperiksa dengan kontrak yang dipakai API. Penolakan input/domain dibedakan dari kegagalan; hanya pasangan model valid masuk perbandingan konsistensi.
+- Ringkasan memisahkan OCR diterima, penolakan, galat, seluruh metrik transkripsi terukur, dan pasangan model valid. Kasus gagal tidak menghilang dari total.
+- Laporan atomik dan penolakan overwrite menjaga laporan lama. Gunakan nama baru walaupun putaran sebelumnya gagal.
+- Laporan menyertakan kebijakan/konfigurasi OCR dan hash yang tersedia, metadata audit model yang tersedia, teks praproses, suara/keputusan seed, serta skor debug yang dibulatkan. Skor debug bukan representasi probabilitas dengan presisi penuh; keputusan biner asli tetap acuan voting.
 
-Status saat ini mengizinkan pengujian awal dua gambar default yang acuannya telah diperiksa. Sebelum menjalankan dataset besar atau membuat klaim Bab 4, selesaikan validasi manifest dan pemeriksaan ringkasan, lengkapi kondisi gambar, lalu bekukan konfigurasi.
+Hasil tes revisi ini harus dilaporkan terpisah dari tabel historis 6 November, dengan command, cakupan fixture, dan revisi kode. Perubahan runner tidak memperbarui otomatis laporan `evaluasi_berpasangan.json` yang lama.
+
+Hal yang tetap memerlukan bukti:
+
+- Identitas model OCR yang benar-benar dipilih, versi runtime lengkap, dan perangkat harus diverifikasi pada lingkungan pengujian. `lang="id"` dan hash kebijakan saja tidak membuktikan lingkungan identik.
+- Metrik runner memakai `teks_bersih` sebelum edit pengguna. Evaluasi OCR mentah dan edit pengguna merupakan perbandingan terpisah; jangan menyebut ketiganya sudah diukur hanya karena tersedia satu CER/WER.
+- Transkripsi dan label klaim independen, gambar nyata, kondisi kamera/buram/miring, serta jumlah sampel pilot masih perlu disiapkan dan diperiksa sebelum inferensi. Dua gambar default dan fixture tidak membuktikan generalisasi.
+- Browser, akun sebenarnya, penyimpanan riwayat/feedback klaim, dan perilaku naskah selama sesi memerlukan pengujian integrasi tersendiri. Tes mock tidak membuktikan PostgreSQL atau perangkat kamera nyata.
+- Fixture terbaru mencakup ringkasan `main()`, kegagalan model per kasus, pasangan ambigu yang valid, kelanjutan batch, perlindungan keluaran, dan penyebut. Kelulusan fixture membuktikan perilaku yang dicakupnya; sebelum memperbesar dataset, bekukan konfigurasi dan manifest serta periksa kembali hasil pada gambar acuan yang benar.
 
 ## 7. Catatan setiap putaran
 
@@ -172,7 +208,7 @@ Model OCR / versi runtime / perangkat:
 Aturan keputusan model:
 Perintah dan jalur laporan:
 Jumlah seluruh masukan / terukur / diterima / ditolak / galat / ambigu:
-Jumlah pasangan pembanding:
+Jumlah pasangan transkripsi terukur / pasangan model valid:
 CER/WER mentah dan bersih, berikut pembaginya:
 Jumlah pengulangan dan hasil latensi:
 Hasil uji editor / riwayat / feedback jika dilakukan:

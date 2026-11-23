@@ -195,7 +195,7 @@ def process_image(path, *, lime=False, model_provider=None, ocr_fn=None):
     return rec
 
 
-def write_report(output, report):
+def write_report(output, report, *, overwrite=True):
     """Tulis atomik agar kegagalan simpan tidak merusak laporan sebelumnya."""
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -203,7 +203,10 @@ def write_report(output, report):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as destination:
             json.dump(report, destination, ensure_ascii=False, indent=2, default=str, allow_nan=False)
-        os.replace(temporary, output)
+        if overwrite:
+            os.replace(temporary, output)
+        else:
+            os.link(temporary, output)
     finally:
         if os.path.exists(temporary):
             os.remove(temporary)

@@ -8,6 +8,7 @@ Struktur:
                        Memuat hanya SATU salinan model dasar (memuat tiga sekaligus pernah menyebabkan 'bad allocation'). """
 import hashlib
 import json
+import math
 import os
 import sys
 import threading
@@ -81,6 +82,52 @@ def putuskan(votes_hoax: int, n: int, rule: str = DECISION_RULE):
     if rule == "majority":
         return "dinilai", ("BERPOLA HOAKS" if votes_hoax * 2 > n else "TIDAK BERPOLA HOAKS")
     raise ValueError(f"aturan keputusan tidak dikenal: {rule}")
+
+
+def validate_claim_result(result: dict) -> None:
+    """Periksa kontrak klaim yang dipakai API dan evaluator penelitian."""
+    if not isinstance(result, dict):
+        raise ValueError("Keluaran inferensi bukan objek.")
+
+    latency = result.get("latency_seconds")
+    if type(latency) not in (int, float) or not math.isfinite(latency) or latency < 0:
+        raise ValueError("Latensi inferensi tidak sah.")
+
+    process_status = result.get("status")
+    if process_status in ("ditolak", "di_luar_domain"):
+        reason = result.get("reason")
+        if (
+            result.get("success") is not False
+            or not isinstance(reason, str)
+            or not reason.strip()
+            or any(result.get(field) is not None for field in ("votes_hoax", "seed_decisions", "agreement_ratio"))
+        ):
+            raise ValueError("Keluaran penolakan inferensi tidak sah.")
+        return
+
+    if process_status not in ("dinilai", "ambigu") or result.get("success") is not True:
+        raise ValueError("Status hasil inferensi tidak sah.")
+
+    decisions = result.get("seed_decisions")
+    if (
+        not isinstance(decisions, dict)
+        or decisions.keys() != set(SEEDS)
+        or any(type(seed) is not int or type(vote) is not int or vote not in (0, 1) for seed, vote in decisions.items())
+    ):
+        raise ValueError("Keputusan per seed tidak sah.")
+
+    votes = sum(decisions.values())
+    n = len(SEEDS)
+    if (process_status, result.get("label")) != putuskan(votes, n, result.get("decision_rule")):
+        raise ValueError("Status atau label tidak sesuai aturan voting.")
+
+    agreement = result.get("agreement_ratio")
+    if (
+        result.get("votes_hoax") != f"{votes}/{n}"
+        or type(agreement) not in (int, float)
+        or agreement != max(votes, n - votes) / n
+    ):
+        raise ValueError("Jumlah suara atau rasio kesepakatan tidak sesuai keputusan seed.")
 
 
 def _pemotongan_kata(text: str, sambung: bool) -> Optional[bool]:

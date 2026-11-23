@@ -3,7 +3,9 @@
 dan Konsistensi Klasifikasi Model (Teks Asli vs Teks OCR).
 """
 import argparse
+import hashlib
 import json
+import math
 import os
 import sys
 import time
@@ -15,8 +17,21 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.ml.inference import get_predictor
-from src.utils.ocr_pipeline import VERSI_PIPELINE, hash_kebijakan, proses_gambar
+from src.ml.inference import SEEDS, get_predictor, validate_claim_result
+from src.utils.ocr_pipeline import (
+    KATEGORI_INPUT,
+    KATEGORI_KUALITAS,
+    KATEGORI_MESIN,
+    KATEGORI_OK,
+    VERSI_PIPELINE,
+    hash_kebijakan,
+    kebijakan,
+    proses_gambar,
+)
+from uji_ujung_ke_ujung import write_report
+
+STATUS_DINILAI = ("dinilai", "ambigu")
+KATEGORI_TERUKUR = (KATEGORI_OK, KATEGORI_KUALITAS)
 
 # METRIK TRANSKRIPSI: JARAK LEVENSHTEIN, CER, DAN WER
 
@@ -45,7 +60,7 @@ def jarak_levenshtein(seq1: List[Any], seq2: List[Any]) -> int:
     return prev[m]
 
 
-def hitung_cer_wer(ref: str, hyp: str) -> Tuple[float, float, int, int]:
+def hitung_cer_wer(ref: str, hyp: str) -> Tuple[Optional[float], Optional[float], int, int]:
     """Menghitung CER dan WER secara eksak (mempertahankan spasi, kapitalisasi, dan tanda baca).
 
     Mengembalikan: (cer_persen, wer_persen, char_errors, word_errors)
@@ -62,17 +77,13 @@ def hitung_cer_wer(ref: str, hyp: str) -> Tuple[float, float, int, int]:
     # 2. WER (Level Kata/Token)
     kata_ref = ref.split()
     kata_hyp = hyp.split()
-    if not kata_ref:
-        wer = 0.0 if not kata_hyp else 100.0
-        jarak_kata = len(kata_hyp)
-    else:
-        jarak_kata = jarak_levenshtein(kata_ref, kata_hyp)
-        wer = (jarak_kata / len(kata_ref)) * 100.0
+    jarak_kata = jarak_levenshtein(kata_ref, kata_hyp)
+    wer = (jarak_kata / len(kata_ref)) * 100.0
 
     return round(cer, 4), round(wer, 4), jarak_char, jarak_kata
 
 
-# KORPUS UJI PASANGAN DEFAULT (5 KATEGORI KASUS LENGKAP)
+# KASUS BASELINE DEFAULT
 
 DATASET_PASANGAN_DEFAULT = [
     {
@@ -87,20 +98,83 @@ DATASET_PASANGAN_DEFAULT = [
         "kategori": "teks_panjang_jelas",
         "gambar": "data/sample_panjang.png",
         "deskripsi": "Teks resmi kebijakan pemerintah, cukup panjang dan tajam",
-        "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+        "transkripsi_manual": (
+            "[KUTIPAN RESMI PRESIDEN RI] Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial "
+            "tahun anggaran baru harus tepat sasaran."
+        ),
     },
 ]
 
 
-# PROSEDUR EVALUASI BERPASANGAN
-def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any, catat_latensi_pemanasan: bool = False) -> Dict[str, Any]:
+def validasi_manifest(dataset):
+    if not isinstance(dataset, list) or not dataset:
+        raise ValueError("Manifest harus berupa daftar kasus yang tidak kosong.")
+    ids = set()
+    for nomor, kasus in enumerate(dataset, 1):
+        if not isinstance(kasus, dict):
+            raise ValueError(f"Kasus ke-{nomor} harus berupa objek.")
+        for field in ("id", "gambar", "transkripsi_manual"):
+            nilai = kasus.get(field)
+            if not isinstance(nilai, str) or (field != "transkripsi_manual" and not nilai.strip()):
+                raise ValueError(f"Kasus ke-{nomor} memiliki field {field} tidak sah.")
+        for field in ("kategori", "deskripsi"):
+            if field in kasus and not isinstance(kasus[field], str):
+                raise ValueError(f"Kasus ke-{nomor} memiliki field {field} tidak sah.")
+        identitas = kasus["id"].strip()
+        if identitas in ids:
+            raise ValueError(f"ID kasus ke-{nomor} sudah dipakai.")
+        ids.add(identitas)
+
+
+def evaluasi_teks(teks: str, evaluator: Any) -> Dict[str, Any]:
+    if len(teks.strip()) < 30:
+        return dict(status="tidak_dievaluasi_terlalu_pendek", label=None, votes_hoax=None, durasi_detik=None)
+    if evaluator is None:
+        return dict(status="gagal", label=None, votes_hoax=None, durasi_detik=None, alasan="Model tidak tersedia.")
+
+    mulai = time.perf_counter()
+    try:
+        hasil = evaluator.nilai(teks, explain=False, debug=True)
+        validate_claim_result(hasil)
+    except Exception as exc:
+        return dict(
+            status="gagal", label=None, votes_hoax=None,
+            durasi_detik=round(time.perf_counter() - mulai, 4),
+            alasan=f"Inferensi gagal atau keluarannya tidak sah ({type(exc).__name__}).",
+        )
+
+    durasi = round(time.perf_counter() - mulai, 4)
+    if hasil["status"] not in STATUS_DINILAI:
+        return dict(status=hasil["status"], label=None, votes_hoax=None, durasi_detik=durasi, alasan=hasil["reason"])
+
+    debug = hasil.get("debug")
+    skor = debug.get("prob_hoax_per_seed") if isinstance(debug, dict) else None
+    skor_valid = (
+        isinstance(skor, dict) and skor.keys() == set(SEEDS)
+        and all(type(v) in (float, int) and 0 <= v <= 1 and math.isfinite(v) for v in skor.values())
+    )
+    return dict(
+        status=hasil["status"],
+        label=hasil["label"],
+        votes_hoax=hasil["votes_hoax"],
+        seed_decisions=hasil["seed_decisions"],
+        agreement_ratio=hasil["agreement_ratio"],
+        decision_rule=hasil["decision_rule"],
+        teks_dinilai=hasil.get("teks_dinilai"),
+        terpotong=hasil.get("terpotong"),
+        debug_prob_per_seed=skor if skor_valid else None,
+        durasi_detik=durasi,
+    )
+
+
+def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any) -> Dict[str, Any]:
     jalur_gambar = Path(kasus["gambar"])
     rec = {
         "id": kasus.get("id", "UNKNOWN"),
         "kategori_kasus": kasus.get("kategori", "tidak_ditentukan"),
         "deskripsi": kasus.get("deskripsi", ""),
         "jalur_gambar": str(jalur_gambar),
-        "transkripsi_manual": kasus.get("transkripsi_manual", ""),
+        "transkripsi_manual": kasus["transkripsi_manual"],
         "status_berkas": "ada" if jalur_gambar.is_file() else "tidak_ditemukan",
     }
 
@@ -114,7 +188,15 @@ def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any, catat_latensi_pem
         raw_ocr = proses_gambar(jalur_gambar)
         durasi_ocr = round(time.perf_counter() - t0_ocr, 4)
 
-        kategori_ocr = raw_ocr.get("kategori")
+        kategori_ocr = raw_ocr["kategori"]
+        if kategori_ocr not in (*KATEGORI_TERUKUR, KATEGORI_INPUT, KATEGORI_MESIN):
+            raise ValueError("Kategori OCR tidak sah.")
+        hyp = raw_ocr.get("teks_bersih")
+        if kategori_ocr in KATEGORI_TERUKUR and not isinstance(hyp, str):
+            raise ValueError("Teks keluaran OCR tidak sah.")
+        if kategori_ocr == KATEGORI_OK and (raw_ocr.get("dapat_dinilai") is not True or not hyp.strip()):
+            raise ValueError("Keluaran OCR kategori OK tidak konsisten.")
+
         rec["ocr"] = {
             "kategori": kategori_ocr,
             "kode": raw_ocr.get("kode"),
@@ -122,23 +204,14 @@ def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any, catat_latensi_pem
             "daftar_alasan": raw_ocr.get("alasan", []),
             "teks_mentah": raw_ocr.get("teks_mentah", ""),
             "teks_bersih": raw_ocr.get("teks_bersih", ""),
+            "dapat_dinilai": raw_ocr.get("dapat_dinilai"),
             "durasi_detik": durasi_ocr,
             "identitas_berkas": raw_ocr.get("berkas"),
             "fitur": raw_ocr.get("fitur"),
         }
 
-        # 2. Hitung CER/WER (hanya jika OCR sempat membaca teks; TOLAK_INPUT dan GALAT_MESIN bernilai None)
         ref = rec["transkripsi_manual"]
-        hyp = raw_ocr.get("teks_bersih", "")
-
-        if kategori_ocr in ("TOLAK_INPUT", "GALAT_MESIN"):
-            rec["metrik_transkripsi"] = {
-                "tersedia": False,
-                "cer_persen": None,
-                "wer_persen": None,
-                "alasan": f"OCR tidak berjalan ({kategori_ocr}: {raw_ocr.get('kode')})"
-            }
-        else:
+        if kategori_ocr in KATEGORI_TERUKUR:
             cer, wer, char_err, word_err = hitung_cer_wer(ref, hyp)
             rec["metrik_transkripsi"] = {
                 "tersedia": cer is not None,
@@ -146,169 +219,172 @@ def evaluasi_satu_kasus(kasus: Dict[str, Any], evaluator: Any, catat_latensi_pem
                 "wer_persen": wer,
                 "char_errors": char_err,
                 "word_errors": word_err,
+                "ref_chars": len(ref) if ref.strip() else 0,
+                "ref_words": len(ref.split()),
             }
-
-        # 3. Prediksi Teks Asli (Ground Truth)
-        t0_model_gt = time.perf_counter()
-        res_gt = evaluator.nilai(ref, explain=False, debug=True) if len(ref.strip()) >= 30 else None
-        durasi_model_gt = round(time.perf_counter() - t0_model_gt, 4) if res_gt else 0.0
-
-        rec["evaluasi_teks_asli"] = {
-            "status": res_gt.get("status") if res_gt else "tidak_dievaluasi_terlalu_pendek",
-            "label": res_gt.get("label") if res_gt else None,
-            "votes_hoax": res_gt.get("votes_hoax") if res_gt else None,
-            "durasi_detik": durasi_model_gt,
-        }
-
-        # 4. Prediksi Teks Hasil OCR (Hanya jika KATEGORI_OK dan dapat_dinilai is True)
-        if kategori_ocr == "OK" and raw_ocr.get("dapat_dinilai") is True:
-            t0_model_ocr = time.perf_counter()
-            res_ocr = evaluator.nilai(hyp, explain=False, debug=True)
-            durasi_model_ocr = round(time.perf_counter() - t0_model_ocr, 4)
-
-            rec["evaluasi_teks_ocr"] = {
-                "status": res_ocr.get("status"),
-                "label": res_ocr.get("label"),
-                "votes_hoax": res_ocr.get("votes_hoax"),
-                "durasi_detik": durasi_model_ocr,
-            }
-            rec["konsistensi"] = {
-                "label_sama": (res_gt.get("label") == res_ocr.get("label")) if res_gt else None,
-            }
-            rec["keputusan_akhir"] = "SELESAI_DIEVALUASI"
         else:
-            rec["evaluasi_teks_ocr"] = None
-            rec["konsistensi"] = {"label_sama": None, "alasan": f"Teks ditolak ({raw_ocr.get('kode')})"}
+            rec["metrik_transkripsi"] = {
+                "tersedia": False,
+                "cer_persen": None,
+                "wer_persen": None,
+                "alasan": f"Tidak ada transkripsi OCR yang sah ({kategori_ocr}).",
+            }
+
+        res_asli = evaluasi_teks(ref, evaluator)
+        res_ocr = evaluasi_teks(hyp, evaluator) if kategori_ocr == KATEGORI_OK else None
+        rec["evaluasi_teks_asli"] = res_asli
+        rec["evaluasi_teks_ocr"] = res_ocr
+        rec["konsistensi"] = dict(label_sama=None, votes_sama=None, seed_sama=None)
+        if "gagal" in (res_asli["status"], (res_ocr or {}).get("status")):
+            rec["keputusan_akhir"] = "GALAT_MODEL"
+        elif kategori_ocr == KATEGORI_MESIN:
+            rec["keputusan_akhir"] = "GALAT_MESIN_OCR"
+        elif res_ocr is None:
             rec["keputusan_akhir"] = f"DITOLAK_{kategori_ocr}"
+            rec["konsistensi"]["alasan"] = f"Teks ditolak ({raw_ocr.get('kode')})"
+        elif res_asli["status"] not in STATUS_DINILAI or res_ocr["status"] not in STATUS_DINILAI:
+            rec["keputusan_akhir"] = "TIDAK_DAPAT_DIBANDINGKAN"
+        elif res_asli["decision_rule"] != res_ocr["decision_rule"]:
+            rec["keputusan_akhir"] = "GALAT_MODEL"
+            rec["konsistensi"]["alasan"] = "Aturan voting pasangan berbeda."
+        else:
+            rec["konsistensi"].update(
+                label_sama=res_asli["label"] == res_ocr["label"],
+                votes_sama=res_asli["votes_hoax"] == res_ocr["votes_hoax"],
+                seed_sama=res_asli["seed_decisions"] == res_ocr["seed_decisions"],
+            )
+            rec["keputusan_akhir"] = "SELESAI_DIEVALUASI"
 
     except Exception as exc:
         rec["keputusan_akhir"] = "GALAT_EKSEKUSI"
-        rec["galat"] = f"{type(exc).__name__}: {exc}"
+        rec["galat"] = type(exc).__name__
 
     return rec
 
 
-# MAIN RUNNER DENGAN PENGUKURAN COLD VS WARM START
+def ringkas_hasil(hasil_kasus):
+    def kategori(row):
+        return row.get("ocr", {}).get("kategori")
 
-def main():
+    def hitung_keputusan(keputusan):
+        return sum(row["keputusan_akhir"] == keputusan for row in hasil_kasus)
+
+    ringkasan = {
+        "total_kasus": len(hasil_kasus),
+        "diterima_ocr": sum(kategori(row) == KATEGORI_OK for row in hasil_kasus),
+        "ditolak_kualitas": sum(kategori(row) == KATEGORI_KUALITAS for row in hasil_kasus),
+        "ditolak_input": sum(kategori(row) == KATEGORI_INPUT for row in hasil_kasus),
+        "galat_mesin": sum(kategori(row) == KATEGORI_MESIN for row in hasil_kasus),
+        "berkas_tidak_ada": hitung_keputusan("DILEWATI_BERKAS_TIDAK_ADA"),
+        "galat_model": hitung_keputusan("GALAT_MODEL"),
+        "galat_eksekusi": hitung_keputusan("GALAT_EKSEKUSI"),
+        "pasangan_dibandingkan": hitung_keputusan("SELESAI_DIEVALUASI"),
+        "pasangan_label_berubah": sum(
+            row.get("konsistensi", {}).get("label_sama") is False for row in hasil_kasus
+        ),
+        "pasangan_suara_berubah": sum(
+            row.get("konsistensi", {}).get("votes_sama") is False for row in hasil_kasus
+        ),
+    }
+    for metrik in ("cer", "wer"):
+        hasil = [(kategori(row), row.get("metrik_transkripsi", {}).get(f"{metrik}_persen")) for row in hasil_kasus]
+        semua = [nilai for _, nilai in hasil if nilai is not None]
+        diterima = [nilai for status, nilai in hasil if status == KATEGORI_OK and nilai is not None]
+        ringkasan[f"{metrik}_terukur"] = len(semua)
+        ringkasan[f"{metrik}_terukur_diterima"] = len(diterima)
+        ringkasan[f"rata2_{metrik}_semua_terukur"] = round(sum(semua) / len(semua), 4) if semua else None
+        ringkasan[f"rata2_{metrik}_diterima"] = round(sum(diterima) / len(diterima), 4) if diterima else None
+    return ringkasan
+
+
+def ukur_latensi(dataset):
+    sumber = next((Path(row["gambar"]) for row in dataset if Path(row["gambar"]).is_file()), None)
+    if sumber is None:
+        return None
+
+    ukuran = {"berkas_uji": str(sumber)}
+    for tahap in ("cold", "warm"):
+        mulai = time.perf_counter()
+        try:
+            hasil = proses_gambar(sumber)
+            kategori = hasil["kategori"]
+        except Exception as exc:
+            ukuran["galat"] = type(exc).__name__
+            return ukuran
+        ukuran[f"{tahap}_kategori"] = kategori
+        ukuran[f"{tahap}_start_dtk"] = round(time.perf_counter() - mulai, 3) if kategori in KATEGORI_TERUKUR else None
+    return ukuran
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Evaluasi berpasangan OCR CER/WER dan konsistensi klasifikasi.")
-    parser.add_argument("--dataset", type=Path, help="Jalur berkas JSON dataset pasangan (opsional)")
-    parser.add_argument("--output", type=Path, default=Path("reports/ocr/evaluasi_berpasangan.json"), help="Jalur simpan JSON")
-    args = parser.parse_args()
-
-    print("=" * 105)
-    print("BENCHMARK EVALUASI BERPASANGAN: TRANSKRIPSI (CER/WER) & KONSISTENSI VONIS INDOBERT")
-    print("=" * 105)
-
-    # Muat dataset (berikan galat eksplisit jika berkas yang diminta tidak ada)
-    if args.dataset:
-        if not args.dataset.is_file():
-            parser.error(f"Berkas manifest/dataset tidak ditemukan: {args.dataset}")
-        with open(args.dataset, "r", encoding="utf-8") as f:
-            dataset = json.load(f)
-    else:
-        dataset = DATASET_PASANGAN_DEFAULT
-
-    # Inisialisasi model
-    evaluator = get_predictor()
-
-    # 1. Pengukuran Cold Start vs Warm Start pada sampel pertama yang valid
-    sampel_latensi = next((k for k in dataset if Path(k["gambar"]).is_file()), None)
-    latensi_benchmark = {}
-    if sampel_latensi:
-        p = Path(sampel_latensi["gambar"])
-        print(f"\n[Pengukuran Latensi] Menguji Cold Start vs Warm Start pada '{p.name}'...")
-        # Iterasi 1 (Cold / Initial)
-        t_c = time.perf_counter()
-        _ = proses_gambar(p)
-        durasi_cold = round(time.perf_counter() - t_c, 3)
-
-        # Iterasi 2 (Warm / Ready)
-        t_w = time.perf_counter()
-        _ = proses_gambar(p)
-        durasi_warm = round(time.perf_counter() - t_w, 3)
-
-        latensi_benchmark = {
-            "berkas_uji": str(p),
-            "cold_start_dtk": durasi_cold,
-            "warm_start_dtk": durasi_warm,
-            "efisiensi_akselerasi": f"{round(durasi_cold / max(durasi_warm, 0.001), 1)}x lebih cepat pada warm state"
-        }
-        print(f"  • Cold Start : {durasi_cold} dtk (termasuk inisialisasi mesin)")
-        print(f"  • Warm Start : {durasi_warm} dtk (mesin telah siap di memori)")
-
-    # 2. Jalankan Evaluasi Kasus per Kasus
-    hasil_kasus = []
-    print("\n" + "-" * 105)
-    print(f"{'ID':<5} | {'Kategori Kasus':<20} | {'Status OCR':<12} | {'CER':<8} | {'WER':<8} | {'Vonis Asli':<16} | {'Vonis OCR':<16} | {'Konsisten'}")
-    print("-" * 105)
-
-    for kasus in dataset:
-        res = evaluasi_satu_kasus(kasus, evaluator)
-        hasil_kasus.append(res)
-
-        st_ocr = str(res.get("ocr", {}).get("kategori") or res.get("keputusan_akhir") or "-")
-        met = res.get("metrik_transkripsi", {})
-        cer_str = f"{met['cer_persen']:.2f}%" if met.get("cer_persen") is not None else "null"
-        wer_str = f"{met['wer_persen']:.2f}%" if met.get("wer_persen") is not None else "null"
-
-        lbl_gt = str(res.get("evaluasi_teks_asli", {}).get("label") or "-")
-        lbl_ocr = str(res.get("evaluasi_teks_ocr", {}).get("label") if res.get("evaluasi_teks_ocr") else "DITOLAK")
-        kons = str(res.get("konsistensi", {}).get("label_sama") if res.get("evaluasi_teks_ocr") else "-")
-
-        print(f"{res['id']:<5} | {res['kategori_kasus']:<20} | {st_ocr:<12} | {cer_str:<8} | {wer_str:<8} | {lbl_gt:<16} | {lbl_ocr:<16} | {kons}")
-
-    # 3. Rekam Laporan Komprehensif Bab 4
+    parser.add_argument("--dataset", type=Path, help="Jalur manifest JSON pasangan, opsional")
+    parser.add_argument("--output", type=Path, help="Jalur JSON baru. Default memakai waktu eksekusi.")
+    args = parser.parse_args(argv)
     now = datetime.now(timezone(timedelta(hours=7)))
+    output = args.output or Path(f"reports/ocr/evaluasi_berpasangan_{now:%Y%m%d_%H%M%S_%f}.json")
 
-    # Ambil aturan voting langsung dari evaluator.rule
-    aturan_aktif = (
-        getattr(evaluator, "rule", None)
-        or getattr(evaluator, "voting_rule", None)
-        or getattr(getattr(evaluator, "backend", None), "voting_rule", None)
-        or "unanimous_consensus"
-    )
+    try:
+        if args.dataset is not None:
+            manifest_bytes = args.dataset.read_bytes()
+            dataset = json.loads(manifest_bytes)
+        else:
+            dataset = DATASET_PASANGAN_DEFAULT
+            manifest_bytes = json.dumps(dataset, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        validasi_manifest(dataset)
+    except FileNotFoundError:
+        parser.error(f"Berkas manifest/dataset tidak ditemukan: {args.dataset}")
+    except (OSError, ValueError) as exc:
+        parser.error(f"Manifest tidak sah: {exc}")
 
-    # Hitung rata-rata hanya dari nilai valid (hindari 0.0 palsu jika kosong)
-    cer_valid = [
-        r["metrik_transkripsi"]["cer_persen"]
-        for r in hasil_kasus 
-        if r.get("ocr", {}).get("kategori") == "OK" and r.get("metrik_transkripsi", {}).get("cer_persen") is not None
-    ]
-    wer_valid = [
-        r["metrik_transkripsi"]["wer_persen"]
-        for r in hasil_kasus 
-        if r.get("ocr", {}).get("kategori") == "OK" and r.get("metrik_transkripsi", {}).get("wer_persen") is not None
-    ]
+    if os.path.lexists(output):
+        parser.error(f"Jalur laporan sudah ada: {output}. Gunakan jalur baru.")
+    if output.resolve() in {Path(row["gambar"]).resolve() for row in dataset}:
+        parser.error("Jalur laporan harus berbeda dari semua gambar masukan.")
 
-    laporan_final = {
+    galat_pemuatan = None
+    try:
+        evaluator = get_predictor()
+    except Exception as exc:
+        evaluator = None
+        galat_pemuatan = type(exc).__name__
+
+    latensi = ukur_latensi(dataset)
+    hasil_kasus = [evaluasi_satu_kasus(row, evaluator) for row in dataset]
+    for row in hasil_kasus:
+        metrik = row.get("metrik_transkripsi", {})
+        print(f"{row['id']} | {row['keputusan_akhir']} | CER {metrik.get('cer_persen')} | WER {metrik.get('wer_persen')}")
+
+    aturan = getattr(evaluator, "rule", None)
+    audit = getattr(getattr(evaluator, "backend", None), "audit", None)
+    ringkasan = ringkas_hasil(hasil_kasus)
+    laporan = {
         "metadata": {
             "waktu_eksekusi": now.isoformat(timespec="seconds"),
+            "manifest": str(args.dataset) if args.dataset is not None else "bawaan",
+            "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
             "versi_pipeline": VERSI_PIPELINE,
             "hash_kebijakan": hash_kebijakan(),
-            "aturan_konsensus": aturan_aktif,
-            "latensi_benchmark": latensi_benchmark,
+            "kebijakan_ocr": kebijakan(),
+            "aturan_konsensus": aturan if isinstance(aturan, str) else None,
+            "audit_model": audit if isinstance(audit, dict) else None,
+            "galat_pemuatan_model": galat_pemuatan,
+            "latensi_benchmark": latensi,
         },
-        "ringkasan": {
-            "total_kasus": len(hasil_kasus),
-            "diterima_ocr": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "OK"),
-            "ditolak_kualitas": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "TOLAK_KUALITAS"),
-            "ditolak_input": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "TOLAK_INPUT"),
-            "galat_mesin": sum(1 for r in hasil_kasus if r.get("ocr", {}).get("kategori") == "GALAT_MESIN"),
-            "berkas_tidak_ada": sum(1 for r in hasil_kasus if r.get("status_berkas") == "tidak_ditemukan"),
-            "rata2_cer_diterima": round(float(sum(cer_valid) / len(cer_valid)), 4) if cer_valid else None,
-            "rata2_wer_diterima": round(float(sum(wer_valid) / len(wer_valid)), 4) if wer_valid else None,
-        },
+        "ringkasan": ringkasan,
         "hasil_evaluasi": hasil_kasus,
     }
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(laporan_final, f, indent=2, ensure_ascii=False)
-
-    print("-" * 105)
-    print(f"\n[OK] Evaluasi berpasangan selesai. Laporan tersimpan di: {args.output}")
+    try:
+        write_report(output, laporan, overwrite=False)
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"Laporan gagal disimpan ({type(exc).__name__}): {output}", file=sys.stderr)
+        return 1
+    galat = ("galat_mesin", "galat_model", "galat_eksekusi", "berkas_tidak_ada")
+    ada_galat = galat_pemuatan or (latensi or {}).get("galat") or any(ringkasan[key] for key in galat)
+    print(f"Laporan {'dengan kegagalan ' if ada_galat else ''}tersimpan di {output}")
+    return 1 if ada_galat else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

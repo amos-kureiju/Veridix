@@ -1,0 +1,177 @@
+{
+  "metadata": {
+    "waktu_eksekusi": "2026-11-23T11:13:44+07:00",
+    "manifest": "bawaan",
+    "manifest_sha256": "a4b23a8c9d5bd546fadecd57730c3b1cb919f07774a5a6fc038bb4d2c75f3e73",
+    "versi_pipeline": "1.2",
+    "hash_kebijakan": "bb81aca4be627e74db249bb9c3d2f1d679594e531e6f138705ad28c161ab7f2a",
+    "kebijakan_ocr": {
+      "max_bytes": 10485760,
+      "max_pixels": 20000000,
+      "format_diizinkan": [
+        "PNG",
+        "JPEG",
+        "MPO",
+        "WEBP"
+      ],
+      "min_karakter": 50,
+      "max_width_resize": 1400,
+      "padding_px": 15,
+      "aturan_gerbang": {
+        "min_kata": 10,
+        "min_conf_rata2": 0.6,
+        "maks_share_baris_rendah": null,
+        "maks_share_token_huruf_angka": null
+      },
+      "sambung_tanda_hubung": false,
+      "versi_pipeline": "1.2",
+      "konfigurasi_ocr": {
+        "lang": "id"
+      }
+    },
+    "aturan_konsensus": "unanimous",
+    "audit_model": {
+      "text_pipeline_sha256": "83dd3ee5188e3bc8c6faee3be50083eb2054be57102bb7abd43e71b52d3b2581",
+      "base_revision": "c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2",
+      "sha256_seed_42": "308b3e399eb5a5d7cd8c610c6c4c4805d07912fe003009300670b0ccd7dd750f",
+      "sha256_seed_123": "afc650aa29e8e07312a960aebef10af3d2f15bb4f970296b40ed2fcd26bee733",
+      "sha256_seed_999": "7883c1b70656d0bbf5bf9a41aa9825577ff419ed7b4ca45610a82e8246c76ed3"
+    },
+    "galat_pemuatan_model": null,
+    "latensi_benchmark": {
+      "berkas_uji": "data\\sample_probe.png",
+      "cold_kategori": "GALAT_MESIN",
+      "cold_start_dtk": null,
+      "warm_kategori": "GALAT_MESIN",
+      "warm_start_dtk": null
+    }
+  },
+  "ringkasan": {
+    "total_kasus": 2,
+    "diterima_ocr": 0,
+    "ditolak_kualitas": 0,
+    "ditolak_input": 0,
+    "galat_mesin": 2,
+    "berkas_tidak_ada": 0,
+    "galat_model": 0,
+    "galat_eksekusi": 0,
+    "pasangan_dibandingkan": 0,
+    "pasangan_label_berubah": 0,
+    "pasangan_suara_berubah": 0,
+    "cer_terukur": 0,
+    "cer_terukur_diterima": 0,
+    "rata2_cer_semua_terukur": null,
+    "rata2_cer_diterima": null,
+    "wer_terukur": 0,
+    "wer_terukur_diterima": 0,
+    "rata2_wer_semua_terukur": null,
+    "rata2_wer_diterima": null
+  },
+  "hasil_evaluasi": [
+    {
+      "id": "U01",
+      "kategori_kasus": "teks_pendek",
+      "deskripsi": "Klaim sangat pendek (49 karakter), menguji gerbang penolakan mutu",
+      "jalur_gambar": "data\\sample_probe.png",
+      "transkripsi_manual": "KEMENTERIAN KEUANGAN MEMASTIKAN BANSOS TAHUN 2026",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "GALAT_MESIN",
+        "kode": "MESIN_GAGAL",
+        "pesan": "Mesin OCR mengalami kegagalan. Coba lagi nanti.",
+        "daftar_alasan": [],
+        "teks_mentah": "",
+        "teks_bersih": "",
+        "dapat_dinilai": false,
+        "durasi_detik": 0.0619,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 850,
+          "tinggi": 180,
+          "ukuran_byte": 7942,
+          "sha256": "622c4b5788abc3a569d8e1ef6569a3206550f11078676a90e1d6f6814702a5c6"
+        },
+        "fitur": null
+      },
+      "metrik_transkripsi": {
+        "tersedia": false,
+        "cer_persen": null,
+        "wer_persen": null,
+        "alasan": "Tidak ada transkripsi OCR yang sah (GALAT_MESIN)."
+      },
+      "evaluasi_teks_asli": {
+        "status": "ditolak",
+        "label": null,
+        "votes_hoax": null,
+        "durasi_detik": 0.0002,
+        "alasan": "Teks terlalu sedikit kata untuk dinilai (6 kata < 10)."
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "votes_sama": null,
+        "seed_sama": null
+      },
+      "keputusan_akhir": "GALAT_MESIN_OCR"
+    },
+    {
+      "id": "U02",
+      "kategori_kasus": "teks_panjang_jelas",
+      "deskripsi": "Teks resmi kebijakan pemerintah, cukup panjang dan tajam",
+      "jalur_gambar": "data\\sample_panjang.png",
+      "transkripsi_manual": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+      "status_berkas": "ada",
+      "ocr": {
+        "kategori": "GALAT_MESIN",
+        "kode": "MESIN_GAGAL",
+        "pesan": "Mesin OCR mengalami kegagalan. Coba lagi nanti.",
+        "daftar_alasan": [],
+        "teks_mentah": "",
+        "teks_bersih": "",
+        "dapat_dinilai": false,
+        "durasi_detik": 0.0719,
+        "identitas_berkas": {
+          "format": "PNG",
+          "lebar": 900,
+          "tinggi": 320,
+          "ukuran_byte": 18973,
+          "sha256": "da2d17e2a298a8b3d55c3ad8e502d454a94653bf102bafbada4870c323dde60c"
+        },
+        "fitur": null
+      },
+      "metrik_transkripsi": {
+        "tersedia": false,
+        "cer_persen": null,
+        "wer_persen": null,
+        "alasan": "Tidak ada transkripsi OCR yang sah (GALAT_MESIN)."
+      },
+      "evaluasi_teks_asli": {
+        "status": "dinilai",
+        "label": "TIDAK BERPOLA HOAKS",
+        "votes_hoax": "0/3",
+        "seed_decisions": {
+          "42": 0,
+          "123": 0,
+          "999": 0
+        },
+        "agreement_ratio": 1.0,
+        "decision_rule": "unanimous",
+        "teks_dinilai": "Presiden Joko Widodo menegaskan bahwa penyaluran bantuan sosial tahun anggaran baru harus tepat sasaran.",
+        "terpotong": false,
+        "debug_prob_per_seed": {
+          "42": 0.05895,
+          "123": 0.090226,
+          "999": 0.283687
+        },
+        "durasi_detik": 0.8261
+      },
+      "evaluasi_teks_ocr": null,
+      "konsistensi": {
+        "label_sama": null,
+        "votes_sama": null,
+        "seed_sama": null
+      },
+      "keputusan_akhir": "GALAT_MESIN_OCR"
+    }
+  ]
+}

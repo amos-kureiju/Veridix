@@ -30,7 +30,7 @@ from src.database.session import get_db
 from src.database.models import PredictionLog, User
 from src.core.auth_deps import get_current_user
 from src.core.security import SECRET_KEY
-from src.ml.inference import SEEDS, predictor, putuskan
+from src.ml.inference import predictor, validate_claim_result
 from starlette.concurrency import run_in_threadpool
 
 from src.utils.political_guardrail import check_political_domain
@@ -68,51 +68,6 @@ def _classify_without_lime(text: str) -> dict:
     if _SUPPORTS_EXPLAIN_FLAG:
         return predictor.predict_and_explain(text, explain=False)
     return predictor.predict_and_explain(text)
-
-
-def _validate_text_result(result: dict) -> None:
-    if not isinstance(result, dict):
-        raise ValueError("Keluaran inferensi bukan objek.")
-
-    latency = result.get("latency_seconds")
-    if type(latency) not in (int, float) or not math.isfinite(latency) or latency < 0:
-        raise ValueError("Latensi inferensi tidak sah.")
-
-    process_status = result.get("status")
-    if process_status in ("ditolak", "di_luar_domain"):
-        reason = result.get("reason")
-        if (
-            result.get("success") is not False
-            or not isinstance(reason, str)
-            or not reason.strip()
-            or any(result.get(field) is not None for field in ("votes_hoax", "seed_decisions", "agreement_ratio"))
-        ):
-            raise ValueError("Keluaran penolakan inferensi tidak sah.")
-        return
-
-    if process_status not in ("dinilai", "ambigu") or result.get("success") is not True:
-        raise ValueError("Status hasil inferensi tidak sah.")
-
-    decisions = result.get("seed_decisions")
-    if (
-        not isinstance(decisions, dict)
-        or decisions.keys() != set(SEEDS)
-        or any(type(seed) is not int or type(vote) is not int or vote not in (0, 1) for seed, vote in decisions.items())
-    ):
-        raise ValueError("Keputusan per seed tidak sah.")
-
-    votes = sum(decisions.values())
-    n = len(SEEDS)
-    if (process_status, result.get("label")) != putuskan(votes, n, result.get("decision_rule")):
-        raise ValueError("Status atau label tidak sesuai aturan voting.")
-
-    agreement = result.get("agreement_ratio")
-    if (
-        result.get("votes_hoax") != f"{votes}/{n}"
-        or type(agreement) not in (int, float)
-        or agreement != max(votes, n - votes) / n
-    ):
-        raise ValueError("Jumlah suara atau rasio kesepakatan tidak sesuai keputusan seed.")
 
 
 def _document_blocks(payload: DocumentAnalysisRequest):
@@ -380,7 +335,7 @@ def detect_text(
         ) from None
 
     try:
-        _validate_text_result(result)
+        validate_claim_result(result)
     except (ValueError, OverflowError):
         db.rollback()
         logger.error("Keluaran mesin AI tidak memenuhi kontrak deteksi teks")

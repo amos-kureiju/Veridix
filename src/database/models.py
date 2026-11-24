@@ -5,8 +5,15 @@ from sqlalchemy import (
     UniqueConstraint, Integer
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import relationship
 from src.database.session import Base
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(_type, _compiler, **_kwargs):
+    """Kompatibilitas skema JSONB pada SQLite lokal tanpa memengaruhi PostgreSQL."""
+    return "JSON"
 
 
 class User(Base):

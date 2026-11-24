@@ -18,6 +18,9 @@ paddlepaddle==3.3.1
 numpy==2.3.5
 Pillow==12.3.0
 python-multipart==0.0.32
+bcrypt>=4.0.1
+python-jose[cryptography]>=3.3.0
+email-validator>=2.1.0
 google-auth>=2.29.0
 requests>=2.31.0
 CacheControl>=0.14.0
